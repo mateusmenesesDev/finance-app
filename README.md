@@ -25,4 +25,16 @@ bun run check
 bun run typecheck
 bun run db:generate
 bun run db:migrate
+bun run db:seed
 ```
+
+## Seed local de desenvolvimento
+
+`bun run db:seed` cria/reusa o usuário demo via Better Auth e recria apenas os dados financeiros/de importação desse usuário.
+
+Credenciais fixas, somente para desenvolvimento local:
+
+- Email: `demo@finance.local`
+- Senha: `Demo@123456`
+
+O seed não apaga outros usuários nem dados financeiros de outros usuários. Os exemplos de importação usam somente valores mascarados.

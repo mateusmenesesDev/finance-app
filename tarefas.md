@@ -444,7 +444,62 @@ Objetivo: deixar o app confortável para uso contínuo.
 - [ ] Criar indicadores de dados pendentes.
 - [ ] Criar mensagens claras de erro na importação.
 - [ ] Criar tela de ajuda sobre como exportar CSV dos bancos.
-- [ ] Criar modo escuro/claro, se necessário.
+- [ ] Revisar preferências de aparência e acessibilidade após uso contínuo.
+
+---
+
+## Fase 14 — Clareza visual, tema e experiência base
+
+Objetivo: reduzir sobrecarga cognitiva nos fluxos já construídos, deixando a UI legível, hierárquica e confortável em tema claro e escuro.
+
+### Diagnóstico e princípios de UX
+
+- [ ] Mapear telas com excesso de informação, começando por dashboard, transações, contas, importação e revisão de CSV.
+- [ ] Definir a tarefa principal de cada tela e esconder ou rebaixar dados que não ajudam nessa tarefa.
+- [ ] Criar hierarquia visual consistente para título, resumo, ação primária, filtros, listas, detalhes e alertas.
+- [ ] Usar divulgação progressiva: mostrar resumo primeiro e detalhes somente quando o usuário expandir, filtrar ou entrar no item.
+- [ ] Separar estados de atenção: informação normal, pendência, alerta, erro e ação destrutiva.
+- [ ] Reduzir cards, badges, cores e métricas concorrendo pela atenção na mesma área.
+- [ ] Padronizar textos curtos, vazios úteis, erros e confirmações em português claro.
+
+### Layout e navegação
+
+- [ ] Revisar navegação principal para destacar os fluxos centrais: Dashboard, Transações, Contas, Importações, Categorias e Relatórios.
+- [ ] Criar visão resumida para listas densas, com opção de abrir detalhe lateral ou página de detalhe.
+- [ ] Agrupar filtros avançados em uma área recolhível.
+- [ ] Definir estados vazios orientados à próxima ação, não apenas mensagens genéricas.
+- [ ] Melhorar legibilidade de tabelas/listas: espaçamento, alinhamento monetário, datas, descrição e categoria.
+- [ ] Garantir ações primárias claras e poucas ações secundárias visíveis por vez.
+- [ ] Revisar experiência mobile/responsiva para não empilhar informação demais.
+
+### Tema visual
+
+- [ ] Definir tokens de design mínimos: cores, fundo, superfície, borda, texto, texto secundário, sucesso, alerta, erro e foco.
+- [ ] Substituir cores soltas por tokens sem criar abstração desnecessária.
+- [ ] Criar tema claro como padrão inicial.
+- [ ] Criar tema escuro com contraste suficiente para uso contínuo.
+- [ ] Permitir escolher entre claro, escuro e preferência do sistema.
+- [ ] Persistir preferência de tema por usuário ou localmente quando o usuário não estiver autenticado.
+- [ ] Evitar usar apenas cor para indicar estado; combinar cor com texto, ícone ou posição.
+- [ ] Validar contraste de textos, botões, inputs, gráficos e badges nos dois temas.
+
+### Componentes e consistência
+
+- [ ] Revisar botões, inputs, selects, dialogs, dropdowns, cards, tabelas e badges para consistência visual.
+- [ ] Padronizar formatação de moeda, datas, percentuais e valores negativos/positivos.
+- [ ] Padronizar loading, skeleton, erro, vazio e sucesso nos fluxos principais.
+- [ ] Melhorar feedback de ações: salvar, importar, desfazer, aplicar filtros, editar em lote e excluir/arquivar.
+- [ ] Garantir foco visível, navegação por teclado e labels acessíveis nos controles principais.
+- [ ] Criar exemplos visuais com dados do seed para validar telas densas sem dados reais.
+
+### Critérios de aceite
+
+- [ ] Uma tela inicial não deve exibir mais métricas do que o necessário para responder “como está meu mês?”.
+- [ ] Listas densas devem permitir varrer informação rapidamente sem abrir todos os detalhes.
+- [ ] O usuário deve conseguir alternar claro/escuro/sistema sem recarregar o app.
+- [ ] A preferência de tema deve permanecer após fechar e abrir o app.
+- [ ] Telas principais devem funcionar bem com dados vazios, poucos dados e muitos dados.
+- [ ] A UI deve ser validada com a massa realista da Fase 3.5.
 
 ---
 
@@ -463,11 +518,14 @@ Objetivo: deixar o app confortável para uso contínuo.
 11. Análises avançadas de gastos.
 12. IA assistiva local/futura.
 13. Relatórios, privacidade e acabamento.
+14. Clareza visual, tema claro/escuro e experiência base.
 
 ---
 
 ## Critérios de validação do produto
 
+- [ ] A interface reduz sobrecarga cognitiva, prioriza a próxima ação e não mostra tudo ao mesmo tempo.
+- [ ] O usuário pode escolher tema claro, escuro ou preferência do sistema, com contraste adequado.
 - [ ] É possível importar CSVs de bancos diferentes sem retrabalho excessivo.
 - [ ] É possível importar faturas de cartão sem duplicar despesa no pagamento da fatura.
 - [ ] Toda transação pertence a uma conta e a um usuário.
