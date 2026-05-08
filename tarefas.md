@@ -239,27 +239,27 @@ Objetivo: reduzir trabalho manual sem perder controle.
 
 Objetivo: ao entrar no app, entender rapidamente a situação financeira do mês.
 
-- [ ] Exibir receitas do mês.
-- [ ] Exibir despesas do mês.
-- [ ] Exibir saldo do mês.
-- [ ] Exibir saldo por conta.
-- [ ] Exibir gasto por grupo de categoria.
-- [ ] Exibir ranking de maiores categorias de despesa.
-- [ ] Exibir orçamento usado no mês.
-- [ ] Exibir fluxo previsto até o fim do mês.
-- [ ] Exibir faturas abertas de cartão.
-- [ ] Exibir importações pendentes de revisão.
-- [ ] Exibir alertas importantes.
-- [ ] Exibir insights principais do mês.
+- [x] Exibir receitas do mês.
+- [x] Exibir despesas do mês.
+- [x] Exibir saldo do mês.
+- [x] Exibir saldo por conta.
+- [x] Exibir gasto por grupo de categoria.
+- [x] Exibir ranking de maiores categorias de despesa.
+- [x] Exibir orçamento usado no mês.
+- [x] Exibir fluxo previsto até o fim do mês.
+- [x] Exibir faturas abertas de cartão.
+- [x] Exibir importações pendentes de revisão.
+- [x] Exibir alertas importantes.
+- [x] Exibir insights principais do mês.
 
 Alertas desejados:
 
-- Categoria acima do orçamento.
-- Gasto acelerado em relação ao mês anterior.
-- Fatura próxima do vencimento.
-- Conta com saldo projetado baixo.
-- Transações sem categoria.
-- Importação com muitos duplicados ou linhas inválidas.
+- [x] Categoria acima do orçamento.
+- [x] Gasto acelerado em relação ao mês anterior.
+- [x] Fatura próxima do vencimento.
+- [x] Conta com saldo projetado baixo.
+- [x] Transações sem categoria.
+- [x] Importação com muitos duplicados ou linhas inválidas.
 
 ---
 

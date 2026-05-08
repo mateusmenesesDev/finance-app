@@ -34,6 +34,12 @@ export const categoryKind = pgEnum("finance_app_category_kind", [
 	"expense",
 ]);
 
+export const monthlyBudgetScope = pgEnum("finance_app_monthly_budget_scope", [
+	"month",
+	"category_group",
+	"category",
+]);
+
 export const movementType = pgEnum("finance_app_movement_type", [
 	"income",
 	"expense",
@@ -195,6 +201,7 @@ export const categoryGroups = createFinanceTable(
 	(t) => [
 		index("finance_app_category_groups_user_idx").on(t.userId),
 		index("finance_app_category_groups_user_kind_idx").on(t.userId, t.kind),
+		unique("finance_app_category_groups_id_user_unique").on(t.id, t.userId),
 		unique("finance_app_category_groups_id_user_kind_unique").on(
 			t.id,
 			t.userId,
@@ -244,6 +251,64 @@ export const categories = createFinanceTable(
 			],
 			name: "finance_app_categories_group_user_kind_fk",
 		}),
+	],
+);
+
+export const monthlyBudgets = createFinanceTable(
+	"monthly_budgets",
+	{
+		id: integer().primaryKey().generatedByDefaultAsIdentity(),
+		userId: text("user_id")
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
+		monthKey: varchar("month_key", { length: 7 }).notNull(),
+		scope: monthlyBudgetScope().notNull(),
+		categoryGroupId: integer("category_group_id"),
+		categoryId: integer("category_id"),
+		amountCents: integer("amount_cents").notNull(),
+		notes: text("notes"),
+		createdAt: timestamp("created_at", { withTimezone: true })
+			.$defaultFn(() => new Date())
+			.notNull(),
+		updatedAt: timestamp("updated_at", { withTimezone: true }).$onUpdate(
+			() => new Date(),
+		),
+	},
+	(t) => [
+		index("finance_app_monthly_budgets_user_month_idx").on(
+			t.userId,
+			t.monthKey,
+		),
+		unique("finance_app_monthly_budgets_id_user_unique").on(t.id, t.userId),
+		uniqueIndex("finance_app_monthly_budgets_unique_scope_idx").on(
+			t.userId,
+			t.monthKey,
+			t.scope,
+			t.categoryGroupId,
+			t.categoryId,
+		),
+		foreignKey({
+			columns: [t.categoryGroupId, t.userId],
+			foreignColumns: [categoryGroups.id, categoryGroups.userId],
+			name: "finance_app_monthly_budgets_group_user_fk",
+		}),
+		foreignKey({
+			columns: [t.categoryId, t.userId],
+			foreignColumns: [categories.id, categories.userId],
+			name: "finance_app_monthly_budgets_category_user_fk",
+		}),
+		check(
+			"finance_app_monthly_budgets_month_key_valid",
+			sql`${t.monthKey} ~ '^\\d{4}-\\d{2}$'`,
+		),
+		check(
+			"finance_app_monthly_budgets_amount_positive",
+			sql`${t.amountCents} > 0`,
+		),
+		check(
+			"finance_app_monthly_budgets_scope_columns_valid",
+			sql`(${t.scope} = 'month' AND ${t.categoryGroupId} IS NULL AND ${t.categoryId} IS NULL) OR (${t.scope} = 'category_group' AND ${t.categoryGroupId} IS NOT NULL AND ${t.categoryId} IS NULL) OR (${t.scope} = 'category' AND ${t.categoryGroupId} IS NULL AND ${t.categoryId} IS NOT NULL)`,
+		),
 	],
 );
 
@@ -556,6 +621,7 @@ export const userRelations = relations(user, ({ many }) => ({
 	financialAccounts: many(financialAccounts),
 	categoryGroups: many(categoryGroups),
 	categories: many(categories),
+	monthlyBudgets: many(monthlyBudgets),
 	transactions: many(transactions),
 	importTemplates: many(importTemplates),
 	importBatches: many(importBatches),
@@ -593,6 +659,7 @@ export const categoryGroupRelations = relations(
 	({ many, one }) => ({
 		user: one(user, { fields: [categoryGroups.userId], references: [user.id] }),
 		categories: many(categories),
+		monthlyBudgets: many(monthlyBudgets),
 	}),
 );
 
@@ -604,6 +671,19 @@ export const categoryRelations = relations(categories, ({ many, one }) => ({
 	}),
 	transactions: many(transactions),
 	importCategoryRules: many(importCategoryRules),
+	monthlyBudgets: many(monthlyBudgets),
+}));
+
+export const monthlyBudgetRelations = relations(monthlyBudgets, ({ one }) => ({
+	user: one(user, { fields: [monthlyBudgets.userId], references: [user.id] }),
+	categoryGroup: one(categoryGroups, {
+		fields: [monthlyBudgets.categoryGroupId],
+		references: [categoryGroups.id],
+	}),
+	category: one(categories, {
+		fields: [monthlyBudgets.categoryId],
+		references: [categories.id],
+	}),
 }));
 
 export const importTemplateRelations = relations(

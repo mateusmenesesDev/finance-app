@@ -1,185 +1,111 @@
 import { asc, desc, eq } from "drizzle-orm";
-import { headers } from "next/headers";
 import Link from "next/link";
-import { redirect } from "next/navigation";
 
 import {
-	archiveAccount,
-	archiveCategory,
-	archiveCategoryGroup,
-	archiveTransaction,
-	createAccount,
-	createCategory,
-	createCategoryGroup,
-	createDefaultCategories,
-	createTransaction,
-	updateAccount,
-	updateCategory,
-	updateCategoryGroup,
-	updateTransaction,
-} from "~/app/_actions/finance-actions";
+	FinanceShell,
+	Panel,
+	SummaryCard,
+	TextInput,
+} from "~/app/_components/finance-ui";
 import { SignInForm } from "~/app/_components/sign-in-form";
 import {
 	calculateAccountBalances,
-	getCurrentMonthPeriod,
+	calculateMonthlyTotals,
+	calculateProjectedCashFlow,
 	getInvoiceForDate,
+	getMonthPeriod,
+	parseMonthPeriod,
+	rankMonthlyCategories,
+	rankMonthlyGroups,
 } from "~/lib/finance-rules";
-import { auth } from "~/server/better-auth";
+import {
+	formatDate,
+	formatMoney,
+	formatMonthLabel,
+	formatPercent,
+} from "~/lib/formatters";
 import { getSession } from "~/server/better-auth/server";
 import { db } from "~/server/db";
 import {
 	categories,
 	categoryGroups,
 	financialAccounts,
+	importBatches,
+	importRows,
+	monthlyBudgets,
 	transactions,
 } from "~/server/db/schema";
 
-const accountTypeLabels = {
-	checking: "Conta corrente",
-	savings: "Poupança",
-	cash: "Carteira",
-	credit_card: "Cartão de crédito",
-	investment: "Investimento",
-};
-
-const movementLabels = {
-	income: "Receita",
-	expense: "Despesa",
-	transfer: "Transferência",
-	credit_card_payment: "Pagamento de fatura",
-	balance_adjustment: "Ajuste de saldo",
-};
-
-const statusLabels = {
-	planned: "Prevista",
-	confirmed: "Confirmada",
-	ignored: "Ignorada",
-	duplicate: "Duplicada",
-	pending_review: "Pendente de revisão",
-};
-
 type HomeProps = {
-	searchParams?: Promise<{
-		start?: string;
-		end?: string;
-		accountId?: string;
-		categoryId?: string;
-		movementType?: string;
-		q?: string;
-		sort?: string;
-	}>;
+	searchParams?: Promise<{ month?: string }>;
 };
 
 export default async function Home({ searchParams }: HomeProps) {
 	const session = await getSession();
+	if (!session) return <PublicHome />;
 
-	return (
-		<main className="min-h-screen bg-slate-950 px-6 py-10 text-slate-100">
-			<div className="mx-auto flex w-full max-w-7xl flex-col gap-10">
-				<header className="flex flex-col gap-4 border-slate-800 border-b pb-8 md:flex-row md:items-center md:justify-between">
-					<div>
-						<p className="font-medium text-emerald-300 text-sm uppercase tracking-[0.3em]">
-							Finanças pessoais
-						</p>
-						<h1 className="mt-3 font-semibold text-4xl tracking-tight">
-							Finance App
-						</h1>
-						<p className="mt-3 max-w-2xl text-slate-300">
-							Controle contas, categorias, transações e faturas dinâmicas em
-							BRL.
-						</p>
-					</div>
+	const params = await searchParams;
+	const period = params?.month
+		? (parseMonthPeriod(params.month) ?? getMonthPeriod())
+		: getMonthPeriod();
+	const previousPeriod = previousMonthPeriod(period.key);
+	const today = toIsoDate(new Date());
+	const monthCutoff =
+		today >= period.start && today <= period.end ? today : period.end;
 
-					{session && (
-						<div className="flex gap-3">
-							<Link
-								className="rounded-full border border-slate-700 px-5 py-2 font-medium text-sm transition hover:border-slate-500 hover:bg-slate-900"
-								href="/import"
-							>
-								Importar CSV
-							</Link>
-							<form>
-								<button
-									className="rounded-full border border-slate-700 px-5 py-2 font-medium text-sm transition hover:border-slate-500 hover:bg-slate-900"
-									formAction={async () => {
-										"use server";
-										await auth.api.signOut({ headers: await headers() });
-										redirect("/");
-									}}
-									type="submit"
-								>
-									Sair
-								</button>
-							</form>
-						</div>
-					)}
-				</header>
-
-				{session ? (
-					<Dashboard
-						searchParams={searchParams}
-						userId={session.user.id}
-						userName={session.user.name}
-					/>
-				) : (
-					<PublicHome />
-				)}
-			</div>
-		</main>
-	);
-}
-
-async function Dashboard({
-	userId,
-	userName,
-	searchParams,
-}: {
-	userId: string;
-	userName: string;
-	searchParams: HomeProps["searchParams"];
-}) {
-	const period = getCurrentMonthPeriod();
-	const filters = {
-		start: period.start,
-		end: period.end,
-		...(await searchParams),
-	};
-
-	const [allAccounts, allGroups, allCategories, allTransactions] =
-		await Promise.all([
-			db
-				.select()
-				.from(financialAccounts)
-				.where(eq(financialAccounts.userId, userId))
-				.orderBy(asc(financialAccounts.name)),
-			db
-				.select()
-				.from(categoryGroups)
-				.where(eq(categoryGroups.userId, userId))
-				.orderBy(asc(categoryGroups.kind), asc(categoryGroups.name)),
-			db
-				.select()
-				.from(categories)
-				.where(eq(categories.userId, userId))
-				.orderBy(asc(categories.kind), asc(categories.name)),
-			db
-				.select()
-				.from(transactions)
-				.where(eq(transactions.userId, userId))
-				.orderBy(desc(transactions.occurredOn), desc(transactions.id)),
-		]);
+	const [
+		allAccounts,
+		allGroups,
+		allCategories,
+		allTransactions,
+		batches,
+		rows,
+		budgetRows,
+	] = await Promise.all([
+		db
+			.select()
+			.from(financialAccounts)
+			.where(eq(financialAccounts.userId, session.user.id))
+			.orderBy(asc(financialAccounts.name)),
+		db
+			.select()
+			.from(categoryGroups)
+			.where(eq(categoryGroups.userId, session.user.id))
+			.orderBy(asc(categoryGroups.kind), asc(categoryGroups.name)),
+		db
+			.select()
+			.from(categories)
+			.where(eq(categories.userId, session.user.id))
+			.orderBy(asc(categories.kind), asc(categories.name)),
+		db
+			.select()
+			.from(transactions)
+			.where(eq(transactions.userId, session.user.id))
+			.orderBy(desc(transactions.occurredOn), desc(transactions.id)),
+		db
+			.select()
+			.from(importBatches)
+			.where(eq(importBatches.userId, session.user.id))
+			.orderBy(desc(importBatches.createdAt), desc(importBatches.id)),
+		db
+			.select()
+			.from(importRows)
+			.where(eq(importRows.userId, session.user.id))
+			.orderBy(asc(importRows.batchId), asc(importRows.rowNumber)),
+		db
+			.select()
+			.from(monthlyBudgets)
+			.where(eq(monthlyBudgets.userId, session.user.id))
+			.orderBy(asc(monthlyBudgets.scope), asc(monthlyBudgets.amountCents)),
+	]);
 
 	const activeAccounts = allAccounts.filter((account) => !account.isArchived);
-	const usableAccounts = activeAccounts.filter((account) => account.isActive);
 	const activeGroups = allGroups.filter((group) => !group.isArchived);
 	const activeCategories = allCategories.filter(
 		(category) => !category.isArchived,
 	);
 	const accountById = new Map(
 		allAccounts.map((account) => [account.id, account]),
-	);
-	const categoryById = new Map(
-		allCategories.map((category) => [category.id, category]),
 	);
 	const balances = calculateAccountBalances(allAccounts, allTransactions);
 	const normalConsolidated = activeAccounts.reduce(
@@ -191,634 +117,815 @@ async function Dashboard({
 		(total, account) => total + (balances.get(account.id)?.cardDebtCents ?? 0),
 		0,
 	);
-
-	const visibleTransactions = allTransactions
-		.filter((transaction) => !transaction.isArchived)
-		.filter(
-			(transaction) =>
-				transaction.occurredOn >= filters.start &&
-				transaction.occurredOn <= filters.end,
-		)
-		.filter(
-			(transaction) =>
-				!filters.accountId ||
-				transaction.accountId === Number(filters.accountId),
-		)
-		.filter(
-			(transaction) =>
-				!filters.categoryId ||
-				transaction.categoryId === Number(filters.categoryId),
-		)
-		.filter(
-			(transaction) =>
-				!filters.movementType ||
-				transaction.movementType === filters.movementType,
-		)
-		.filter((transaction) => {
-			if (!filters.q) return true;
-			const haystack =
-				`${transaction.description} ${transaction.originalDescription ?? ""}`.toLowerCase();
-			return haystack.includes(filters.q.toLowerCase());
-		})
-		.sort((left, right) => {
-			if (filters.sort === "value") return right.amountCents - left.amountCents;
-			if (filters.sort === "category") {
-				return (
-					categoryById.get(left.categoryId ?? 0)?.name ?? ""
-				).localeCompare(categoryById.get(right.categoryId ?? 0)?.name ?? "");
-			}
-			return right.occurredOn.localeCompare(left.occurredOn);
-		});
-
-	const categoryTotals = new Map<number, number>();
-	const groupTotals = new Map<number, number>();
-	for (const transaction of visibleTransactions) {
-		if (
+	const monthlyTotals = calculateMonthlyTotals(allTransactions, period);
+	const previousTotals = calculateMonthlyTotals(
+		allTransactions,
+		previousPeriod,
+	);
+	const groupRanking = rankMonthlyGroups(
+		allTransactions,
+		activeCategories,
+		activeGroups,
+		period,
+		"expense",
+		6,
+	);
+	const categoryRanking = rankMonthlyCategories(
+		allTransactions,
+		activeCategories,
+		activeGroups,
+		period,
+		"expense",
+		6,
+	);
+	const projectedCashFlow = calculateProjectedCashFlow(
+		allTransactions,
+		{ start: monthCutoff, end: period.end },
+		normalConsolidated,
+	);
+	const budgetSummary = buildBudgetSummary(
+		budgetRows.filter((budget) => budget.monthKey === period.key),
+		categoryRanking,
+		monthlyTotals.expenseCents,
+	);
+	const openInvoices = buildOpenInvoices(
+		activeAccounts,
+		allTransactions,
+		today,
+	);
+	const pendingImports = batches.filter(
+		(batch) => batch.status === "draft" || batch.status === "reviewing",
+	);
+	const uncategorizedCount = allTransactions.filter(
+		(transaction) =>
+			transaction.occurredOn >= period.start &&
+			transaction.occurredOn <= period.end &&
+			!transaction.isArchived &&
 			transaction.status === "confirmed" &&
-			transaction.movementType === "expense" &&
-			transaction.categoryId
-		) {
-			const category = categoryById.get(transaction.categoryId);
-			categoryTotals.set(
-				transaction.categoryId,
-				(categoryTotals.get(transaction.categoryId) ?? 0) +
-					transaction.amountCents,
-			);
-			if (category) {
-				groupTotals.set(
-					category.groupId,
-					(groupTotals.get(category.groupId) ?? 0) + transaction.amountCents,
-				);
-			}
-		}
-	}
+			(transaction.movementType === "income" ||
+				transaction.movementType === "expense") &&
+			!transaction.categoryId,
+	).length;
+	const alerts = [
+		...budgetAlerts(budgetSummary),
+		...invoiceAlerts(openInvoices, today),
+		...projectedAccountAlerts(activeAccounts, allTransactions, balances, {
+			start: monthCutoff,
+			end: period.end,
+		}),
+		...acceleratedSpendAlerts(
+			allTransactions,
+			period,
+			previousPeriod,
+			monthCutoff,
+		),
+		...uncategorizedAlerts(uncategorizedCount),
+		...importAlerts(pendingImports, rows),
+	];
+	const insights = buildInsights({
+		budgetSummary,
+		categoryRanking,
+		groupRanking,
+		monthlyTotals,
+		pendingImportCount: pendingImports.length,
+		previousTotals,
+		uncategorizedCount,
+	});
 
 	return (
-		<div className="grid gap-8">
-			<section className="rounded-3xl border border-slate-800 bg-slate-900/60 p-8">
-				<p className="text-slate-400 text-sm">Sessão ativa</p>
-				<h2 className="mt-2 font-semibold text-2xl">Olá, {userName}</h2>
-				<div className="mt-6 grid gap-4 md:grid-cols-3">
-					<SummaryCard
-						label="Saldo consolidado sem cartões"
-						value={formatMoney(normalConsolidated)}
-					/>
-					<SummaryCard
-						label="Dívida aberta em cartões"
-						value={formatMoney(cardDebt)}
-					/>
-					<SummaryCard
-						label="Período padrão"
-						value={`${formatDate(filters.start)} – ${formatDate(filters.end)}`}
-					/>
-				</div>
-			</section>
-
-			<section className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
-				<Panel title="Contas">
-					<form
-						action={createAccount}
-						className="grid gap-3 rounded-2xl border border-slate-800 p-4 md:grid-cols-3"
-					>
-						<TextInput name="name" placeholder="Nome" />
-						<TextInput name="institution" placeholder="Instituição" />
-						<Select name="type" options={accountTypeLabels} />
-						<TextInput
-							defaultValue="0,00"
-							name="initialBalance"
-							placeholder="Saldo inicial"
-						/>
-						<TextInput name="closingDay" placeholder="Fechamento (cartão)" />
-						<TextInput name="dueDay" placeholder="Vencimento (cartão)" />
-						<SubmitButton>Cadastrar conta</SubmitButton>
-					</form>
-					<div className="mt-4 grid gap-3">
-						{activeAccounts.map((account) => (
-							<form
-								action={updateAccount}
-								className="grid gap-2 rounded-2xl border border-slate-800 p-4 md:grid-cols-6"
-								key={account.id}
-							>
-								<input name="id" type="hidden" value={account.id} />
-								<TextInput defaultValue={account.name} name="name" />
-								<TextInput
-									defaultValue={account.institution ?? ""}
-									name="institution"
-								/>
-								<Select
-									defaultValue={account.type}
-									name="type"
-									options={accountTypeLabels}
-								/>
-								<TextInput
-									defaultValue={formatMoneyInput(account.initialBalanceCents)}
-									name="initialBalance"
-								/>
-								<TextInput
-									defaultValue={account.creditCardClosingDay?.toString() ?? ""}
-									name="closingDay"
-									placeholder="Fecha"
-								/>
-								<TextInput
-									defaultValue={account.creditCardDueDay?.toString() ?? ""}
-									name="dueDay"
-									placeholder="Vence"
-								/>
-								<label className="flex items-center gap-2 text-sm">
-									<input
-										defaultChecked={account.isActive}
-										name="isActive"
-										type="checkbox"
-									/>{" "}
-									Ativa
-								</label>
-								<p className="text-slate-300 text-sm md:col-span-2">
-									Saldo:{" "}
-									{formatMoney(
-										balances.get(account.id)?.normalBalanceCents ?? 0,
-									)}{" "}
-									· Cartão:{" "}
-									{formatMoney(balances.get(account.id)?.cardDebtCents ?? 0)}
-								</p>
-								<SubmitButton>Salvar</SubmitButton>
-								<button
-									className="rounded-xl border border-rose-900 px-3 py-2 text-rose-200 text-sm"
-									formAction={archiveAccount}
-									type="submit"
-								>
-									Arquivar
-								</button>
-							</form>
-						))}
-					</div>
-				</Panel>
-
-				<Panel title="Categorias">
-					<form action={createDefaultCategories} className="mb-4">
-						<SubmitButton>Criar categorias iniciais</SubmitButton>
-					</form>
-					<form
-						action={createCategoryGroup}
-						className="grid gap-3 rounded-2xl border border-slate-800 p-4 md:grid-cols-3"
-					>
-						<TextInput name="name" placeholder="Grupo" />
-						<Select
-							name="kind"
-							options={{ income: "Receita", expense: "Despesa" }}
-						/>
-						<SubmitButton>Cadastrar grupo</SubmitButton>
-					</form>
-					<form
-						action={createCategory}
-						className="mt-3 grid gap-3 rounded-2xl border border-slate-800 p-4 md:grid-cols-3"
-					>
-						<TextInput name="name" placeholder="Categoria" />
-						<select className={inputClass} name="groupId">
-							{activeGroups.map((group) => (
-								<option key={group.id} value={group.id}>
-									{group.name} (
-									{group.kind === "income" ? "receita" : "despesa"})
-								</option>
-							))}
-						</select>
-						<SubmitButton>Cadastrar categoria</SubmitButton>
-					</form>
-
-					<div className="mt-4 grid gap-2">
-						{activeGroups.map((group) => (
-							<form
-								action={updateCategoryGroup}
-								className="grid gap-2 rounded-xl border border-slate-800 p-3 md:grid-cols-[1fr_110px_120px_90px]"
-								key={group.id}
-							>
-								<input name="id" type="hidden" value={group.id} />
-								<TextInput defaultValue={group.name} name="name" />
-								<p className="text-slate-400 text-sm">
-									{group.kind === "income" ? "Receita" : "Despesa"}
-									<br />
-									{formatMoney(groupTotals.get(group.id) ?? 0)}
-								</p>
-								<SubmitButton>Salvar</SubmitButton>
-								<button
-									className="rounded-xl border border-rose-900 px-3 py-2 text-rose-200 text-sm"
-									formAction={archiveCategoryGroup}
-									type="submit"
-								>
-									Arquivar
-								</button>
-							</form>
-						))}
-					</div>
-
-					<div className="mt-4 grid gap-2">
-						{activeCategories.map((category) => (
-							<form
-								action={updateCategory}
-								className="grid gap-2 rounded-xl border border-slate-800 p-3 md:grid-cols-[1fr_1fr_120px_90px]"
-								key={category.id}
-							>
-								<input name="id" type="hidden" value={category.id} />
-								<TextInput defaultValue={category.name} name="name" />
-								<select
-									className={inputClass}
-									defaultValue={category.groupId}
-									name="groupId"
-								>
-									{activeGroups
-										.filter((group) => group.kind === category.kind)
-										.map((group) => (
-											<option key={group.id} value={group.id}>
-												{group.name}
-											</option>
-										))}
-								</select>
-								<p className="text-slate-400 text-sm">
-									{category.kind === "income" ? "Receita" : "Despesa"}
-									<br />
-									{categoryTotals.has(category.id)
-										? formatMoney(categoryTotals.get(category.id) ?? 0)
-										: "sem gasto"}
-								</p>
-								<SubmitButton>Salvar</SubmitButton>
-								<button
-									className="rounded-xl border border-rose-900 px-3 py-2 text-rose-200 text-sm md:col-start-4"
-									formAction={archiveCategory}
-									type="submit"
-								>
-									Arquivar
-								</button>
-							</form>
-						))}
-					</div>
-				</Panel>
-			</section>
-
-			<Panel title="Transações">
-				<form
-					action={createTransaction}
-					className="grid gap-3 rounded-2xl border border-slate-800 p-4 md:grid-cols-4"
-				>
-					<TextInput
-						defaultValue={period.start}
-						name="occurredOn"
-						type="date"
-					/>
-					<TextInput name="description" placeholder="Descrição" />
-					<TextInput
-						name="originalDescription"
-						placeholder="Descrição original"
-					/>
-					<TextInput name="amount" placeholder="Valor" />
-					<select className={inputClass} name="accountId">
-						{usableAccounts.map((account) => (
-							<option key={account.id} value={account.id}>
-								{account.name}
-							</option>
-						))}
-					</select>
-					<select className={inputClass} name="destinationAccountId">
-						<option value="">Conta destino</option>
-						{usableAccounts.map((account) => (
-							<option key={account.id} value={account.id}>
-								{account.name}
-							</option>
-						))}
-					</select>
-					<select className={inputClass} name="categoryId">
-						<option value="">Categoria</option>
-						{activeCategories.map((category) => (
-							<option key={category.id} value={category.id}>
-								{category.name}
-							</option>
-						))}
-					</select>
-					<Select name="movementType" options={movementLabels} />
-					<Select
-						defaultValue="confirmed"
-						name="status"
-						options={statusLabels}
-					/>
-					<TextInput name="notes" placeholder="Notas" />
-					<SubmitButton>Lançar transação</SubmitButton>
-				</form>
-
-				<form className="mt-5 grid gap-3 rounded-2xl border border-slate-800 p-4 md:grid-cols-7">
-					<TextInput defaultValue={filters.start} name="start" type="date" />
-					<TextInput defaultValue={filters.end} name="end" type="date" />
-					<select
-						className={inputClass}
-						defaultValue={filters.accountId}
-						name="accountId"
-					>
-						<option value="">Conta</option>
-						{activeAccounts.map((account) => (
-							<option key={account.id} value={account.id}>
-								{account.name}
-							</option>
-						))}
-					</select>
-					<select
-						className={inputClass}
-						defaultValue={filters.categoryId}
-						name="categoryId"
-					>
-						<option value="">Categoria</option>
-						{activeCategories.map((category) => (
-							<option key={category.id} value={category.id}>
-								{category.name}
-							</option>
-						))}
-					</select>
-					<select
-						className={inputClass}
-						defaultValue={filters.movementType}
-						name="movementType"
-					>
-						<option value="">Tipo</option>
-						{Object.entries(movementLabels).map(([value, label]) => (
-							<option key={value} value={value}>
-								{label}
-							</option>
-						))}
-					</select>
-					<TextInput
-						defaultValue={filters.q ?? ""}
-						name="q"
-						placeholder="Texto"
-					/>
-					<select
-						className={inputClass}
-						defaultValue={filters.sort}
-						name="sort"
-					>
-						<option value="date">Data</option>
-						<option value="value">Valor</option>
-						<option value="category">Categoria</option>
-					</select>
-					<SubmitButton>Filtrar</SubmitButton>
-				</form>
-
-				<div className="mt-4 overflow-hidden rounded-2xl border border-slate-800">
-					{visibleTransactions.map((transaction) => (
-						<details
-							className="border-slate-800 border-b p-4 text-sm"
-							key={transaction.id}
-						>
-							<summary className="grid cursor-pointer gap-2 md:grid-cols-[110px_1fr_160px_160px_120px]">
-								<span>{formatDate(transaction.occurredOn)}</span>
-								<span>
-									{transaction.description}
-									<small className="block text-slate-400">
-										{transaction.originalDescription}
-									</small>
-								</span>
-								<span>{accountById.get(transaction.accountId)?.name}</span>
-								<span>
-									{categoryById.get(transaction.categoryId ?? 0)?.name ?? "—"}
-								</span>
-								<span>{formatMoney(transaction.amountCents)}</span>
-							</summary>
-							<form
-								action={updateTransaction}
-								className="mt-4 grid gap-3 rounded-xl border border-slate-800 p-4 md:grid-cols-4"
-							>
-								<input name="id" type="hidden" value={transaction.id} />
-								<TextInput
-									defaultValue={transaction.occurredOn}
-									name="occurredOn"
-									type="date"
-								/>
-								<TextInput
-									defaultValue={transaction.description}
-									name="description"
-								/>
-								<TextInput
-									defaultValue={transaction.originalDescription ?? ""}
-									name="originalDescription"
-									placeholder="Descrição original"
-								/>
-								<TextInput
-									defaultValue={formatMoneyInput(transaction.amountCents)}
-									name="amount"
-								/>
-								<select
-									className={inputClass}
-									defaultValue={transaction.accountId}
-									name="accountId"
-								>
-									{allAccounts.map((account) => (
-										<option key={account.id} value={account.id}>
-											{account.name}
-										</option>
-									))}
-								</select>
-								<select
-									className={inputClass}
-									defaultValue={transaction.destinationAccountId ?? ""}
-									name="destinationAccountId"
-								>
-									<option value="">Conta destino</option>
-									{allAccounts.map((account) => (
-										<option key={account.id} value={account.id}>
-											{account.name}
-										</option>
-									))}
-								</select>
-								<select
-									className={inputClass}
-									defaultValue={transaction.categoryId ?? ""}
-									name="categoryId"
-								>
-									<option value="">Categoria</option>
-									{allCategories.map((category) => (
-										<option key={category.id} value={category.id}>
-											{category.name}
-										</option>
-									))}
-								</select>
-								<Select
-									defaultValue={transaction.movementType}
-									name="movementType"
-									options={movementLabels}
-								/>
-								<Select
-									defaultValue={transaction.status}
-									name="status"
-									options={statusLabels}
-								/>
-								<TextInput
-									defaultValue={transaction.notes ?? ""}
-									name="notes"
-									placeholder="Notas"
-								/>
-								<SubmitButton>Salvar transação</SubmitButton>
-								<button
-									className="rounded-xl border border-rose-900 px-3 py-2 text-rose-200 text-sm"
-									formAction={archiveTransaction}
-									type="submit"
-								>
-									Arquivar
-								</button>
-							</form>
-						</details>
-					))}
-					{visibleTransactions.length === 0 && (
-						<p className="p-6 text-slate-400">
-							Nenhuma transação no filtro atual.
+		<FinanceShell
+			description="Visão mensal para entender rapidamente quanto entrou, quanto saiu, onde foi gasto e o que merece atenção."
+			eyebrow="Dashboard"
+			title={`Olá, ${session.user.name}`}
+		>
+			<section className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6">
+				<div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+					<div>
+						<p className="text-slate-400 text-sm">Mês analisado</p>
+						<h2 className="mt-1 font-semibold text-2xl capitalize">
+							{formatMonthLabel(period)}
+						</h2>
+						<p className="mt-1 text-slate-500 text-sm">
+							{formatDate(period.start)} – {formatDate(period.end)}
 						</p>
-					)}
+					</div>
+					<form className="flex flex-wrap items-end gap-3">
+						<label
+							className="grid gap-1 text-slate-300 text-sm"
+							htmlFor="dashboard-month"
+						>
+							Mês
+							<TextInput
+								defaultValue={period.key}
+								id="dashboard-month"
+								name="month"
+								type="month"
+							/>
+						</label>
+						<button
+							className="rounded-xl bg-emerald-500 px-4 py-2 font-medium text-slate-950 text-sm"
+							type="submit"
+						>
+							Atualizar
+						</button>
+					</form>
 				</div>
-			</Panel>
 
-			<Panel title="Faturas dinâmicas de cartão">
-				<div className="grid gap-4 md:grid-cols-2">
-					{activeAccounts
-						.filter((account) => account.type === "credit_card")
-						.map((card) => {
-							const invoices = new Map<
-								string,
-								{ closingDate: string; dueDate: string; total: number }
-							>();
-							for (const transaction of allTransactions) {
-								if (
-									!transaction.isArchived &&
-									transaction.status === "confirmed" &&
-									transaction.accountId === card.id &&
-									transaction.movementType === "expense"
-								) {
-									const invoice = getInvoiceForDate(
-										transaction.occurredOn,
-										card.creditCardClosingDay ?? 31,
-										card.creditCardDueDay ?? 10,
-									);
-									const saved = invoices.get(invoice.key) ?? {
-										...invoice,
-										total: 0,
-									};
-									saved.total += transaction.amountCents;
-									invoices.set(invoice.key, saved);
-								}
-							}
+				<div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+					<SummaryCard
+						label="Receitas do mês"
+						value={formatMoney(monthlyTotals.incomeCents)}
+						variant="good"
+					/>
+					<SummaryCard
+						label="Despesas do mês"
+						value={formatMoney(monthlyTotals.expenseCents)}
+						variant="bad"
+					/>
+					<SummaryCard
+						label="Saldo do mês"
+						value={formatMoney(monthlyTotals.netCents)}
+						variant={monthlyTotals.netCents >= 0 ? "good" : "bad"}
+					/>
+					<SummaryCard
+						description={budgetSummary.description}
+						label="Orçamento usado"
+						value={budgetSummary.label}
+						variant={budgetSummary.variant}
+					/>
+				</div>
+			</section>
+
+			<section className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
+				<Panel title="Alertas importantes">
+					{alerts.length > 0 ? (
+						<div className="grid gap-3">
+							{alerts.slice(0, 6).map((alert) => (
+								<AlertItem
+									alert={alert}
+									key={`${alert.title}-${alert.message}`}
+								/>
+							))}
+						</div>
+					) : (
+						<EmptyState text="Nenhum alerta importante para este mês." />
+					)}
+				</Panel>
+
+				<Panel title="Insights principais do mês">
+					{insights.length > 0 ? (
+						<ul className="grid gap-3 text-slate-300 text-sm">
+							{insights.map((insight) => (
+								<li
+									className="rounded-2xl border border-slate-800 bg-slate-950/50 p-4"
+									key={insight}
+								>
+									{insight}
+								</li>
+							))}
+						</ul>
+					) : (
+						<EmptyState text="Ainda não há transações suficientes para gerar insights." />
+					)}
+				</Panel>
+			</section>
+
+			<section className="grid gap-6 xl:grid-cols-2">
+				<Panel title="Saldo por conta">
+					<div className="grid gap-3">
+						{activeAccounts.map((account) => {
+							const balance = balances.get(account.id);
+							const value =
+								account.type === "credit_card"
+									? (balance?.cardDebtCents ?? 0)
+									: (balance?.normalBalanceCents ?? 0);
 							return (
 								<div
-									className="rounded-2xl border border-slate-800 p-4"
-									key={card.id}
+									className="flex items-center justify-between gap-4 rounded-2xl border border-slate-800 bg-slate-950/50 p-4"
+									key={account.id}
 								>
-									<h3 className="font-medium">{card.name}</h3>
-									<p className="text-slate-400 text-sm">
-										Dívida aberta:{" "}
-										{formatMoney(balances.get(card.id)?.cardDebtCents ?? 0)}
-									</p>
-									{Array.from(invoices.entries()).map(([key, invoice]) => (
-										<p className="mt-2 text-sm" key={key}>
-											{key}: {formatMoney(invoice.total)} · fecha{" "}
-											{formatDate(invoice.closingDate)} · vence{" "}
-											{formatDate(invoice.dueDate)}
+									<div>
+										<p className="font-medium">{account.name}</p>
+										<p className="text-slate-500 text-xs">
+											{account.institution ?? "Sem instituição"}
 										</p>
-									))}
+									</div>
+									<p
+										className={
+											account.type === "credit_card"
+												? "font-semibold text-rose-300"
+												: "font-semibold text-slate-100"
+										}
+									>
+										{formatMoney(value)}
+									</p>
 								</div>
 							);
 						})}
-				</div>
-			</Panel>
-		</div>
+						{activeAccounts.length === 0 ? (
+							<EmptyState text="Cadastre uma conta para acompanhar saldos." />
+						) : null}
+					</div>
+					<div className="mt-4 grid gap-4 md:grid-cols-2">
+						<SummaryCard
+							label="Consolidado sem cartões"
+							value={formatMoney(normalConsolidated)}
+						/>
+						<SummaryCard
+							label="Dívida aberta em cartões"
+							value={formatMoney(cardDebt)}
+							variant={cardDebt > 0 ? "bad" : "default"}
+						/>
+					</div>
+				</Panel>
+
+				<Panel title="Fluxo previsto até o fim do mês">
+					<div className="grid gap-4 md:grid-cols-2">
+						<SummaryCard
+							label="Entradas previstas"
+							value={formatMoney(projectedCashFlow.plannedIncomeCents)}
+							variant="good"
+						/>
+						<SummaryCard
+							label="Saídas previstas"
+							value={formatMoney(projectedCashFlow.plannedExpenseCents)}
+							variant="bad"
+						/>
+						<SummaryCard
+							label="Saldo atual considerado"
+							value={formatMoney(projectedCashFlow.openingBalanceCents)}
+						/>
+						<SummaryCard
+							label="Saldo projetado"
+							value={formatMoney(projectedCashFlow.projectedBalanceCents)}
+							variant={
+								projectedCashFlow.projectedBalanceCents >= 0 ? "good" : "bad"
+							}
+						/>
+					</div>
+					<p className="mt-4 text-slate-500 text-xs">
+						MVP: usa apenas transações previstas já cadastradas, sem orçamento,
+						recorrências ou IA.
+					</p>
+				</Panel>
+			</section>
+
+			<section className="grid gap-6 xl:grid-cols-2">
+				<Panel title="Gasto por grupo de categoria">
+					<Ranking
+						rows={groupRanking.map((row) => ({
+							amountCents: row.amountCents,
+							count: row.transactionCount,
+							label: row.groupName,
+						}))}
+					/>
+				</Panel>
+				<Panel title="Maiores categorias de despesa">
+					<Ranking
+						rows={categoryRanking.map((row) => ({
+							amountCents: row.amountCents,
+							count: row.transactionCount,
+							label: row.categoryName,
+						}))}
+					/>
+				</Panel>
+			</section>
+
+			<section className="grid gap-6 xl:grid-cols-2">
+				<Panel
+					description="Estimadas pelas compras no cartão; pagamento de fatura segue como transferência."
+					title="Faturas abertas de cartão"
+				>
+					{openInvoices.length > 0 ? (
+						<div className="grid gap-3">
+							{openInvoices.slice(0, 6).map((invoice) => (
+								<div
+									className="rounded-2xl border border-slate-800 bg-slate-950/50 p-4"
+									key={`${invoice.accountId}-${invoice.key}`}
+								>
+									<div className="flex items-start justify-between gap-4">
+										<div>
+											<p className="font-medium">{invoice.accountName}</p>
+											<p className="text-slate-500 text-xs">
+												Fecha {formatDate(invoice.closingDate)} · vence{" "}
+												{formatDate(invoice.dueDate)}
+											</p>
+										</div>
+										<p className="font-semibold text-rose-300">
+											{formatMoney(invoice.totalCents)}
+										</p>
+									</div>
+								</div>
+							))}
+						</div>
+					) : (
+						<EmptyState text="Nenhuma fatura aberta estimada." />
+					)}
+				</Panel>
+
+				<Panel title="Importações pendentes de revisão">
+					{pendingImports.length > 0 ? (
+						<div className="grid gap-3">
+							{pendingImports.slice(0, 6).map((batch) => (
+								<Link
+									className="rounded-2xl border border-slate-800 bg-slate-950/50 p-4 transition hover:border-slate-600"
+									href={`/import?batchId=${batch.id}`}
+									key={batch.id}
+								>
+									<div className="flex items-start justify-between gap-4">
+										<div>
+											<p className="font-medium">{batch.originalFileName}</p>
+											<p className="text-slate-500 text-xs">
+												{accountById.get(batch.accountId)?.name ??
+													"Conta removida"}{" "}
+												· {batch.rowCount} linha(s)
+											</p>
+										</div>
+										<span className="rounded-full border border-amber-800 px-3 py-1 text-amber-200 text-xs">
+											{batch.status === "draft" ? "rascunho" : "em revisão"}
+										</span>
+									</div>
+								</Link>
+							))}
+						</div>
+					) : (
+						<EmptyState text="Nenhuma importação pendente." />
+					)}
+				</Panel>
+			</section>
+		</FinanceShell>
 	);
 }
 
 function PublicHome() {
 	return (
-		<section className="grid gap-8 md:grid-cols-[1fr_420px] md:items-start">
-			<div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-8">
-				<h2 className="font-semibold text-2xl">
-					Base simples para controle financeiro
-				</h2>
-				<p className="mt-4 text-slate-300">
-					Entre com email e senha para acessar seu painel financeiro isolado por
-					usuário.
-				</p>
-				<div className="mt-6 grid gap-3 text-slate-300 text-sm">
-					<p>• Compras no cartão são despesas.</p>
-					<p>• Pagamento de fatura é transferência para o cartão.</p>
-					<p>• Transações arquivadas não entram nos saldos padrão.</p>
-				</div>
+		<main className="min-h-screen bg-slate-950 px-6 py-10 text-slate-100">
+			<div className="mx-auto flex w-full max-w-7xl flex-col gap-10">
+				<header className="border-slate-800 border-b pb-8">
+					<p className="font-medium text-emerald-300 text-sm uppercase tracking-[0.3em]">
+						Finanças pessoais
+					</p>
+					<h1 className="mt-3 font-semibold text-4xl tracking-tight">
+						Finance App
+					</h1>
+					<p className="mt-3 max-w-2xl text-slate-300">
+						Controle contas, categorias, transações e faturas em BRL.
+					</p>
+				</header>
+				<section className="grid gap-8 md:grid-cols-[1fr_420px] md:items-start">
+					<div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-8">
+						<h2 className="font-semibold text-2xl">
+							Base simples para controle financeiro
+						</h2>
+						<p className="mt-4 text-slate-300">
+							Entre com email e senha para acessar seu painel financeiro isolado
+							por usuário.
+						</p>
+						<div className="mt-6 grid gap-3 text-slate-300 text-sm">
+							<p>• Compras no cartão são despesas.</p>
+							<p>• Pagamento de fatura é transferência para o cartão.</p>
+							<p>• Transações arquivadas não entram nos saldos padrão.</p>
+						</div>
+					</div>
+					<SignInForm />
+				</section>
 			</div>
-			<SignInForm />
-		</section>
+		</main>
 	);
 }
 
-function Panel({
-	title,
-	children,
+function Ranking({
+	rows,
 }: {
-	title: string;
-	children: React.ReactNode;
+	rows: { amountCents: number; count: number; label: string }[];
 }) {
-	return (
-		<section className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6">
-			<h2 className="mb-4 font-semibold text-xl">{title}</h2>
-			{children}
-		</section>
-	);
-}
+	const max = Math.max(...rows.map((row) => row.amountCents), 0);
+	if (rows.length === 0)
+		return <EmptyState text="Sem despesas confirmadas neste mês." />;
 
-function SummaryCard({ label, value }: { label: string; value: string }) {
 	return (
-		<div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
-			<p className="text-slate-400 text-sm">{label}</p>
-			<p className="mt-2 font-semibold text-2xl">{value}</p>
+		<div className="grid gap-3">
+			{rows.map((row) => (
+				<div
+					className="rounded-2xl border border-slate-800 bg-slate-950/50 p-4"
+					key={row.label}
+				>
+					<div className="flex items-start justify-between gap-4 text-sm">
+						<div>
+							<p className="font-medium text-slate-100">{row.label}</p>
+							<p className="text-slate-500 text-xs">
+								{row.count} transação(ões)
+							</p>
+						</div>
+						<p className="font-semibold">{formatMoney(row.amountCents)}</p>
+					</div>
+					<div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-800">
+						<div
+							className="h-full rounded-full bg-emerald-400"
+							style={{
+								width: `${max ? Math.max(4, (row.amountCents / max) * 100) : 0}%`,
+							}}
+						/>
+					</div>
+				</div>
+			))}
 		</div>
 	);
 }
 
-const inputClass =
-	"rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100";
+function AlertItem({ alert }: { alert: DashboardAlert }) {
+	const className = {
+		danger: "border-rose-900/80 bg-rose-950/30 text-rose-100",
+		info: "border-sky-900/80 bg-sky-950/30 text-sky-100",
+		warning: "border-amber-900/80 bg-amber-950/30 text-amber-100",
+	}[alert.kind];
 
-function TextInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
-	return <input className={inputClass} {...props} />;
+	return (
+		<div className={`rounded-2xl border p-4 ${className}`}>
+			<p className="font-medium">{alert.title}</p>
+			<p className="mt-1 text-sm opacity-80">{alert.message}</p>
+		</div>
+	);
 }
 
-function Select({
-	options,
-	...props
-}: React.SelectHTMLAttributes<HTMLSelectElement> & {
-	options: Record<string, string>;
+function EmptyState({ text }: { text: string }) {
+	return (
+		<p className="rounded-2xl border border-slate-800 bg-slate-950/50 p-4 text-slate-400 text-sm">
+			{text}
+		</p>
+	);
+}
+
+type DashboardAlert = {
+	kind: "danger" | "info" | "warning";
+	message: string;
+	title: string;
+};
+
+type AccountRow = typeof financialAccounts.$inferSelect;
+type TransactionRow = typeof transactions.$inferSelect;
+type ImportBatchRow = typeof importBatches.$inferSelect;
+type ImportRow = typeof importRows.$inferSelect;
+type BudgetRow = typeof monthlyBudgets.$inferSelect;
+
+type BudgetSummary = {
+	categoryOverBudget: {
+		budgetCents: number;
+		name: string;
+		spentCents: number;
+	}[];
+	description: string;
+	label: string;
+	variant: "bad" | "default" | "good" | "warn";
+};
+
+function buildBudgetSummary(
+	budgets: BudgetRow[],
+	categoryRanking: ReturnType<typeof rankMonthlyCategories>,
+	monthlyExpenseCents: number,
+): BudgetSummary {
+	const spentByCategory = new Map(
+		categoryRanking.map((row) => [row.categoryId, row]),
+	);
+	const categoryBudgets = budgets.filter(
+		(budget) => budget.scope === "category" && budget.categoryId,
+	);
+	if (categoryBudgets.length > 0) {
+		const budgetCents = categoryBudgets.reduce(
+			(total, budget) => total + budget.amountCents,
+			0,
+		);
+		const spentCents = categoryBudgets.reduce(
+			(total, budget) =>
+				total + (spentByCategory.get(budget.categoryId)?.amountCents ?? 0),
+			0,
+		);
+		const categoryOverBudget = categoryBudgets.flatMap((budget) => {
+			const spending = spentByCategory.get(budget.categoryId);
+			if (!spending || spending.amountCents <= budget.amountCents) return [];
+			return [
+				{
+					budgetCents: budget.amountCents,
+					name: spending.categoryName,
+					spentCents: spending.amountCents,
+				},
+			];
+		});
+		return {
+			categoryOverBudget,
+			description: `${formatMoney(spentCents)} de ${formatMoney(budgetCents)} em ${categoryBudgets.length} categoria(s).`,
+			label: formatPercent(spentCents / budgetCents),
+			variant: budgetVariant(spentCents, budgetCents),
+		};
+	}
+
+	const monthBudget = budgets.find((budget) => budget.scope === "month");
+	if (monthBudget) {
+		return {
+			categoryOverBudget: [],
+			description: `${formatMoney(monthlyExpenseCents)} de ${formatMoney(monthBudget.amountCents)} no mês.`,
+			label: formatPercent(monthlyExpenseCents / monthBudget.amountCents),
+			variant: budgetVariant(monthlyExpenseCents, monthBudget.amountCents),
+		};
+	}
+
+	return {
+		categoryOverBudget: [],
+		description: "Nenhum orçamento mensal cadastrado para este mês.",
+		label: "Não configurado",
+		variant: "warn",
+	};
+}
+
+function budgetVariant(spentCents: number, budgetCents: number) {
+	if (spentCents > budgetCents) return "bad";
+	if (spentCents >= budgetCents * 0.9) return "warn";
+	return "good";
+}
+
+function budgetAlerts(budgetSummary: BudgetSummary): DashboardAlert[] {
+	return budgetSummary.categoryOverBudget.map((category) => ({
+		kind: "danger",
+		message: `${category.name}: ${formatMoney(category.spentCents)} de ${formatMoney(category.budgetCents)} usados.`,
+		title: "Categoria acima do orçamento",
+	}));
+}
+
+function buildOpenInvoices(
+	accounts: AccountRow[],
+	allTransactions: TransactionRow[],
+	today: string,
+) {
+	const invoices = new Map<
+		string,
+		{
+			accountId: number;
+			accountName: string;
+			closingDate: string;
+			dueDate: string;
+			key: string;
+			totalCents: number;
+		}
+	>();
+
+	for (const account of accounts) {
+		if (account.type !== "credit_card") continue;
+		for (const transaction of allTransactions) {
+			if (
+				transaction.isArchived ||
+				transaction.status !== "confirmed" ||
+				transaction.accountId !== account.id ||
+				transaction.movementType !== "expense"
+			)
+				continue;
+			const invoice = getInvoiceForDate(
+				transaction.occurredOn,
+				account.creditCardClosingDay ?? 31,
+				account.creditCardDueDay ?? 10,
+			);
+			if (invoice.dueDate < today) continue;
+			const invoiceKey = `${account.id}:${invoice.key}`;
+			const saved = invoices.get(invoiceKey) ?? {
+				accountId: account.id,
+				accountName: account.name,
+				closingDate: invoice.closingDate,
+				dueDate: invoice.dueDate,
+				key: invoice.key,
+				totalCents: 0,
+			};
+			saved.totalCents += transaction.amountCents;
+			invoices.set(invoiceKey, saved);
+		}
+	}
+
+	return [...invoices.values()].sort((left, right) =>
+		left.dueDate.localeCompare(right.dueDate),
+	);
+}
+
+function invoiceAlerts(
+	invoices: ReturnType<typeof buildOpenInvoices>,
+	today: string,
+): DashboardAlert[] {
+	const limit = addDays(today, 7);
+	return invoices
+		.filter((invoice) => invoice.dueDate >= today && invoice.dueDate <= limit)
+		.map((invoice) => ({
+			kind: "warning",
+			message: `${invoice.accountName} vence em ${formatDate(invoice.dueDate)} com ${formatMoney(invoice.totalCents)} em compras estimadas.`,
+			title: "Fatura próxima do vencimento",
+		}));
+}
+
+function projectedAccountAlerts(
+	accounts: AccountRow[],
+	allTransactions: TransactionRow[],
+	balances: Map<number, { cardDebtCents: number; normalBalanceCents: number }>,
+	period: { end: string; start: string },
+): DashboardAlert[] {
+	const normalAccountTypes = new Set([
+		"checking",
+		"savings",
+		"cash",
+		"investment",
+	]);
+	const alerts: DashboardAlert[] = [];
+
+	for (const account of accounts) {
+		if (!normalAccountTypes.has(account.type)) continue;
+		let projected = balances.get(account.id)?.normalBalanceCents ?? 0;
+		for (const transaction of allTransactions) {
+			if (
+				transaction.isArchived ||
+				transaction.status !== "planned" ||
+				transaction.occurredOn < period.start ||
+				transaction.occurredOn > period.end ||
+				transaction.accountId !== account.id
+			)
+				continue;
+			if (transaction.movementType === "income")
+				projected += transaction.amountCents;
+			if (transaction.movementType === "expense")
+				projected -= transaction.amountCents;
+		}
+		if (projected < 0) {
+			alerts.push({
+				kind: "danger",
+				message: `${account.name} pode ficar em ${formatMoney(projected)} até o fim do mês.`,
+				title: "Conta com saldo projetado baixo",
+			});
+		}
+	}
+
+	return alerts;
+}
+
+function acceleratedSpendAlerts(
+	allTransactions: TransactionRow[],
+	period: { end: string; start: string },
+	previousPeriod: { end: string; start: string },
+	monthCutoff: string,
+): DashboardAlert[] {
+	const day = Number(monthCutoff.slice(8, 10));
+	const previousCutoff = clampDay(previousPeriod.start, day);
+	const currentExpense = expenseBetween(
+		allTransactions,
+		period.start,
+		monthCutoff,
+	);
+	const previousExpense = expenseBetween(
+		allTransactions,
+		previousPeriod.start,
+		previousCutoff,
+	);
+	if (previousExpense === 0 || currentExpense <= previousExpense * 1.3)
+		return [];
+	return [
+		{
+			kind: "warning",
+			message: `Despesas estão ${formatPercent(currentExpense / previousExpense - 1)} acima do mês anterior no mesmo recorte.`,
+			title: "Gasto acelerado",
+		},
+	];
+}
+
+function uncategorizedAlerts(uncategorizedCount: number): DashboardAlert[] {
+	if (uncategorizedCount === 0) return [];
+	return [
+		{
+			kind: "warning",
+			message: `${uncategorizedCount} transação(ões) confirmada(s) do mês precisam de categoria.`,
+			title: "Transações sem categoria",
+		},
+	];
+}
+
+function importAlerts(
+	pendingImports: ImportBatchRow[],
+	rows: ImportRow[],
+): DashboardAlert[] {
+	const rowsByBatch = new Map<number, ImportRow[]>();
+	for (const row of rows)
+		rowsByBatch.set(row.batchId, [
+			...(rowsByBatch.get(row.batchId) ?? []),
+			row,
+		]);
+	return pendingImports.flatMap((batch) => {
+		const batchRows = rowsByBatch.get(batch.id) ?? [];
+		const problemCount = batchRows.filter(
+			(row) => row.status === "duplicate" || row.status === "invalid",
+		).length;
+		const ratio = batchRows.length > 0 ? problemCount / batchRows.length : 0;
+		if (problemCount < 5 && ratio < 0.2) return [];
+		return [
+			{
+				kind: "warning",
+				message: `${batch.originalFileName}: ${problemCount} linha(s) duplicada(s) ou inválida(s).`,
+				title: "Importação precisa de revisão",
+			},
+		];
+	});
+}
+
+function buildInsights({
+	budgetSummary,
+	categoryRanking,
+	groupRanking,
+	monthlyTotals,
+	pendingImportCount,
+	previousTotals,
+	uncategorizedCount,
+}: {
+	budgetSummary: BudgetSummary;
+	categoryRanking: ReturnType<typeof rankMonthlyCategories>;
+	groupRanking: ReturnType<typeof rankMonthlyGroups>;
+	monthlyTotals: ReturnType<typeof calculateMonthlyTotals>;
+	pendingImportCount: number;
+	previousTotals: ReturnType<typeof calculateMonthlyTotals>;
+	uncategorizedCount: number;
 }) {
-	return (
-		<select className={inputClass} {...props}>
-			{Object.entries(options).map(([value, label]) => (
-				<option key={value} value={value}>
-					{label}
-				</option>
-			))}
-		</select>
+	const insights: string[] = [];
+	const topGroup = groupRanking[0];
+	const topCategory = categoryRanking[0];
+	if (topGroup)
+		insights.push(
+			`Maior grupo de despesa: ${topGroup.groupName}, com ${formatMoney(topGroup.amountCents)}.`,
+		);
+	if (topCategory)
+		insights.push(
+			`Maior categoria de despesa: ${topCategory.categoryName}, com ${formatMoney(topCategory.amountCents)}.`,
+		);
+	if (previousTotals.expenseCents > 0)
+		insights.push(
+			`Despesas estão ${formatPercent(monthlyTotals.expenseCents / previousTotals.expenseCents - 1)} em relação ao mês anterior.`,
+		);
+	if (monthlyTotals.transactionCount > 0)
+		insights.push(
+			`${formatPercent((monthlyTotals.transactionCount - uncategorizedCount) / monthlyTotals.transactionCount)} das transações financeiras do mês estão categorizadas.`,
+		);
+	if (budgetSummary.label !== "Não configurado")
+		insights.push(
+			`Orçamento usado no mês: ${budgetSummary.label} (${budgetSummary.description})`,
+		);
+	insights.push(
+		monthlyTotals.netCents >= 0
+			? `Resultado confirmado do mês está positivo em ${formatMoney(monthlyTotals.netCents)}.`
+			: `Resultado confirmado do mês está negativo em ${formatMoney(Math.abs(monthlyTotals.netCents))}.`,
+	);
+	if (pendingImportCount > 0)
+		insights.push(
+			`${pendingImportCount} importação(ões) aguardam revisão antes de virar transação definitiva.`,
+		);
+	return insights;
+}
+
+function previousMonthPeriod(monthKey: string) {
+	const [year, month] = monthKey.split("-").map(Number);
+	return getMonthPeriod(new Date(year ?? 0, (month ?? 1) - 2, 1));
+}
+
+function expenseBetween(
+	allTransactions: TransactionRow[],
+	start: string,
+	end: string,
+) {
+	return allTransactions.reduce((total, transaction) => {
+		if (
+			transaction.isArchived ||
+			transaction.status !== "confirmed" ||
+			transaction.movementType !== "expense" ||
+			transaction.occurredOn < start ||
+			transaction.occurredOn > end
+		)
+			return total;
+		return total + transaction.amountCents;
+	}, 0);
+}
+
+function clampDay(monthStart: string, day: number) {
+	const [year, month] = monthStart.split("-").map(Number);
+	const date = new Date(year ?? 0, (month ?? 1) - 1, 1);
+	const lastDay = new Date(
+		date.getFullYear(),
+		date.getMonth() + 1,
+		0,
+	).getDate();
+	return toIsoDate(
+		new Date(date.getFullYear(), date.getMonth(), Math.min(day, lastDay)),
 	);
 }
 
-function SubmitButton({ children }: { children: React.ReactNode }) {
-	return (
-		<button
-			className="rounded-xl bg-emerald-500 px-4 py-2 font-medium text-slate-950 text-sm"
-			type="submit"
-		>
-			{children}
-		</button>
-	);
+function addDays(value: string, amount: number) {
+	const date = parseIsoDate(value);
+	date.setDate(date.getDate() + amount);
+	return toIsoDate(date);
 }
 
-function formatMoney(cents: number) {
-	return new Intl.NumberFormat("pt-BR", {
-		currency: "BRL",
-		style: "currency",
-	}).format(cents / 100);
+function parseIsoDate(value: string) {
+	const [year, month, day] = value.split("-").map(Number);
+	return new Date(year ?? 0, (month ?? 1) - 1, day ?? 1);
 }
 
-function formatMoneyInput(cents: number) {
-	return (cents / 100).toFixed(2).replace(".", ",");
-}
-
-function formatDate(value: string) {
-	return new Intl.DateTimeFormat("pt-BR", { timeZone: "UTC" }).format(
-		new Date(`${value}T00:00:00Z`),
-	);
+function toIsoDate(date: Date) {
+	return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }

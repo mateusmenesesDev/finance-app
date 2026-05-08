@@ -9,6 +9,7 @@ import {
 	importCategoryRules,
 	importRows,
 	importTemplates,
+	monthlyBudgets,
 	transactions,
 	user,
 } from "~/server/db/schema";
@@ -24,6 +25,7 @@ const DEMO_EMAIL = "demo@finance.local";
 const DEMO_PASSWORD = "Demo@123456";
 type AccountKey = "corrente" | "poupanca" | "carteira" | "cartao" | "invest";
 type InsertTransaction = typeof transactions.$inferInsert;
+type InsertBudget = typeof monthlyBudgets.$inferInsert;
 type ImportRowRecord = typeof importRows.$inferInsert;
 
 type CreatedAccount = typeof financialAccounts.$inferSelect;
@@ -81,6 +83,7 @@ const resetDemoFinanceData = async (userId: string) => {
 	await db
 		.delete(importCategoryRules)
 		.where(eq(importCategoryRules.userId, userId));
+	await db.delete(monthlyBudgets).where(eq(monthlyBudgets.userId, userId));
 	await db.delete(categories).where(eq(categories.userId, userId));
 	await db.delete(categoryGroups).where(eq(categoryGroups.userId, userId));
 	await db
@@ -341,6 +344,74 @@ const buildTransactions = (
 	return rows;
 };
 
+const seedBudgets = async (
+	userId: string,
+	cats: Record<CategoryKey, CreatedCategory>,
+) => {
+	const monthKey = ymd(monthStart(0)).slice(0, 7);
+	const rows: InsertBudget[] = [
+		{ userId, monthKey, scope: "month", amountCents: cents(8200) },
+		{
+			userId,
+			monthKey,
+			scope: "category",
+			categoryId: cats.mercado.id,
+			amountCents: cents(700),
+		},
+		{
+			userId,
+			monthKey,
+			scope: "category",
+			categoryId: cats.restaurante.id,
+			amountCents: cents(220),
+		},
+		{
+			userId,
+			monthKey,
+			scope: "category",
+			categoryId: cats.aluguel.id,
+			amountCents: cents(2500),
+		},
+		{
+			userId,
+			monthKey,
+			scope: "category",
+			categoryId: cats.energia.id,
+			amountCents: cents(260),
+		},
+		{
+			userId,
+			monthKey,
+			scope: "category",
+			categoryId: cats.internet.id,
+			amountCents: cents(140),
+		},
+		{
+			userId,
+			monthKey,
+			scope: "category",
+			categoryId: cats.uber.id,
+			amountCents: cents(80),
+		},
+		{
+			userId,
+			monthKey,
+			scope: "category",
+			categoryId: cats.streaming.id,
+			amountCents: cents(50),
+		},
+		{
+			userId,
+			monthKey,
+			scope: "category",
+			categoryId: cats.farmacia.id,
+			amountCents: cents(120),
+		},
+	];
+
+	await db.insert(monthlyBudgets).values(rows);
+};
+
 const seedImportDemo = async (
 	userId: string,
 	accounts: Record<AccountKey, CreatedAccount>,
@@ -584,10 +655,11 @@ const main = async () => {
 	const cats = await seedCategories(demoUser.id);
 	const baseTransactions = buildTransactions(demoUser.id, accounts, cats);
 	await db.insert(transactions).values(baseTransactions);
+	await seedBudgets(demoUser.id, cats);
 	await seedImportDemo(demoUser.id, accounts, cats);
 
 	console.log(
-		`Seed local concluído para ${DEMO_EMAIL}: 5 contas, 11 grupos, 39 categorias, ${baseTransactions.length} transações base + 1 transação importada.`,
+		`Seed local concluído para ${DEMO_EMAIL}: 5 contas, 11 grupos, 39 categorias, 9 orçamentos, ${baseTransactions.length} transações base + 1 transação importada.`,
 	);
 };
 
