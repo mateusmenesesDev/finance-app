@@ -4,6 +4,7 @@ import { and, eq, or } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
+import { matchImportCategoryRule } from "~/lib/import-category-rules";
 import {
 	defaultTemplateConfig,
 	duplicateKey,
@@ -19,6 +20,7 @@ import {
 	categoryGroups,
 	financialAccounts,
 	importBatches,
+	importCategoryRules,
 	importRows,
 	importTemplates,
 	transactions,
@@ -43,6 +45,7 @@ type TransactionStatus =
 	| "duplicate"
 	| "pending_review";
 type CategoryKind = "income" | "expense";
+type ImportRuleTextMatchMode = "contains" | "exact";
 
 const accountTypes = new Set<AccountType>([
 	"checking",
@@ -69,6 +72,10 @@ const transactionStatuses = new Set<TransactionStatus>([
 ]);
 
 const categoryKinds = new Set<CategoryKind>(["income", "expense"]);
+const importRuleTextMatchModes = new Set<ImportRuleTextMatchMode>([
+	"contains",
+	"exact",
+]);
 const importMovementTypes = new Set<"income" | "expense">([
 	"income",
 	"expense",
@@ -664,6 +671,234 @@ export async function archiveImportTemplate(formData: FormData) {
 	revalidatePath("/import");
 }
 
+async function activeImportRules(userId: string) {
+	const [rules, activeCategories, activeAccounts] = await Promise.all([
+		db
+			.select()
+			.from(importCategoryRules)
+			.where(
+				and(
+					eq(importCategoryRules.userId, userId),
+					eq(importCategoryRules.isArchived, false),
+				),
+			),
+		db
+			.select()
+			.from(categories)
+			.where(
+				and(eq(categories.userId, userId), eq(categories.isArchived, false)),
+			),
+		db
+			.select()
+			.from(financialAccounts)
+			.where(
+				and(
+					eq(financialAccounts.userId, userId),
+					eq(financialAccounts.isArchived, false),
+				),
+			),
+	]);
+	const categoryById = new Map(
+		activeCategories.map((category) => [category.id, category]),
+	);
+	const accountIds = new Set(activeAccounts.map((account) => account.id));
+	return rules.filter((rule) => {
+		const category = categoryById.get(rule.categoryId);
+		return (
+			category &&
+			category.kind === rule.movementType &&
+			(rule.accountId === null || accountIds.has(rule.accountId))
+		);
+	});
+}
+
+async function reprocessReviewingImportRows(userId: string) {
+	const reviewingBatches = await db
+		.select({ id: importBatches.id })
+		.from(importBatches)
+		.where(
+			and(
+				eq(importBatches.userId, userId),
+				eq(importBatches.status, "reviewing"),
+			),
+		);
+	const rows = await db
+		.select({
+			id: importRows.id,
+			batchId: importRows.batchId,
+			accountId: importRows.accountId,
+			movementType: importRows.movementType,
+			normalizedDescription: importRows.normalizedDescription,
+			amountCents: importRows.amountCents,
+		})
+		.from(importRows)
+		.innerJoin(importBatches, eq(importRows.batchId, importBatches.id))
+		.where(
+			and(
+				eq(importRows.userId, userId),
+				eq(importRows.status, "pending_review"),
+				eq(importBatches.status, "reviewing"),
+			),
+		);
+	const rules = await activeImportRules(userId);
+	const suggestionCounts = new Map<number, number>();
+	for (const row of rows) {
+		const rule = matchImportCategoryRule(row, rules);
+		if (rule) {
+			suggestionCounts.set(
+				row.batchId,
+				(suggestionCounts.get(row.batchId) ?? 0) + 1,
+			);
+		}
+		await db
+			.update(importRows)
+			.set({
+				suggestedCategoryId: rule?.categoryId ?? null,
+				suggestedRuleId: rule?.id ?? null,
+				suggestionSource: rule ? "rule" : null,
+			})
+			.where(and(eq(importRows.id, row.id), eq(importRows.userId, userId)));
+	}
+	for (const batch of reviewingBatches) {
+		await db
+			.update(importBatches)
+			.set({ suggestionCount: suggestionCounts.get(batch.id) ?? 0 })
+			.where(
+				and(eq(importBatches.id, batch.id), eq(importBatches.userId, userId)),
+			);
+	}
+}
+
+async function createImportRuleIfMissing(input: {
+	userId: string;
+	categoryId: number;
+	accountId: number | null;
+	movementType: "income" | "expense";
+	description: string;
+	textMatchMode: "contains" | "exact";
+	amountCents: number | null;
+	amountToleranceCents: number | null;
+	priority: number;
+}) {
+	const normalizedDescription = normalizeDescription(input.description);
+	if (!normalizedDescription) return;
+	const existing = await db
+		.select()
+		.from(importCategoryRules)
+		.where(eq(importCategoryRules.userId, input.userId));
+	if (
+		existing.some(
+			(rule) =>
+				rule.categoryId === input.categoryId &&
+				rule.accountId === input.accountId &&
+				rule.movementType === input.movementType &&
+				rule.textMatchMode === input.textMatchMode &&
+				rule.normalizedDescription === normalizedDescription &&
+				rule.amountCents === input.amountCents &&
+				rule.amountToleranceCents === input.amountToleranceCents,
+		)
+	) {
+		return;
+	}
+	await db.insert(importCategoryRules).values({
+		userId: input.userId,
+		categoryId: input.categoryId,
+		accountId: input.accountId,
+		movementType: input.movementType,
+		normalizedDescription,
+		textMatchMode: input.textMatchMode,
+		amountCents: input.amountCents,
+		amountToleranceCents: input.amountToleranceCents,
+		priority: input.priority,
+	});
+}
+
+export async function createImportCategoryRule(formData: FormData) {
+	const userId = await requireUserId();
+	const categoryId = intField(formData, "categoryId");
+	const movementType = enumField(formData, "movementType", importMovementTypes);
+	const textMatchMode = enumField(
+		formData,
+		"textMatchMode",
+		importRuleTextMatchModes,
+	);
+	const normalizedDescription = normalizeDescription(
+		requiredString(formData, "description"),
+	);
+	if (!normalizedDescription) throw new Error("Texto da regra obrigatório");
+	const accountId = optionalIntField(formData, "accountId");
+	const amountValue = optionalString(formData, "amount");
+	const amountCents = amountValue
+		? moneyToCents(amountValue, { allowZero: false })
+		: null;
+	const toleranceValue = optionalString(formData, "amountTolerance");
+	if (toleranceValue && !amountCents) {
+		throw new Error("Valor aproximado obrigatório para usar tolerância");
+	}
+	const amountToleranceCents = toleranceValue
+		? moneyToCents(toleranceValue, { allowZero: true })
+		: null;
+	const priority = optionalIntField(formData, "priority") ?? 0;
+	const [category, account] = await Promise.all([
+		db.query.categories.findFirst({
+			where: and(
+				eq(categories.id, categoryId),
+				eq(categories.userId, userId),
+				eq(categories.isArchived, false),
+			),
+		}),
+		accountId
+			? db.query.financialAccounts.findFirst({
+					where: and(
+						eq(financialAccounts.id, accountId),
+						eq(financialAccounts.userId, userId),
+						eq(financialAccounts.isArchived, false),
+					),
+				})
+			: Promise.resolve(null),
+	]);
+	if (!category || category.kind !== movementType)
+		throw new Error("Categoria inválida");
+	if (accountId && !account) throw new Error("Conta inválida");
+	const before = await db
+		.select({ id: importCategoryRules.id })
+		.from(importCategoryRules)
+		.where(eq(importCategoryRules.userId, userId));
+	await createImportRuleIfMissing({
+		userId,
+		categoryId,
+		accountId,
+		movementType,
+		description: normalizedDescription,
+		textMatchMode,
+		amountCents,
+		amountToleranceCents,
+		priority,
+	});
+	const after = await db
+		.select({ id: importCategoryRules.id })
+		.from(importCategoryRules)
+		.where(eq(importCategoryRules.userId, userId));
+	if (after.length === before.length) throw new Error("Regra duplicada");
+	await reprocessReviewingImportRows(userId);
+	revalidatePath("/import");
+}
+
+export async function archiveImportCategoryRule(formData: FormData) {
+	const userId = await requireUserId();
+	await db
+		.update(importCategoryRules)
+		.set({ isArchived: true })
+		.where(
+			and(
+				eq(importCategoryRules.id, intField(formData, "id")),
+				eq(importCategoryRules.userId, userId),
+			),
+		);
+	await reprocessReviewingImportRows(userId);
+	revalidatePath("/import");
+}
+
 export async function createImportBatch(formData: FormData) {
 	const userId = await requireUserId();
 	const accountId = intField(formData, "accountId");
@@ -783,6 +1018,7 @@ export async function createImportBatch(formData: FormData) {
 			),
 	);
 	const fileKeys = new Set<string>();
+	const rules = await activeImportRules(userId);
 
 	const [batch] = await db
 		.insert(importBatches)
@@ -799,6 +1035,8 @@ export async function createImportBatch(formData: FormData) {
 		.returning();
 	if (!batch) throw new Error("Não foi possível criar importação");
 
+	let suggestionCount = 0;
+	const suggestedRuleMatchCounts = new Map<number, number>();
 	if (parsedRows.length > 0) {
 		await db.insert(importRows).values(
 			parsedRows.map((row) => {
@@ -824,6 +1062,17 @@ export async function createImportBatch(formData: FormData) {
 					fileKeys.add(key);
 				}
 				if (duplicateReason) rowStatus = "duplicate";
+				const suggestion =
+					rowStatus === "pending_review"
+						? matchImportCategoryRule({ ...row, accountId }, rules)
+						: null;
+				if (suggestion) {
+					suggestionCount++;
+					suggestedRuleMatchCounts.set(
+						suggestion.id,
+						(suggestedRuleMatchCounts.get(suggestion.id) ?? 0) + 1,
+					);
+				}
 				return {
 					userId,
 					batchId: batch.id,
@@ -837,6 +1086,9 @@ export async function createImportBatch(formData: FormData) {
 					normalizedDescription: row.normalizedDescription,
 					externalId: row.externalId,
 					bankCategory: row.bankCategory,
+					suggestedCategoryId: suggestion?.categoryId ?? null,
+					suggestedRuleId: suggestion?.id ?? null,
+					suggestionSource: suggestion ? "rule" : null,
 					validationError:
 						[row.validationError, duplicateReason].filter(Boolean).join("; ") ||
 						null,
@@ -844,6 +1096,27 @@ export async function createImportBatch(formData: FormData) {
 				};
 			}),
 		);
+	}
+	if (suggestionCount > 0) {
+		await db
+			.update(importBatches)
+			.set({ suggestionCount })
+			.where(
+				and(eq(importBatches.id, batch.id), eq(importBatches.userId, userId)),
+			);
+		for (const [ruleId, count] of suggestedRuleMatchCounts) {
+			const rule = rules.find((candidate) => candidate.id === ruleId);
+			if (!rule) continue;
+			await db
+				.update(importCategoryRules)
+				.set({ matchCount: rule.matchCount + count })
+				.where(
+					and(
+						eq(importCategoryRules.id, ruleId),
+						eq(importCategoryRules.userId, userId),
+					),
+				);
+		}
 	}
 
 	revalidatePath("/import");
@@ -886,8 +1159,14 @@ export async function confirmImportBatch(formData: FormData) {
 		activeCategories.map((category) => [category.id, category]),
 	);
 	const bulkCategoryId = optionalIntField(formData, "bulkCategoryId");
+	const rulesFromCorrections: Parameters<
+		typeof createImportRuleIfMissing
+	>[0][] = [];
 
 	await db.transaction(async (tx) => {
+		let suggestionAcceptedCount = 0;
+		let suggestionRejectedCount = 0;
+		let suggestionOverriddenCount = 0;
 		for (const row of rows) {
 			const decision = formData.get(`row-${row.id}-decision`)?.toString();
 			if (!decision)
@@ -935,6 +1214,17 @@ export async function confirmImportBatch(formData: FormData) {
 			const category = categoryId ? categoriesById.get(categoryId) : null;
 			if (!category)
 				throw new Error(`Categoria obrigatória na linha ${row.rowNumber}`);
+			const acceptedRuleId =
+				row.suggestedCategoryId && category.id === row.suggestedCategoryId
+					? row.suggestedRuleId
+					: null;
+			if (row.suggestedCategoryId) {
+				if (acceptedRuleId) suggestionAcceptedCount++;
+				else {
+					suggestionRejectedCount++;
+					suggestionOverriddenCount++;
+				}
+			}
 			if (category.kind !== movementType) {
 				throw new Error(`Categoria incompatível na linha ${row.rowNumber}`);
 			}
@@ -943,11 +1233,25 @@ export async function confirmImportBatch(formData: FormData) {
 				row.originalDescription ||
 				row.normalizedDescription ||
 				"Importação CSV";
+			if (formData.get(`row-${row.id}-createRule`) === "on") {
+				rulesFromCorrections.push({
+					userId,
+					categoryId: category.id,
+					accountId,
+					movementType,
+					description,
+					textMatchMode: "contains",
+					amountCents: null,
+					amountToleranceCents: null,
+					priority: 0,
+				});
+			}
 
 			await tx.insert(transactions).values({
 				userId,
 				accountId,
 				categoryId,
+				categoryRuleId: acceptedRuleId,
 				importBatchId: batch.id,
 				importRowId: row.id,
 				movementType,
@@ -971,11 +1275,23 @@ export async function confirmImportBatch(formData: FormData) {
 		}
 		await tx
 			.update(importBatches)
-			.set({ status: "confirmed", confirmedAt: new Date() })
+			.set({
+				status: "confirmed",
+				confirmedAt: new Date(),
+				suggestionAcceptedCount,
+				suggestionRejectedCount,
+				suggestionOverriddenCount,
+			})
 			.where(
 				and(eq(importBatches.id, batch.id), eq(importBatches.userId, userId)),
 			);
 	});
+
+	for (const rule of rulesFromCorrections) {
+		await createImportRuleIfMissing(rule);
+	}
+	if (rulesFromCorrections.length > 0)
+		await reprocessReviewingImportRows(userId);
 
 	revalidatePath("/");
 	revalidatePath("/import");

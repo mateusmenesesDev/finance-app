@@ -67,6 +67,11 @@ export const importRowStatus = pgEnum("finance_app_import_row_status", [
 	"imported",
 ]);
 
+export const importRuleTextMatchMode = pgEnum(
+	"finance_app_import_rule_text_match_mode",
+	["contains", "exact"],
+);
+
 export const user = pgTable("user", {
 	id: text("id").primaryKey(),
 	name: text("name").notNull(),
@@ -288,6 +293,16 @@ export const importBatches = createFinanceTable(
 		sourceLabel: varchar("source_label", { length: 120 }),
 		rowCount: integer("row_count").notNull().default(0),
 		rawFileStored: boolean("raw_file_stored").notNull().default(false),
+		suggestionCount: integer("suggestion_count").notNull().default(0),
+		suggestionAcceptedCount: integer("suggestion_accepted_count")
+			.notNull()
+			.default(0),
+		suggestionRejectedCount: integer("suggestion_rejected_count")
+			.notNull()
+			.default(0),
+		suggestionOverriddenCount: integer("suggestion_overridden_count")
+			.notNull()
+			.default(0),
 		createdAt: timestamp("created_at", { withTimezone: true })
 			.$defaultFn(() => new Date())
 			.notNull(),
@@ -336,6 +351,9 @@ export const importRows = createFinanceTable(
 		normalizedDescription: text("normalized_description"),
 		externalId: varchar("external_id", { length: 255 }),
 		bankCategory: varchar("bank_category", { length: 120 }),
+		suggestedCategoryId: integer("suggested_category_id"),
+		suggestedRuleId: integer("suggested_rule_id"),
+		suggestionSource: varchar("suggestion_source", { length: 40 }),
 		validationError: text("validation_error"),
 		parsedData: jsonb("parsed_data"),
 		createdAt: timestamp("created_at", { withTimezone: true })
@@ -361,9 +379,78 @@ export const importRows = createFinanceTable(
 			foreignColumns: [financialAccounts.id, financialAccounts.userId],
 			name: "finance_app_import_rows_account_user_fk",
 		}),
+		foreignKey({
+			columns: [t.suggestedCategoryId, t.userId],
+			foreignColumns: [categories.id, categories.userId],
+			name: "finance_app_import_rows_suggested_category_user_fk",
+		}),
 		check(
 			"finance_app_import_rows_amount_cents_positive",
 			sql`${t.amountCents} IS NULL OR ${t.amountCents} > 0`,
+		),
+	],
+);
+
+export const importCategoryRules = createFinanceTable(
+	"import_category_rules",
+	{
+		id: integer().primaryKey().generatedByDefaultAsIdentity(),
+		userId: text("user_id")
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
+		categoryId: integer("category_id").notNull(),
+		accountId: integer("account_id"),
+		movementType: movementType("movement_type").notNull(),
+		normalizedDescription: text("normalized_description").notNull(),
+		textMatchMode: importRuleTextMatchMode("text_match_mode")
+			.notNull()
+			.default("contains"),
+		amountCents: integer("amount_cents"),
+		amountToleranceCents: integer("amount_tolerance_cents"),
+		priority: integer("priority").notNull().default(0),
+		matchCount: integer("match_count").notNull().default(0),
+		acceptedCount: integer("accepted_count").notNull().default(0),
+		rejectedCount: integer("rejected_count").notNull().default(0),
+		overriddenCount: integer("overridden_count").notNull().default(0),
+		isArchived: boolean("is_archived").notNull().default(false),
+		createdAt: timestamp("created_at", { withTimezone: true })
+			.$defaultFn(() => new Date())
+			.notNull(),
+		updatedAt: timestamp("updated_at", { withTimezone: true }).$onUpdate(
+			() => new Date(),
+		),
+	},
+	(t) => [
+		index("finance_app_import_category_rules_user_idx").on(t.userId),
+		index("finance_app_import_category_rules_user_archived_idx").on(
+			t.userId,
+			t.isArchived,
+		),
+		unique("finance_app_import_category_rules_id_user_unique").on(
+			t.id,
+			t.userId,
+		),
+		foreignKey({
+			columns: [t.categoryId, t.userId],
+			foreignColumns: [categories.id, categories.userId],
+			name: "finance_app_import_category_rules_category_user_fk",
+		}),
+		foreignKey({
+			columns: [t.accountId, t.userId],
+			foreignColumns: [financialAccounts.id, financialAccounts.userId],
+			name: "finance_app_import_category_rules_account_user_fk",
+		}),
+		check(
+			"finance_app_import_category_rules_type_valid",
+			sql`${t.movementType} IN ('income', 'expense')`,
+		),
+		check(
+			"finance_app_import_category_rules_amount_cents_positive",
+			sql`${t.amountCents} IS NULL OR ${t.amountCents} > 0`,
+		),
+		check(
+			"finance_app_import_category_rules_amount_tolerance_non_negative",
+			sql`${t.amountToleranceCents} IS NULL OR ${t.amountToleranceCents} >= 0`,
 		),
 	],
 );
@@ -378,6 +465,7 @@ export const transactions = createFinanceTable(
 		accountId: integer("account_id").notNull(),
 		destinationAccountId: integer("destination_account_id"),
 		categoryId: integer("category_id"),
+		categoryRuleId: integer("category_rule_id"),
 		importBatchId: integer("import_batch_id"),
 		importRowId: integer("import_row_id"),
 		movementType: movementType("movement_type").notNull(),
@@ -408,6 +496,10 @@ export const transactions = createFinanceTable(
 			t.userId,
 			t.categoryId,
 		),
+		index("finance_app_transactions_user_category_rule_idx").on(
+			t.userId,
+			t.categoryRuleId,
+		),
 		index("finance_app_transactions_user_type_date_idx").on(
 			t.userId,
 			t.movementType,
@@ -437,6 +529,11 @@ export const transactions = createFinanceTable(
 			name: "finance_app_transactions_category_user_fk",
 		}),
 		foreignKey({
+			columns: [t.categoryRuleId, t.userId],
+			foreignColumns: [importCategoryRules.id, importCategoryRules.userId],
+			name: "finance_app_transactions_category_rule_user_fk",
+		}),
+		foreignKey({
 			columns: [t.importBatchId, t.userId],
 			foreignColumns: [importBatches.id, importBatches.userId],
 			name: "finance_app_transactions_import_batch_user_fk",
@@ -463,6 +560,7 @@ export const userRelations = relations(user, ({ many }) => ({
 	importTemplates: many(importTemplates),
 	importBatches: many(importBatches),
 	importRows: many(importRows),
+	importCategoryRules: many(importCategoryRules),
 }));
 
 export const accountRelations = relations(account, ({ one }) => ({
@@ -486,6 +584,7 @@ export const financialAccountRelations = relations(
 		}),
 		importBatches: many(importBatches),
 		importRows: many(importRows),
+		importCategoryRules: many(importCategoryRules),
 	}),
 );
 
@@ -504,6 +603,7 @@ export const categoryRelations = relations(categories, ({ many, one }) => ({
 		references: [categoryGroups.id],
 	}),
 	transactions: many(transactions),
+	importCategoryRules: many(importCategoryRules),
 }));
 
 export const importTemplateRelations = relations(
@@ -544,7 +644,33 @@ export const importRowRelations = relations(importRows, ({ one }) => ({
 		fields: [importRows.accountId],
 		references: [financialAccounts.id],
 	}),
+	suggestedCategory: one(categories, {
+		fields: [importRows.suggestedCategoryId],
+		references: [categories.id],
+	}),
+	suggestedRule: one(importCategoryRules, {
+		fields: [importRows.suggestedRuleId],
+		references: [importCategoryRules.id],
+	}),
 }));
+
+export const importCategoryRuleRelations = relations(
+	importCategoryRules,
+	({ one }) => ({
+		user: one(user, {
+			fields: [importCategoryRules.userId],
+			references: [user.id],
+		}),
+		category: one(categories, {
+			fields: [importCategoryRules.categoryId],
+			references: [categories.id],
+		}),
+		account: one(financialAccounts, {
+			fields: [importCategoryRules.accountId],
+			references: [financialAccounts.id],
+		}),
+	}),
+);
 
 export const transactionRelations = relations(transactions, ({ one }) => ({
 	user: one(user, { fields: [transactions.userId], references: [user.id] }),
@@ -561,6 +687,10 @@ export const transactionRelations = relations(transactions, ({ one }) => ({
 	category: one(categories, {
 		fields: [transactions.categoryId],
 		references: [categories.id],
+	}),
+	categoryRule: one(importCategoryRules, {
+		fields: [transactions.categoryRuleId],
+		references: [importCategoryRules.id],
 	}),
 	importBatch: one(importBatches, {
 		fields: [transactions.importBatchId],

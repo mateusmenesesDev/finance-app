@@ -3,10 +3,12 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import {
+	archiveImportCategoryRule,
 	archiveImportTemplate,
 	cancelImportBatch,
 	confirmImportBatch,
 	createImportBatch,
+	createImportCategoryRule,
 	createImportTemplate,
 	revertImportBatch,
 	updateImportTemplate,
@@ -21,6 +23,7 @@ import {
 	categories,
 	financialAccounts,
 	importBatches,
+	importCategoryRules,
 	importRows,
 	importTemplates,
 } from "~/server/db/schema";
@@ -46,28 +49,37 @@ export default async function ImportPage({ searchParams }: ImportPageProps) {
 
 	const params = await searchParams;
 	const selectedBatchId = params?.batchId ? Number(params.batchId) : null;
-	const [accounts, activeCategories, templates, batches] = await Promise.all([
-		db
-			.select()
-			.from(financialAccounts)
-			.where(eq(financialAccounts.userId, session.user.id))
-			.orderBy(asc(financialAccounts.name)),
-		db
-			.select()
-			.from(categories)
-			.where(eq(categories.userId, session.user.id))
-			.orderBy(asc(categories.kind), asc(categories.name)),
-		db
-			.select()
-			.from(importTemplates)
-			.where(eq(importTemplates.userId, session.user.id))
-			.orderBy(asc(importTemplates.name)),
-		db
-			.select()
-			.from(importBatches)
-			.where(eq(importBatches.userId, session.user.id))
-			.orderBy(desc(importBatches.createdAt), desc(importBatches.id)),
-	]);
+	const [accounts, activeCategories, templates, batches, rules] =
+		await Promise.all([
+			db
+				.select()
+				.from(financialAccounts)
+				.where(eq(financialAccounts.userId, session.user.id))
+				.orderBy(asc(financialAccounts.name)),
+			db
+				.select()
+				.from(categories)
+				.where(eq(categories.userId, session.user.id))
+				.orderBy(asc(categories.kind), asc(categories.name)),
+			db
+				.select()
+				.from(importTemplates)
+				.where(eq(importTemplates.userId, session.user.id))
+				.orderBy(asc(importTemplates.name)),
+			db
+				.select()
+				.from(importBatches)
+				.where(eq(importBatches.userId, session.user.id))
+				.orderBy(desc(importBatches.createdAt), desc(importBatches.id)),
+			db
+				.select()
+				.from(importCategoryRules)
+				.where(eq(importCategoryRules.userId, session.user.id))
+				.orderBy(
+					desc(importCategoryRules.createdAt),
+					desc(importCategoryRules.id),
+				),
+		]);
 	const selectedBatch = selectedBatchId
 		? batches.find((batch) => batch.id === selectedBatchId)
 		: batches[0];
@@ -93,6 +105,9 @@ export default async function ImportPage({ searchParams }: ImportPageProps) {
 	const activeTemplates = templates.filter((template) => !template.isArchived);
 	const usableCategories = activeCategories.filter(
 		(category) => !category.isArchived,
+	);
+	const categoryById = new Map(
+		activeCategories.map((category) => [category.id, category]),
 	);
 
 	return (
@@ -283,6 +298,14 @@ export default async function ImportPage({ searchParams }: ImportPageProps) {
 					</Panel>
 				</section>
 
+				<ImportRulePanel
+					accountById={accountById}
+					categoryById={categoryById}
+					ruleAccounts={usableAccounts}
+					ruleCategories={usableCategories}
+					rules={rules}
+				/>
+
 				<section className="grid gap-6 xl:grid-cols-[0.35fr_0.65fr]">
 					<Panel title="Histórico de lotes">
 						<div className="grid gap-2">
@@ -330,6 +353,7 @@ export default async function ImportPage({ searchParams }: ImportPageProps) {
 							<BatchReview
 								reviewAccounts={usableAccounts}
 								reviewCategories={usableCategories}
+								reviewRules={rules}
 								rows={rows}
 								selectedBatch={selectedBatch}
 							/>
@@ -487,17 +511,127 @@ function TemplateCard({
 	);
 }
 
+function ImportRulePanel({
+	ruleAccounts,
+	accountById,
+	ruleCategories,
+	categoryById,
+	rules,
+}: {
+	ruleAccounts: (typeof financialAccounts.$inferSelect)[];
+	accountById: Map<number, typeof financialAccounts.$inferSelect>;
+	ruleCategories: (typeof categories.$inferSelect)[];
+	categoryById: Map<number, typeof categories.$inferSelect>;
+	rules: (typeof importCategoryRules.$inferSelect)[];
+}) {
+	const activeRules = rules.filter((rule) => !rule.isArchived);
+	return (
+		<Panel title="Regras de categorização">
+			<form
+				action={createImportCategoryRule}
+				className="grid gap-3 md:grid-cols-6"
+			>
+				<TextInput
+					className={`${inputClass} md:col-span-2`}
+					name="description"
+					placeholder="Texto normalizado/estabelecimento"
+					required
+				/>
+				<Select
+					defaultValue="contains"
+					name="textMatchMode"
+					options={{ contains: "Contém", exact: "Exato" }}
+				/>
+				<Select
+					defaultValue="expense"
+					name="movementType"
+					options={{ expense: "Despesa", income: "Receita" }}
+				/>
+				<TextInput name="amount" placeholder="Valor aprox. opcional" />
+				<TextInput name="amountTolerance" placeholder="Tolerância opcional" />
+				<TextInput name="priority" placeholder="Prioridade" />
+				<select className={inputClass} name="accountId">
+					<option value="">Qualquer conta</option>
+					{ruleAccounts.map((account) => (
+						<option key={account.id} value={account.id}>
+							{account.name}
+						</option>
+					))}
+				</select>
+				<select
+					className={`${inputClass} md:col-span-2`}
+					name="categoryId"
+					required
+				>
+					<option value="">Categoria ativa e compatível</option>
+					{ruleCategories.map((category) => (
+						<option key={category.id} value={category.id}>
+							{category.name} ·{" "}
+							{category.kind === "income" ? "receita" : "despesa"}
+						</option>
+					))}
+				</select>
+				<button
+					className="rounded-xl bg-emerald-400 px-4 py-2 font-semibold text-slate-950 md:col-span-2"
+					type="submit"
+				>
+					Criar regra
+				</button>
+			</form>
+			<div className="mt-4 grid gap-2">
+				{activeRules.map((rule) => {
+					const category = categoryById.get(rule.categoryId);
+					const account = rule.accountId
+						? accountById.get(rule.accountId)
+						: null;
+					return (
+						<div
+							className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-800 p-3 text-sm"
+							key={rule.id}
+						>
+							<p>
+								<span className="font-medium">
+									{rule.normalizedDescription}
+								</span>{" "}
+								· {rule.textMatchMode} · {rule.movementType} ·{" "}
+								{account?.name ?? "qualquer conta"} ·{" "}
+								{category?.name ?? "categoria arquivada"} · prioridade{" "}
+								{rule.priority}
+							</p>
+							<form action={archiveImportCategoryRule}>
+								<input name="id" type="hidden" value={rule.id} />
+								<button
+									className="rounded-xl border border-rose-900 px-3 py-2 text-rose-200"
+									type="submit"
+								>
+									Arquivar
+								</button>
+							</form>
+						</div>
+					);
+				})}
+				{activeRules.length === 0 && (
+					<p className="text-slate-400 text-sm">Sem regras ativas.</p>
+				)}
+			</div>
+		</Panel>
+	);
+}
+
 function BatchReview({
 	selectedBatch,
 	rows,
 	reviewAccounts,
 	reviewCategories,
+	reviewRules,
 }: {
 	selectedBatch: typeof importBatches.$inferSelect;
 	rows: (typeof importRows.$inferSelect)[];
 	reviewAccounts: (typeof financialAccounts.$inferSelect)[];
 	reviewCategories: (typeof categories.$inferSelect)[];
+	reviewRules: (typeof importCategoryRules.$inferSelect)[];
 }) {
+	const ruleById = new Map(reviewRules.map((rule) => [rule.id, rule]));
 	const totals = rows.reduce(
 		(summary, row) => {
 			if (row.status === "ignored") summary.ignored++;
@@ -532,7 +666,10 @@ function BatchReview({
 						Prévia normalizada: Receitas {formatMoney(totals.income)} · Despesas{" "}
 						{formatMoney(totals.expense)} · Transferências{" "}
 						{formatMoney(totals.transfer)} · Ignoradas {totals.ignored} ·
-						Duplicadas {totals.duplicates} · Inválidas {totals.invalid}
+						Duplicadas {totals.duplicates} · Inválidas {totals.invalid} ·
+						Sugestões {selectedBatch.suggestionCount} (aceitas{" "}
+						{selectedBatch.suggestionAcceptedCount}, alteradas{" "}
+						{selectedBatch.suggestionOverriddenCount})
 					</p>
 				</div>
 				{selectedBatch.status === "reviewing" && (
@@ -604,6 +741,18 @@ function BatchReview({
 									Dados sensíveis detectados e mascarados antes de salvar.
 								</p>
 							)}
+							{row.suggestedCategoryId && (
+								<p className="text-emerald-300 text-sm">
+									Sugestão:{" "}
+									{reviewCategories.find(
+										(category) => category.id === row.suggestedCategoryId,
+									)?.name ?? "categoria"}{" "}
+									· regra #{row.suggestedRuleId}:{" "}
+									{row.suggestedRuleId
+										? ruleById.get(row.suggestedRuleId)?.normalizedDescription
+										: ""}
+								</p>
+							)}
 							{row.validationError && (
 								<p className="text-red-300 text-sm">{row.validationError}</p>
 							)}
@@ -654,6 +803,7 @@ function BatchReview({
 								</select>
 								<select
 									className={inputClass}
+									defaultValue={row.suggestedCategoryId ?? ""}
 									name={`row-${row.id}-categoryId`}
 								>
 									<option value="">Categoria obrigatória ao importar</option>
@@ -670,6 +820,10 @@ function BatchReview({
 									name={`row-${row.id}-description`}
 								/>
 							</div>
+							<label className="flex items-center gap-2 text-slate-400 text-sm">
+								<input name={`row-${row.id}-createRule`} type="checkbox" />{" "}
+								Criar regra a partir desta correção
+							</label>
 						</div>
 					))}
 					<button
