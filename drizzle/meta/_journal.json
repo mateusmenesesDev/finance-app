@@ -1,0 +1,27 @@
+{
+	"version": "7",
+	"dialect": "postgresql",
+	"entries": [
+		{
+			"idx": 0,
+			"version": "7",
+			"when": 1778192262761,
+			"tag": "0000_skinny_marvel_apes",
+			"breakpoints": true
+		},
+		{
+			"idx": 1,
+			"version": "7",
+			"when": 1778193585348,
+			"tag": "0001_phase_2_transactions_archive",
+			"breakpoints": true
+		},
+		{
+			"idx": 2,
+			"version": "7",
+			"when": 1778194962225,
+			"tag": "0002_fuzzy_cannonball",
+			"breakpoints": true
+		}
+	]
+}

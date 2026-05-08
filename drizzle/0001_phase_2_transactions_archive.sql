@@ -1,0 +1,2 @@
+ALTER TABLE "finance_app_transactions" ADD COLUMN "is_archived" boolean DEFAULT false NOT NULL;--> statement-breakpoint
+CREATE INDEX "finance_app_transactions_user_archived_idx" ON "finance_app_transactions" USING btree ("user_id","is_archived");
