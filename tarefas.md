@@ -191,29 +191,29 @@ Objetivo: popular o ambiente de desenvolvimento com dados brasileiros plausívei
 
 ### Rotina de seed
 
-- [ ] Criar arquivo de seed alinhado ao stack atual: Drizzle ORM + PostgreSQL.
-- [ ] Expor script simples no `package.json`, por exemplo `db:seed`, executável com Bun.
-- [ ] Usar `@faker-js/faker` como dependência de desenvolvimento ou, se for mais simples, geradores determinísticos locais.
-- [ ] Criar usuário demo isolado para desenvolvimento, compatível com as tabelas de autenticação existentes.
-- [ ] Gerar contas realistas: conta corrente, poupança, carteira e cartão de crédito.
-- [ ] Gerar grupos e categorias padrão em português do Brasil.
-- [ ] Gerar transações dos últimos meses com receitas, despesas, transferências, pagamento de fatura e ajustes.
-- [ ] Gerar faturas/cartão como compras individuais, mantendo pagamento de fatura como transferência.
-- [ ] Gerar exemplos de importações CSV revisadas, pendentes, com duplicados e linhas inválidas.
-- [ ] Garantir que todos os registros financeiros pertençam ao usuário demo.
-- [ ] Tornar a rotina idempotente: rodar mais de uma vez não deve duplicar dados.
-- [ ] Permitir limpar/recriar apenas os dados demo sem afetar usuários reais.
-- [ ] Evitar qualquer dado sensível real; CPFs, cartões, tokens e descrições devem ser fictícios ou mascarados.
-- [ ] Documentar no README como executar o seed e quando usá-lo.
+- [x] Criar arquivo de seed alinhado ao stack atual: Drizzle ORM + PostgreSQL.
+- [x] Expor script simples no `package.json`, por exemplo `db:seed`, executável com Bun.
+- [x] Usar `@faker-js/faker` como dependência de desenvolvimento ou, se for mais simples, geradores determinísticos locais.
+- [x] Criar usuário demo isolado para desenvolvimento, compatível com as tabelas de autenticação existentes.
+- [x] Gerar contas realistas: conta corrente, poupança, carteira e cartão de crédito.
+- [x] Gerar grupos e categorias padrão em português do Brasil.
+- [x] Gerar transações dos últimos meses com receitas, despesas, transferências, pagamento de fatura e ajustes.
+- [x] Gerar faturas/cartão como compras individuais, mantendo pagamento de fatura como transferência.
+- [x] Gerar exemplos de importações CSV revisadas, pendentes, com duplicados e linhas inválidas.
+- [x] Garantir que todos os registros financeiros pertençam ao usuário demo.
+- [x] Tornar a rotina idempotente: rodar mais de uma vez não deve duplicar dados.
+- [x] Permitir limpar/recriar apenas os dados demo sem afetar usuários reais.
+- [x] Evitar qualquer dado sensível real; CPFs, cartões, tokens e descrições devem ser fictícios ou mascarados.
+- [x] Documentar no README como executar o seed e quando usá-lo.
 
 ### Massa mínima desejada
 
-- [ ] Pelo menos 4 contas.
-- [ ] Pelo menos 10 grupos de categoria.
-- [ ] Pelo menos 30 categorias.
-- [ ] Pelo menos 6 meses de transações.
-- [ ] Pelo menos 1 importação confirmada e 1 importação pendente de revisão.
-- [ ] Casos suficientes para validar dashboard, orçamento, fluxo de caixa, duplicidade e categorização.
+- [x] Pelo menos 4 contas.
+- [x] Pelo menos 10 grupos de categoria.
+- [x] Pelo menos 30 categorias.
+- [x] Pelo menos 6 meses de transações.
+- [x] Pelo menos 1 importação confirmada e 1 importação pendente de revisão.
+- [x] Casos suficientes para validar dashboard, orçamento, fluxo de caixa, duplicidade e categorização.
 
 ---
 
@@ -444,62 +444,7 @@ Objetivo: deixar o app confortável para uso contínuo.
 - [ ] Criar indicadores de dados pendentes.
 - [ ] Criar mensagens claras de erro na importação.
 - [ ] Criar tela de ajuda sobre como exportar CSV dos bancos.
-- [ ] Revisar preferências de aparência e acessibilidade após uso contínuo.
-
----
-
-## Fase 14 — Clareza visual, tema e experiência base
-
-Objetivo: reduzir sobrecarga cognitiva nos fluxos já construídos, deixando a UI legível, hierárquica e confortável em tema claro e escuro.
-
-### Diagnóstico e princípios de UX
-
-- [ ] Mapear telas com excesso de informação, começando por dashboard, transações, contas, importação e revisão de CSV.
-- [ ] Definir a tarefa principal de cada tela e esconder ou rebaixar dados que não ajudam nessa tarefa.
-- [ ] Criar hierarquia visual consistente para título, resumo, ação primária, filtros, listas, detalhes e alertas.
-- [ ] Usar divulgação progressiva: mostrar resumo primeiro e detalhes somente quando o usuário expandir, filtrar ou entrar no item.
-- [ ] Separar estados de atenção: informação normal, pendência, alerta, erro e ação destrutiva.
-- [ ] Reduzir cards, badges, cores e métricas concorrendo pela atenção na mesma área.
-- [ ] Padronizar textos curtos, vazios úteis, erros e confirmações em português claro.
-
-### Layout e navegação
-
-- [ ] Revisar navegação principal para destacar os fluxos centrais: Dashboard, Transações, Contas, Importações, Categorias e Relatórios.
-- [ ] Criar visão resumida para listas densas, com opção de abrir detalhe lateral ou página de detalhe.
-- [ ] Agrupar filtros avançados em uma área recolhível.
-- [ ] Definir estados vazios orientados à próxima ação, não apenas mensagens genéricas.
-- [ ] Melhorar legibilidade de tabelas/listas: espaçamento, alinhamento monetário, datas, descrição e categoria.
-- [ ] Garantir ações primárias claras e poucas ações secundárias visíveis por vez.
-- [ ] Revisar experiência mobile/responsiva para não empilhar informação demais.
-
-### Tema visual
-
-- [ ] Definir tokens de design mínimos: cores, fundo, superfície, borda, texto, texto secundário, sucesso, alerta, erro e foco.
-- [ ] Substituir cores soltas por tokens sem criar abstração desnecessária.
-- [ ] Criar tema claro como padrão inicial.
-- [ ] Criar tema escuro com contraste suficiente para uso contínuo.
-- [ ] Permitir escolher entre claro, escuro e preferência do sistema.
-- [ ] Persistir preferência de tema por usuário ou localmente quando o usuário não estiver autenticado.
-- [ ] Evitar usar apenas cor para indicar estado; combinar cor com texto, ícone ou posição.
-- [ ] Validar contraste de textos, botões, inputs, gráficos e badges nos dois temas.
-
-### Componentes e consistência
-
-- [ ] Revisar botões, inputs, selects, dialogs, dropdowns, cards, tabelas e badges para consistência visual.
-- [ ] Padronizar formatação de moeda, datas, percentuais e valores negativos/positivos.
-- [ ] Padronizar loading, skeleton, erro, vazio e sucesso nos fluxos principais.
-- [ ] Melhorar feedback de ações: salvar, importar, desfazer, aplicar filtros, editar em lote e excluir/arquivar.
-- [ ] Garantir foco visível, navegação por teclado e labels acessíveis nos controles principais.
-- [ ] Criar exemplos visuais com dados do seed para validar telas densas sem dados reais.
-
-### Critérios de aceite
-
-- [ ] Uma tela inicial não deve exibir mais métricas do que o necessário para responder “como está meu mês?”.
-- [ ] Listas densas devem permitir varrer informação rapidamente sem abrir todos os detalhes.
-- [ ] O usuário deve conseguir alternar claro/escuro/sistema sem recarregar o app.
-- [ ] A preferência de tema deve permanecer após fechar e abrir o app.
-- [ ] Telas principais devem funcionar bem com dados vazios, poucos dados e muitos dados.
-- [ ] A UI deve ser validada com a massa realista da Fase 3.5.
+- [ ] Criar modo escuro/claro, se necessário.
 
 ---
 
@@ -518,14 +463,11 @@ Objetivo: reduzir sobrecarga cognitiva nos fluxos já construídos, deixando a U
 11. Análises avançadas de gastos.
 12. IA assistiva local/futura.
 13. Relatórios, privacidade e acabamento.
-14. Clareza visual, tema claro/escuro e experiência base.
 
 ---
 
 ## Critérios de validação do produto
 
-- [ ] A interface reduz sobrecarga cognitiva, prioriza a próxima ação e não mostra tudo ao mesmo tempo.
-- [ ] O usuário pode escolher tema claro, escuro ou preferência do sistema, com contraste adequado.
 - [ ] É possível importar CSVs de bancos diferentes sem retrabalho excessivo.
 - [ ] É possível importar faturas de cartão sem duplicar despesa no pagamento da fatura.
 - [ ] Toda transação pertence a uma conta e a um usuário.
