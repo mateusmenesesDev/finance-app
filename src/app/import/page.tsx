@@ -596,7 +596,8 @@ function ImportRulePanel({
 								· {rule.textMatchMode} · {rule.movementType} ·{" "}
 								{account?.name ?? "qualquer conta"} ·{" "}
 								{category?.name ?? "categoria arquivada"} · prioridade{" "}
-								{rule.priority}
+								{rule.priority} · sugeriu {rule.matchCount} · auto categorizou{" "}
+								{rule.acceptedCount} · rejeitou {rule.rejectedCount}
 							</p>
 							<form action={archiveImportCategoryRule}>
 								<input name="id" type="hidden" value={rule.id} />
@@ -667,8 +668,9 @@ function BatchReview({
 						{formatMoney(totals.expense)} · Transferências{" "}
 						{formatMoney(totals.transfer)} · Ignoradas {totals.ignored} ·
 						Duplicadas {totals.duplicates} · Inválidas {totals.invalid} ·
-						Sugestões {selectedBatch.suggestionCount} (aceitas{" "}
-						{selectedBatch.suggestionAcceptedCount}, alteradas{" "}
+						Sugestões {selectedBatch.suggestionCount} (auto categorizadas{" "}
+						{selectedBatch.suggestionAcceptedCount}, rejeitadas{" "}
+						{selectedBatch.suggestionRejectedCount}, alteradas{" "}
 						{selectedBatch.suggestionOverriddenCount})
 					</p>
 				</div>

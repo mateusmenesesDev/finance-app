@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq, or } from "drizzle-orm";
+import { and, eq, or, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
@@ -1167,12 +1167,33 @@ export async function confirmImportBatch(formData: FormData) {
 		let suggestionAcceptedCount = 0;
 		let suggestionRejectedCount = 0;
 		let suggestionOverriddenCount = 0;
+		const ruleCounters = new Map<
+			number,
+			{ accepted: number; rejected: number; overridden: number }
+		>();
+		const countRuleSuggestion = (
+			ruleId: number | null,
+			kind: "accepted" | "rejected" | "overridden",
+		) => {
+			if (!ruleId) return;
+			const counters = ruleCounters.get(ruleId) ?? {
+				accepted: 0,
+				rejected: 0,
+				overridden: 0,
+			};
+			counters[kind]++;
+			ruleCounters.set(ruleId, counters);
+		};
 		for (const row of rows) {
 			const decision = formData.get(`row-${row.id}-decision`)?.toString();
 			if (!decision)
 				throw new Error(`Decisão obrigatória na linha ${row.rowNumber}`);
 
 			if (decision === "ignore") {
+				if (row.suggestedCategoryId) {
+					suggestionRejectedCount++;
+					countRuleSuggestion(row.suggestedRuleId, "rejected");
+				}
 				await tx
 					.update(importRows)
 					.set({ status: "ignored" })
@@ -1180,6 +1201,10 @@ export async function confirmImportBatch(formData: FormData) {
 				continue;
 			}
 			if (decision === "duplicate") {
+				if (row.suggestedCategoryId) {
+					suggestionRejectedCount++;
+					countRuleSuggestion(row.suggestedRuleId, "rejected");
+				}
 				await tx
 					.update(importRows)
 					.set({ status: "duplicate" })
@@ -1219,10 +1244,14 @@ export async function confirmImportBatch(formData: FormData) {
 					? row.suggestedRuleId
 					: null;
 			if (row.suggestedCategoryId) {
-				if (acceptedRuleId) suggestionAcceptedCount++;
-				else {
+				if (acceptedRuleId) {
+					suggestionAcceptedCount++;
+					countRuleSuggestion(acceptedRuleId, "accepted");
+				} else {
 					suggestionRejectedCount++;
 					suggestionOverriddenCount++;
+					countRuleSuggestion(row.suggestedRuleId, "rejected");
+					countRuleSuggestion(row.suggestedRuleId, "overridden");
 				}
 			}
 			if (category.kind !== movementType) {
@@ -1272,6 +1301,21 @@ export async function confirmImportBatch(formData: FormData) {
 					movementType,
 				})
 				.where(and(eq(importRows.id, row.id), eq(importRows.userId, userId)));
+		}
+		for (const [ruleId, counters] of ruleCounters) {
+			await tx
+				.update(importCategoryRules)
+				.set({
+					acceptedCount: sql`${importCategoryRules.acceptedCount} + ${counters.accepted}`,
+					rejectedCount: sql`${importCategoryRules.rejectedCount} + ${counters.rejected}`,
+					overriddenCount: sql`${importCategoryRules.overriddenCount} + ${counters.overridden}`,
+				})
+				.where(
+					and(
+						eq(importCategoryRules.id, ruleId),
+						eq(importCategoryRules.userId, userId),
+					),
+				);
 		}
 		await tx
 			.update(importBatches)

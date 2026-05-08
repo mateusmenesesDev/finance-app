@@ -221,17 +221,17 @@ Objetivo: popular o ambiente de desenvolvimento com dados brasileiros plausívei
 
 Objetivo: reduzir trabalho manual sem perder controle.
 
-- [ ] Criar regra por texto da descrição.
-- [ ] Criar regra por estabelecimento/beneficiário.
-- [ ] Criar regra por conta.
-- [ ] Criar regra por valor aproximado.
-- [ ] Criar regra por tipo de transação.
-- [ ] Aplicar regras durante a revisão de importação.
-- [ ] Mostrar qual regra sugeriu cada categoria.
-- [ ] Permitir aceitar ou rejeitar sugestões.
-- [ ] Criar regra a partir de uma correção manual.
-- [ ] Reprocessar transações pendentes com regras novas.
-- [ ] Medir quantas transações foram categorizadas automaticamente.
+- [x] Criar regra por texto da descrição.
+- [x] Criar regra por estabelecimento/beneficiário.
+- [x] Criar regra por conta.
+- [x] Criar regra por valor aproximado.
+- [x] Criar regra por tipo de transação.
+- [x] Aplicar regras durante a revisão de importação.
+- [x] Mostrar qual regra sugeriu cada categoria.
+- [x] Permitir aceitar ou rejeitar sugestões.
+- [x] Criar regra a partir de uma correção manual.
+- [x] Reprocessar transações pendentes com regras novas.
+- [x] Medir quantas transações foram categorizadas automaticamente.
 
 ---
 
