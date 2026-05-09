@@ -285,16 +285,17 @@ Objetivo: planejar e acompanhar limites de gasto por categoria.
 
 Objetivo: prever saldo futuro e evitar surpresas.
 
-- [ ] Exibir entradas previstas.
-- [ ] Exibir saídas previstas.
-- [ ] Exibir saldo projetado por conta.
-- [ ] Exibir saldo projetado consolidado.
-- [ ] Separar realizado, previsto e pendente.
-- [ ] Permitir visão diária, semanal, mensal e anual.
-- [ ] Incluir faturas futuras de cartão.
+- [x] Exibir entradas previstas.
+- [x] Exibir saídas previstas.
+- [x] Exibir saldo projetado por conta.
+- [x] Exibir saldo projetado consolidado.
+- [x] Separar realizado, previsto e pendente.
+- [x] Permitir visão diária, semanal, mensal e anual.
+- [x] Incluir faturas futuras de cartão.
 - [ ] Incluir recorrências futuras.
-- [ ] Alertar risco de saldo negativo.
-- [ ] Comparar fluxo previsto vs realizado.
+  - *Depende da Fase 8; o motor de fluxo já expõe o gancho `extraPlannedMovements`.*
+- [x] Alertar risco de saldo negativo.
+- [x] Comparar fluxo previsto vs realizado.
 
 ---
 

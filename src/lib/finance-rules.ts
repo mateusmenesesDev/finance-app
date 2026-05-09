@@ -324,35 +324,6 @@ export function rankMonthlyGroups(
 		.slice(0, limit);
 }
 
-export function calculateProjectedCashFlow(
-	transactions: RuleTransaction[],
-	period: Pick<MonthPeriod, "start" | "end">,
-	openingBalanceCents = 0,
-) {
-	let plannedIncomeCents = 0;
-	let plannedExpenseCents = 0;
-
-	for (const transaction of transactions) {
-		if (!isInPeriod(transaction, period)) continue;
-		if (transaction.isArchived || transaction.status !== "planned") continue;
-
-		if (transaction.movementType === "income") {
-			plannedIncomeCents += transaction.amountCents;
-		}
-		if (transaction.movementType === "expense") {
-			plannedExpenseCents += transaction.amountCents;
-		}
-	}
-
-	return {
-		openingBalanceCents,
-		plannedIncomeCents,
-		plannedExpenseCents,
-		projectedBalanceCents:
-			openingBalanceCents + plannedIncomeCents - plannedExpenseCents,
-	};
-}
-
 function isMonthlyMetricTransaction(
 	transaction: RuleTransaction,
 	period: Pick<MonthPeriod, "start" | "end">,

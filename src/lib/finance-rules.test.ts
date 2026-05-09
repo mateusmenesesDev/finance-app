@@ -5,7 +5,6 @@ import {
 	buildBudgetUsage,
 	calculateAccountBalances,
 	calculateMonthlyTotals,
-	calculateProjectedCashFlow,
 	classifyBudgetStatus,
 	getInvoiceForDate,
 	listMonthOptions,
@@ -218,51 +217,6 @@ describe("finance rules", () => {
 				},
 			],
 		);
-	});
-
-	test("projected cash flow uses planned income and expenses only", () => {
-		const period = parseMonthPeriod("2026-05");
-		if (period === null) throw new Error("invalid test period");
-
-		expect(
-			calculateProjectedCashFlow(
-				[
-					tx({
-						status: "planned",
-						movementType: "income",
-						amountCents: 100_00,
-					}),
-					tx({
-						status: "planned",
-						movementType: "expense",
-						amountCents: 30_00,
-					}),
-					tx({
-						status: "confirmed",
-						movementType: "expense",
-						amountCents: 20_00,
-					}),
-					tx({
-						status: "planned",
-						movementType: "transfer",
-						amountCents: 40_00,
-					}),
-					tx({
-						status: "planned",
-						movementType: "expense",
-						amountCents: 10_00,
-						occurredOn: "2026-06-01",
-					}),
-				],
-				period,
-				50_00,
-			),
-		).toEqual({
-			openingBalanceCents: 50_00,
-			plannedIncomeCents: 100_00,
-			plannedExpenseCents: 30_00,
-			projectedBalanceCents: 120_00,
-		});
 	});
 
 	test("invoice closing day is inclusive", () => {

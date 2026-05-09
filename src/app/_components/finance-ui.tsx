@@ -10,6 +10,7 @@ const navigation = [
 	{ href: "/accounts", label: "Contas" },
 	{ href: "/categories", label: "Categorias" },
 	{ href: "/budgets", label: "Orçamento" },
+	{ href: "/cash-flow", label: "Fluxo de caixa" },
 	{ href: "/import", label: "Importações" },
 ];
 

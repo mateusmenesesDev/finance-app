@@ -8,12 +8,11 @@ import {
 	TextInput,
 } from "~/app/_components/finance-ui";
 import { SignInForm } from "~/app/_components/sign-in-form";
+import { aggregateCashFlow, computeFutureInvoices } from "~/lib/cash-flow";
 import {
 	buildBudgetUsage,
 	calculateAccountBalances,
 	calculateMonthlyTotals,
-	calculateProjectedCashFlow,
-	getInvoiceForDate,
 	getMonthPeriod,
 	parseMonthPeriod,
 	rankMonthlyCategories,
@@ -139,11 +138,20 @@ export default async function Home({ searchParams }: HomeProps) {
 		"expense",
 		6,
 	);
-	const projectedCashFlow = calculateProjectedCashFlow(
-		allTransactions,
-		{ start: monthCutoff, end: period.end },
-		normalConsolidated,
-	);
+	const projectedCashFlow = aggregateCashFlow({
+		accounts: allAccounts,
+		transactions: allTransactions,
+		window: { start: monthCutoff, end: period.end },
+		granularity: "day",
+		accountFilter: "all",
+		today,
+	});
+	const projectedIncomeCents = projectedCashFlow.totals.plannedIncome;
+	const projectedExpenseCents =
+		projectedCashFlow.totals.plannedExpense +
+		projectedCashFlow.totals.invoiceOutflow;
+	const projectedBalanceCents =
+		normalConsolidated + projectedIncomeCents - projectedExpenseCents;
 	const budgetUsageRows = buildBudgetUsage(
 		budgetRows.filter((budget) => budget.monthKey === period.key),
 		allTransactions,
@@ -152,7 +160,7 @@ export default async function Home({ searchParams }: HomeProps) {
 		period,
 	);
 	const budgetSummary = buildBudgetSummary(budgetUsageRows);
-	const openInvoices = buildOpenInvoices(
+	const openInvoices = computeFutureInvoices(
 		activeAccounts,
 		allTransactions,
 		today,
@@ -347,29 +355,27 @@ export default async function Home({ searchParams }: HomeProps) {
 					<div className="grid gap-4 md:grid-cols-2">
 						<SummaryCard
 							label="Entradas previstas"
-							value={formatMoney(projectedCashFlow.plannedIncomeCents)}
+							value={formatMoney(projectedIncomeCents)}
 							variant="good"
 						/>
 						<SummaryCard
 							label="Saídas previstas"
-							value={formatMoney(projectedCashFlow.plannedExpenseCents)}
+							value={formatMoney(projectedExpenseCents)}
 							variant="bad"
 						/>
 						<SummaryCard
 							label="Saldo atual considerado"
-							value={formatMoney(projectedCashFlow.openingBalanceCents)}
+							value={formatMoney(normalConsolidated)}
 						/>
 						<SummaryCard
 							label="Saldo projetado"
-							value={formatMoney(projectedCashFlow.projectedBalanceCents)}
-							variant={
-								projectedCashFlow.projectedBalanceCents >= 0 ? "good" : "bad"
-							}
+							value={formatMoney(projectedBalanceCents)}
+							variant={projectedBalanceCents >= 0 ? "good" : "bad"}
 						/>
 					</div>
 					<p className="mt-4 text-slate-500 text-xs">
-						MVP: usa apenas transações previstas já cadastradas, sem orçamento,
-						recorrências ou IA.
+						Inclui transações previstas e faturas futuras de cartão no
+						vencimento; recorrências entram na Fase 8.
 					</p>
 				</Panel>
 			</section>
@@ -416,7 +422,7 @@ export default async function Home({ searchParams }: HomeProps) {
 											</p>
 										</div>
 										<p className="font-semibold text-rose-300">
-											{formatMoney(invoice.totalCents)}
+											{formatMoney(invoice.remainingCents)}
 										</p>
 									</div>
 								</div>
@@ -637,60 +643,8 @@ function budgetAlerts(usageRows: BudgetUsageRow[]): DashboardAlert[] {
 		}));
 }
 
-function buildOpenInvoices(
-	accounts: AccountRow[],
-	allTransactions: TransactionRow[],
-	today: string,
-) {
-	const invoices = new Map<
-		string,
-		{
-			accountId: number;
-			accountName: string;
-			closingDate: string;
-			dueDate: string;
-			key: string;
-			totalCents: number;
-		}
-	>();
-
-	for (const account of accounts) {
-		if (account.type !== "credit_card") continue;
-		for (const transaction of allTransactions) {
-			if (
-				transaction.isArchived ||
-				transaction.status !== "confirmed" ||
-				transaction.accountId !== account.id ||
-				transaction.movementType !== "expense"
-			)
-				continue;
-			const invoice = getInvoiceForDate(
-				transaction.occurredOn,
-				account.creditCardClosingDay ?? 31,
-				account.creditCardDueDay ?? 10,
-			);
-			if (invoice.dueDate < today) continue;
-			const invoiceKey = `${account.id}:${invoice.key}`;
-			const saved = invoices.get(invoiceKey) ?? {
-				accountId: account.id,
-				accountName: account.name,
-				closingDate: invoice.closingDate,
-				dueDate: invoice.dueDate,
-				key: invoice.key,
-				totalCents: 0,
-			};
-			saved.totalCents += transaction.amountCents;
-			invoices.set(invoiceKey, saved);
-		}
-	}
-
-	return [...invoices.values()].sort((left, right) =>
-		left.dueDate.localeCompare(right.dueDate),
-	);
-}
-
 function invoiceAlerts(
-	invoices: ReturnType<typeof buildOpenInvoices>,
+	invoices: ReturnType<typeof computeFutureInvoices>,
 	today: string,
 ): DashboardAlert[] {
 	const limit = addDays(today, 7);
@@ -698,7 +652,7 @@ function invoiceAlerts(
 		.filter((invoice) => invoice.dueDate >= today && invoice.dueDate <= limit)
 		.map((invoice) => ({
 			kind: "warning",
-			message: `${invoice.accountName} vence em ${formatDate(invoice.dueDate)} com ${formatMoney(invoice.totalCents)} em compras estimadas.`,
+			message: `${invoice.accountName} vence em ${formatDate(invoice.dueDate)} com ${formatMoney(invoice.remainingCents)} em aberto.`,
 			title: "Fatura próxima do vencimento",
 		}));
 }
