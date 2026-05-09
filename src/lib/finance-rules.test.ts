@@ -1,17 +1,23 @@
 import { describe, expect, test } from "bun:test";
 
 import {
+	buildBudgetHistory,
+	buildBudgetUsage,
 	calculateAccountBalances,
 	calculateMonthlyTotals,
 	calculateProjectedCashFlow,
+	classifyBudgetStatus,
 	getInvoiceForDate,
+	listMonthOptions,
 	parseMonthPeriod,
 	type RuleAccount,
+	type RuleBudget,
 	type RuleCategory,
 	type RuleCategoryGroup,
 	type RuleTransaction,
 	rankMonthlyCategories,
 	rankMonthlyGroups,
+	summarizeBudgetCoherence,
 } from "./finance-rules";
 
 const accounts: RuleAccount[] = [
@@ -58,6 +64,18 @@ function tx(overrides: Partial<RuleTransaction>): RuleTransaction {
 		amountCents: 10_00,
 		occurredOn: "2026-05-01",
 		isArchived: false,
+		...overrides,
+	};
+}
+
+function budget(overrides: Partial<RuleBudget>): RuleBudget {
+	return {
+		id: 1,
+		monthKey: "2026-05",
+		scope: "month",
+		categoryGroupId: null,
+		categoryId: null,
+		amountCents: 100_00,
 		...overrides,
 	};
 }
@@ -258,5 +276,162 @@ describe("finance rules", () => {
 			closingDate: "2026-06-10",
 			dueDate: "2026-06-20",
 		});
+	});
+
+	test("classifies budget statuses at exact thresholds", () => {
+		expect(classifyBudgetStatus(0, 100_00)).toBe("ok");
+		expect(classifyBudgetStatus(79_99, 100_00)).toBe("ok");
+		expect(classifyBudgetStatus(80_00, 100_00)).toBe("near");
+		expect(classifyBudgetStatus(99_99, 100_00)).toBe("near");
+		expect(classifyBudgetStatus(100_00, 100_00)).toBe("over");
+		expect(classifyBudgetStatus(120_00, 100_00)).toBe("over");
+	});
+
+	test("builds budget usage for month, group and category scopes", () => {
+		const period = parseMonthPeriod("2026-05");
+		if (period === null) throw new Error("invalid test period");
+		const budgets: RuleBudget[] = [
+			budget({ id: 1, scope: "month", amountCents: 300_00 }),
+			budget({
+				id: 2,
+				scope: "category_group",
+				categoryGroupId: 100,
+				amountCents: 200_00,
+			}),
+			budget({
+				id: 3,
+				scope: "category",
+				categoryId: 10,
+				amountCents: 100_00,
+			}),
+		];
+
+		expect(
+			buildBudgetUsage(
+				budgets,
+				[
+					tx({ categoryId: 10, amountCents: 80_00 }),
+					tx({ categoryId: 12, amountCents: 40_00 }),
+					tx({ categoryId: 11, movementType: "income", amountCents: 500_00 }),
+					tx({ categoryId: 10, amountCents: 10_00, status: "planned" }),
+					tx({ categoryId: 10, amountCents: 10_00, isArchived: true }),
+					tx({ categoryId: 10, amountCents: 10_00, occurredOn: "2026-06-01" }),
+				],
+				categories,
+				groups,
+				period,
+			).map((row) => ({
+				name: row.name,
+				plannedCents: row.plannedCents,
+				spentCents: row.spentCents,
+				status: row.status,
+			})),
+		).toEqual([
+			{
+				name: "Mês total",
+				plannedCents: 300_00,
+				spentCents: 120_00,
+				status: "ok",
+			},
+			{
+				name: "Essenciais",
+				plannedCents: 200_00,
+				spentCents: 120_00,
+				status: "ok",
+			},
+			{
+				name: "Mercado",
+				plannedCents: 100_00,
+				spentCents: 80_00,
+				status: "near",
+			},
+		]);
+	});
+
+	test("builds budget history with missing months, gaps and deltas", () => {
+		const rows = buildBudgetHistory(
+			[
+				budget({ monthKey: "2026-01", amountCents: 100_00 }),
+				budget({ monthKey: "2026-03", amountCents: 120_00 }),
+			],
+			[
+				tx({ amountCents: 40_00, occurredOn: "2026-01-10" }),
+				tx({ amountCents: 70_00, occurredOn: "2026-03-10" }),
+			],
+			categories,
+			groups,
+			["2026-03", "2026-02", "2026-01"],
+			"month",
+			null,
+		);
+
+		expect(rows).toEqual([
+			{
+				deltaPlannedCents: null,
+				deltaSpentCents: null,
+				monthKey: "2026-01",
+				percent: 0.4,
+				plannedCents: 100_00,
+				spentCents: 40_00,
+			},
+			{
+				deltaPlannedCents: null,
+				deltaSpentCents: -40_00,
+				monthKey: "2026-02",
+				percent: null,
+				plannedCents: null,
+				spentCents: 0,
+			},
+			{
+				deltaPlannedCents: null,
+				deltaSpentCents: 70_00,
+				monthKey: "2026-03",
+				percent: 70_00 / 120_00,
+				plannedCents: 120_00,
+				spentCents: 70_00,
+			},
+		]);
+	});
+
+	test("warns when detailed budget sums exceed parent budgets", () => {
+		expect(
+			summarizeBudgetCoherence(
+				[
+					budget({ scope: "month", amountCents: 100_00 }),
+					budget({
+						scope: "category_group",
+						categoryGroupId: 100,
+						amountCents: 120_00,
+					}),
+					budget({
+						scope: "category",
+						categoryId: 10,
+						amountCents: 70_00,
+					}),
+					budget({
+						scope: "category",
+						categoryId: 12,
+						amountCents: 60_00,
+					}),
+				],
+				categories,
+			),
+		).toEqual([
+			"2026-05: soma dos orçamentos de categoria supera o orçamento do grupo 100.",
+			"2026-05: soma dos orçamentos detalhados supera o orçamento mensal.",
+		]);
+	});
+
+	test("lists deterministic month options around a reference date", () => {
+		expect(
+			listMonthOptions(new Date(2026, 4, 20), 1, 1).map((period) => ({
+				key: period.key,
+				start: period.start,
+			})),
+		).toEqual([
+			{ key: "2026-04", start: "2026-04-01" },
+			{ key: "2026-05", start: "2026-05-01" },
+			{ key: "2026-06", start: "2026-06-01" },
+		]);
 	});
 });

@@ -9,6 +9,7 @@ const navigation = [
 	{ href: "/transactions", label: "Transações" },
 	{ href: "/accounts", label: "Contas" },
 	{ href: "/categories", label: "Categorias" },
+	{ href: "/budgets", label: "Orçamento" },
 	{ href: "/import", label: "Importações" },
 ];
 
@@ -153,5 +154,16 @@ export function SubmitButton({ children }: { children: React.ReactNode }) {
 		>
 			{children}
 		</button>
+	);
+}
+
+export function BudgetProgress({ percent }: { percent: number }) {
+	return (
+		<div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-800">
+			<div
+				className="h-full rounded-full bg-emerald-400"
+				style={{ width: `${Math.min(100, Math.max(0, percent * 100))}%` }}
+			/>
+		</div>
 	);
 }

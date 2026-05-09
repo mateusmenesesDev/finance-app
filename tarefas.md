@@ -267,17 +267,17 @@ Alertas desejados:
 
 Objetivo: planejar e acompanhar limites de gasto por categoria.
 
-- [ ] Criar orçamento mensal geral.
-- [ ] Criar orçamento por grupo de categoria.
-- [ ] Criar orçamento por categoria.
-- [ ] Copiar orçamento de um mês para outro.
-- [ ] Comparar previsto vs realizado.
-- [ ] Exibir percentual consumido do orçamento.
-- [ ] Alertar categorias próximas do limite.
-- [ ] Alertar categorias acima do limite.
-- [ ] Exibir histórico de orçamento por mês.
-- [ ] Exibir variação entre meses.
-- [ ] Permitir ajustar orçamento durante o mês mantendo histórico.
+- [x] Criar orçamento mensal geral.
+- [x] Criar orçamento por grupo de categoria.
+- [x] Criar orçamento por categoria.
+- [x] Copiar orçamento de um mês para outro.
+- [x] Comparar previsto vs realizado.
+- [x] Exibir percentual consumido do orçamento.
+- [x] Alertar categorias próximas do limite.
+- [x] Alertar categorias acima do limite.
+- [x] Exibir histórico de orçamento por mês.
+- [x] Exibir variação entre meses.
+- [x] Permitir ajustar orçamento durante o mês mantendo histórico.
 
 ---
 
@@ -444,7 +444,150 @@ Objetivo: deixar o app confortável para uso contínuo.
 - [ ] Criar indicadores de dados pendentes.
 - [ ] Criar mensagens claras de erro na importação.
 - [ ] Criar tela de ajuda sobre como exportar CSV dos bancos.
-- [ ] Criar modo escuro/claro, se necessário.
+- [ ] Revisar preferências de aparência e acessibilidade após uso contínuo.
+
+---
+
+## Fase 14 — Clareza visual, tema e experiência base
+
+Objetivo: reduzir sobrecarga cognitiva nos fluxos já construídos, deixando a UI legível, hierárquica e confortável em tema claro e escuro.
+
+### Diagnóstico e princípios de UX
+
+- [ ] Mapear telas com excesso de informação, começando por dashboard, transações, contas, importação e revisão de CSV.
+- [ ] Definir a tarefa principal de cada tela e esconder ou rebaixar dados que não ajudam nessa tarefa.
+- [ ] Criar hierarquia visual consistente para título, resumo, ação primária, filtros, listas, detalhes e alertas.
+- [ ] Usar divulgação progressiva: mostrar resumo primeiro e detalhes somente quando o usuário expandir, filtrar ou entrar no item.
+- [ ] Separar estados de atenção: informação normal, pendência, alerta, erro e ação destrutiva.
+- [ ] Reduzir cards, badges, cores e métricas concorrendo pela atenção na mesma área.
+- [ ] Padronizar textos curtos, vazios úteis, erros e confirmações em português claro.
+
+### Layout e navegação
+
+- [ ] Revisar navegação principal para destacar os fluxos centrais: Dashboard, Transações, Contas, Importações, Categorias e Relatórios.
+- [ ] Criar visão resumida para listas densas, com opção de abrir detalhe lateral ou página de detalhe.
+- [ ] Agrupar filtros avançados em uma área recolhível.
+- [ ] Definir estados vazios orientados à próxima ação, não apenas mensagens genéricas.
+- [ ] Melhorar legibilidade de tabelas/listas: espaçamento, alinhamento monetário, datas, descrição e categoria.
+- [ ] Garantir ações primárias claras e poucas ações secundárias visíveis por vez.
+- [ ] Revisar experiência mobile/responsiva para não empilhar informação demais.
+
+### Tema visual
+
+- [ ] Definir tokens de design mínimos: cores, fundo, superfície, borda, texto, texto secundário, sucesso, alerta, erro e foco.
+- [ ] Substituir cores soltas por tokens sem criar abstração desnecessária.
+- [ ] Criar tema claro como padrão inicial.
+- [ ] Criar tema escuro com contraste suficiente para uso contínuo.
+- [ ] Permitir escolher entre claro, escuro e preferência do sistema.
+- [ ] Persistir preferência de tema por usuário ou localmente quando o usuário não estiver autenticado.
+- [ ] Evitar usar apenas cor para indicar estado; combinar cor com texto, ícone ou posição.
+- [ ] Validar contraste de textos, botões, inputs, gráficos e badges nos dois temas.
+
+### Componentes e consistência
+
+- [ ] Revisar botões, inputs, selects, dialogs, dropdowns, cards, tabelas e badges para consistência visual.
+- [ ] Padronizar formatação de moeda, datas, percentuais e valores negativos/positivos.
+- [ ] Padronizar loading, skeleton, erro, vazio e sucesso nos fluxos principais.
+- [ ] Melhorar feedback de ações: salvar, importar, desfazer, aplicar filtros, editar em lote e excluir/arquivar.
+- [ ] Garantir foco visível, navegação por teclado e labels acessíveis nos controles principais.
+- [ ] Criar exemplos visuais com dados do seed para validar telas densas sem dados reais.
+
+### Critérios de aceite
+
+- [ ] Uma tela inicial não deve exibir mais métricas do que o necessário para responder “como está meu mês?”.
+- [ ] Listas densas devem permitir varrer informação rapidamente sem abrir todos os detalhes.
+- [ ] O usuário deve conseguir alternar claro/escuro/sistema sem recarregar o app.
+- [ ] A preferência de tema deve permanecer após fechar e abrir o app.
+- [ ] Telas principais devem funcionar bem com dados vazios, poucos dados e muitos dados.
+- [ ] A UI deve ser validada com a massa realista da Fase 3.5.
+
+---
+
+## Fase 15 — Arquitetura simples e organização sustentável do código
+
+Objetivo: reduzir acoplamento e facilitar manutenção das próximas fases sem criar camadas artificiais, mantendo regras de negócio testáveis e telas fáceis de entender.
+
+Princípios:
+
+- Preferir organização por domínio/feature em vez de pastas genéricas gigantes.
+- Criar abstração somente quando ela reduzir duplicação real, acoplamento ou risco de mudança.
+- Manter Server Components, Server Actions e rotas como adaptadores finos; regras financeiras devem ficar fora da camada de interface.
+- Derivar tipos do banco, schemas de validação e contratos existentes quando possível, evitando tipos paralelos inconsistentes.
+- Não criar `features`, `modules` e `services` para representar a mesma coisa; escolher nomes claros e manter fronteiras simples.
+- Testar regras de domínio antes/depois de refatorar: red-green-refactor, com comportamento preservado.
+
+### Diagnóstico inicial
+
+- [ ] Mapear arquivos grandes ou com muitas responsabilidades, começando por dashboard, importação CSV, ações financeiras e schema do banco.
+- [ ] Identificar lógica de domínio misturada com UI, `FormData`, redirects, revalidation, queries Drizzle e formatação visual.
+- [ ] Identificar duplicações reais de formatação, validação, enums, filtros, consultas e componentes de UI.
+- [ ] Listar fluxos críticos que não podem mudar durante a refatoração: contas, categorias, transações, importação, revisão, duplicidade e seed.
+- [ ] Criar testes de caracterização para regras importantes antes de mover código quando ainda não houver cobertura suficiente.
+
+### Estrutura alvo mínima
+
+- [ ] Manter `src/app` focado em rotas, composição de telas, carregamento inicial e adapters de framework.
+- [ ] Criar `src/features` para domínios do produto somente quando houver código suficiente para justificar a extração.
+- [ ] Organizar features por domínio, por exemplo:
+  - [ ] `accounts`
+  - [ ] `categories`
+  - [ ] `transactions`
+  - [ ] `imports`
+  - [ ] `dashboard`
+  - [ ] `budgets`, `cash-flow`, `recurrences` e `reports` quando essas fases forem implementadas
+- [ ] Dentro de cada feature, usar nomes diretos e poucos arquivos: `components`, `actions`, `queries`, `use-cases`, `schemas`, `types` e `domain` apenas quando necessários.
+- [ ] Criar `src/shared` apenas para código realmente compartilhado entre features, como UI base, formatação, datas, moeda, validações comuns e helpers sem dependência do domínio.
+- [ ] Usar `src/types` somente para tipos transversais da aplicação; preferir tipos colocalizados na feature quando o uso for local.
+- [ ] Evitar uma pasta global `services` genérica; quando existir serviço, ele deve representar uma integração ou caso de uso claro dentro da feature.
+- [ ] Avaliar divisão do schema Drizzle por domínio se o arquivo único dificultar manutenção, mantendo um barrel claro para migrations e imports.
+
+### Fronteiras e dependências
+
+- [ ] Server Actions devem fazer apenas autenticação, parsing de entrada, chamada de caso de uso e resposta/revalidation.
+- [ ] Casos de uso devem receber dados tipados e `userId` explícito, validar invariantes e coordenar persistência.
+- [ ] Regras financeiras puras devem ficar em funções testáveis sem dependência de React, Next.js ou Drizzle.
+- [ ] Queries de leitura reutilizáveis devem sair das páginas quando forem usadas em mais de uma tela ou tiverem regra de negócio relevante.
+- [ ] Componentes de UI devem receber dados prontos para renderização e evitar conhecer detalhes do banco.
+- [ ] Código em `shared` não deve importar features; features podem importar `shared`.
+- [ ] Features não devem depender uma da outra livremente; quando necessário, extrair contrato mínimo compartilhado ou mover regra para domínio mais apropriado.
+- [ ] Autorização multiusuário deve continuar explícita em toda leitura e escrita financeira.
+
+### DRY, SOLID e KISS aplicados ao app
+
+- [ ] Remover duplicação de validações e enums usando schemas/tipos únicos por domínio.
+- [ ] Padronizar formatação de moeda, data, percentual e sinal financeiro em um ponto compartilhado.
+- [ ] Consolidar filtros de transações/importações quando a regra for a mesma em páginas diferentes.
+- [ ] Extrair componentes repetidos de formulário, tabela e estado vazio somente quando houver repetição real e a API ficar simples.
+- [ ] Separar responsabilidades sem fragmentar fluxo coeso em funções pequenas demais.
+- [ ] Evitar interfaces/repositórios abstratos sem múltiplas implementações ou benefício claro de teste.
+- [ ] Preferir funções explícitas e nomes de domínio a helpers genéricos como `processData`, `handleItem` ou `utils` grandes.
+
+### Refatoração incremental
+
+- [ ] Refatorar uma feature por vez, começando por importação CSV ou transações se forem os módulos mais acoplados.
+- [ ] Para cada feature, mover primeiro regras puras, depois queries/use-cases, depois componentes.
+- [ ] Manter commits pequenos e reversíveis por fluxo de usuário.
+- [ ] Não reescrever telas só para mudar pastas; cada movimento deve reduzir complexidade observável.
+- [ ] Preservar URLs, contratos de formulário, dados existentes e comportamento visual salvo quando a mudança for intencional.
+- [ ] Atualizar imports e remover arquivos mortos a cada etapa.
+- [ ] Documentar no README ou em `docs/architecture.md` a estrutura escolhida, regras de dependência e exemplos de onde colocar código novo.
+
+### Testes e validação técnica
+
+- [ ] Garantir testes unitários para normalização de CSV, detecção de duplicidade, categorização, saldo, fatura e orçamento conforme forem extraídos.
+- [ ] Adicionar testes de integração leves para casos de uso críticos quando a lógica depender de banco.
+- [ ] Rodar lint, typecheck, testes e seed após cada refatoração relevante.
+- [ ] Validar manualmente fluxos principais com a massa realista da Fase 3.5.
+- [ ] Garantir que a refatoração não cria dependência circular, arquivo barril confuso ou camada sem responsabilidade clara.
+
+### Critérios de aceite
+
+- [ ] `src/app` deve estar majoritariamente livre de regra financeira complexa.
+- [ ] Regras de domínio importantes devem ser testáveis sem subir Next.js.
+- [ ] Código compartilhado deve existir por necessidade comprovada, não por antecipação.
+- [ ] Um desenvolvedor deve saber onde adicionar uma nova regra de transação, importação ou dashboard sem procurar em muitos lugares.
+- [ ] Arquivos grandes devem ter responsabilidade clara; quando acumularem fluxos diferentes, devem ser divididos por feature ou caso de uso.
+- [ ] A arquitetura deve ajudar as próximas fases sem exigir boilerplate para tarefas simples.
 
 ---
 
@@ -463,11 +606,15 @@ Objetivo: deixar o app confortável para uso contínuo.
 11. Análises avançadas de gastos.
 12. IA assistiva local/futura.
 13. Relatórios, privacidade e acabamento.
+14. Clareza visual, tema claro/escuro e experiência base.
+15. Arquitetura simples e organização sustentável do código.
 
 ---
 
 ## Critérios de validação do produto
 
+- [ ] A interface reduz sobrecarga cognitiva, prioriza a próxima ação e não mostra tudo ao mesmo tempo.
+- [ ] O usuário pode escolher tema claro, escuro ou preferência do sistema, com contraste adequado.
 - [ ] É possível importar CSVs de bancos diferentes sem retrabalho excessivo.
 - [ ] É possível importar faturas de cartão sem duplicar despesa no pagamento da fatura.
 - [ ] Toda transação pertence a uma conta e a um usuário.
@@ -479,3 +626,4 @@ Objetivo: deixar o app confortável para uso contínuo.
 - [ ] IA sugere e resume, mas não altera dados sem confirmação.
 - [ ] Dados sigilosos são mascarados ou removidos quando necessário.
 - [ ] Importações podem ser auditadas e desfeitas.
+- [ ] A organização do código permite evoluir features sem espalhar regra de negócio por páginas, actions e helpers genéricos.

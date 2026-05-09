@@ -23,6 +23,7 @@ import {
 	importCategoryRules,
 	importRows,
 	importTemplates,
+	monthlyBudgets,
 	transactions,
 } from "~/server/db/schema";
 
@@ -46,6 +47,7 @@ type TransactionStatus =
 	| "pending_review";
 type CategoryKind = "income" | "expense";
 type ImportRuleTextMatchMode = "contains" | "exact";
+type MonthlyBudgetScope = "month" | "category_group" | "category";
 
 const accountTypes = new Set<AccountType>([
 	"checking",
@@ -79,6 +81,11 @@ const importRuleTextMatchModes = new Set<ImportRuleTextMatchMode>([
 const importMovementTypes = new Set<"income" | "expense">([
 	"income",
 	"expense",
+]);
+const monthlyBudgetScopes = new Set<MonthlyBudgetScope>([
+	"month",
+	"category_group",
+	"category",
 ]);
 
 const defaultGroups = [
@@ -190,6 +197,17 @@ function isoDateField(formData: FormData, name: string) {
 		throw new Error(`Data inválida: ${name}`);
 	}
 	return value;
+}
+
+function monthKeyField(formData: FormData, name: string) {
+	const value = requiredString(formData, name);
+	if (!/^\d{4}-\d{2}$/.test(value)) throw new Error(`Mês inválido: ${name}`);
+	return value;
+}
+
+function revalidateBudgetViews() {
+	revalidatePath("/");
+	revalidatePath("/budgets");
 }
 
 async function accountHasTransactions(userId: string, accountId: number) {
@@ -561,6 +579,141 @@ export async function archiveTransaction(formData: FormData) {
 			),
 		);
 	revalidatePath("/");
+}
+
+async function budgetValues(userId: string, formData: FormData) {
+	const scope = enumField(formData, "scope", monthlyBudgetScopes);
+	const categoryGroupId = optionalIntField(formData, "categoryGroupId");
+	const categoryId = optionalIntField(formData, "categoryId");
+	if (scope === "month" && (categoryGroupId !== null || categoryId !== null)) {
+		throw new Error("Orçamento mensal não usa grupo ou categoria");
+	}
+	if (scope === "category_group" && (!categoryGroupId || categoryId !== null)) {
+		throw new Error("Orçamento por grupo exige apenas grupo");
+	}
+	if (scope === "category" && (!categoryId || categoryGroupId !== null)) {
+		throw new Error("Orçamento por categoria exige apenas categoria");
+	}
+
+	if (categoryGroupId) {
+		const [group] = await db
+			.select({ id: categoryGroups.id })
+			.from(categoryGroups)
+			.where(
+				and(
+					eq(categoryGroups.id, categoryGroupId),
+					eq(categoryGroups.userId, userId),
+					eq(categoryGroups.kind, "expense"),
+					eq(categoryGroups.isArchived, false),
+				),
+			)
+			.limit(1);
+		if (!group) throw new Error("Grupo de despesa inválido");
+	}
+
+	if (categoryId) {
+		const [category] = await db
+			.select({ id: categories.id })
+			.from(categories)
+			.where(
+				and(
+					eq(categories.id, categoryId),
+					eq(categories.userId, userId),
+					eq(categories.kind, "expense"),
+					eq(categories.isArchived, false),
+				),
+			)
+			.limit(1);
+		if (!category) throw new Error("Categoria de despesa inválida");
+	}
+
+	return {
+		amountCents: moneyToCents(requiredString(formData, "amount"), {
+			allowZero: false,
+		}),
+		categoryGroupId,
+		categoryId,
+		monthKey: monthKeyField(formData, "monthKey"),
+		scope,
+		userId,
+	};
+}
+
+export async function createOrUpdateBudget(formData: FormData) {
+	const userId = await requireUserId();
+	const values = await budgetValues(userId, formData);
+	await db
+		.insert(monthlyBudgets)
+		.values(values)
+		.onConflictDoUpdate({
+			set: {
+				amountCents: values.amountCents,
+				updatedAt: new Date(),
+			},
+			target: [
+				monthlyBudgets.userId,
+				monthlyBudgets.monthKey,
+				monthlyBudgets.scope,
+				monthlyBudgets.categoryGroupId,
+				monthlyBudgets.categoryId,
+			],
+		});
+	revalidateBudgetViews();
+}
+
+export async function deleteBudget(formData: FormData) {
+	const userId = await requireUserId();
+	await db
+		.delete(monthlyBudgets)
+		.where(
+			and(
+				eq(monthlyBudgets.id, intField(formData, "id")),
+				eq(monthlyBudgets.userId, userId),
+			),
+		);
+	revalidateBudgetViews();
+}
+
+export async function copyBudgetMonth(formData: FormData) {
+	const userId = await requireUserId();
+	const sourceMonthKey = monthKeyField(formData, "sourceMonthKey");
+	const targetMonthKey = monthKeyField(formData, "targetMonthKey");
+	if (sourceMonthKey === targetMonthKey) {
+		throw new Error("Escolha meses diferentes para copiar orçamento");
+	}
+	const sourceBudgets = await db
+		.select()
+		.from(monthlyBudgets)
+		.where(
+			and(
+				eq(monthlyBudgets.userId, userId),
+				eq(monthlyBudgets.monthKey, sourceMonthKey),
+			),
+		);
+	if (sourceBudgets.length > 0) {
+		await db
+			.insert(monthlyBudgets)
+			.values(
+				sourceBudgets.map((budget) => ({
+					amountCents: budget.amountCents,
+					categoryGroupId: budget.categoryGroupId,
+					categoryId: budget.categoryId,
+					monthKey: targetMonthKey,
+					scope: budget.scope,
+					userId,
+				})),
+			)
+			.onConflictDoNothing({
+				target: [
+					monthlyBudgets.userId,
+					monthlyBudgets.monthKey,
+					monthlyBudgets.scope,
+					monthlyBudgets.categoryGroupId,
+					monthlyBudgets.categoryId,
+				],
+			});
+	}
+	revalidateBudgetViews();
 }
 
 function csvTokens(value: string | null, fallback: string[]) {

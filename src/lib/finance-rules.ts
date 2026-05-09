@@ -49,6 +49,18 @@ export type RuleCategoryGroup = {
 	name: string;
 };
 
+export type BudgetScope = "month" | "category_group" | "category";
+export type BudgetStatus = "ok" | "near" | "over";
+
+export type RuleBudget = {
+	id: number;
+	monthKey: string;
+	scope: BudgetScope;
+	categoryGroupId: number | null;
+	categoryId: number | null;
+	amountCents: number;
+};
+
 export type MonthPeriod = {
 	key: string;
 	start: string;
@@ -353,7 +365,7 @@ function isMonthlyMetricTransaction(
 	);
 }
 
-function isInPeriod(
+export function isInPeriod(
 	transaction: RuleTransaction,
 	period: Pick<MonthPeriod, "start" | "end">,
 ) {
@@ -361,6 +373,225 @@ function isInPeriod(
 		transaction.occurredOn >= period.start &&
 		transaction.occurredOn <= period.end
 	);
+}
+
+export function classifyBudgetStatus(
+	spentCents: number,
+	plannedCents: number,
+): BudgetStatus {
+	const percent = spentCents / plannedCents;
+	if (percent >= 1) return "over";
+	if (percent >= 0.8) return "near";
+	return "ok";
+}
+
+export function buildBudgetUsage(
+	budgets: RuleBudget[],
+	transactions: RuleTransaction[],
+	categories: RuleCategory[],
+	groups: RuleCategoryGroup[],
+	period: Pick<MonthPeriod, "start" | "end">,
+) {
+	const categoriesById = new Map(
+		categories.map((category) => [category.id, category]),
+	);
+	const groupsById = new Map(groups.map((group) => [group.id, group]));
+	const expenseTransactions = transactions.filter(
+		(transaction) =>
+			affectsReports(transaction) &&
+			transaction.movementType === "expense" &&
+			isInPeriod(transaction, period),
+	);
+	const allSpentCents = expenseTransactions.reduce(
+		(total, transaction) => total + transaction.amountCents,
+		0,
+	);
+
+	return budgets.map((budget) => {
+		let spentCents = allSpentCents;
+		let refId: number | null = null;
+		let name = "Mês total";
+
+		if (budget.scope === "category_group") {
+			refId = budget.categoryGroupId;
+			name = refId ? (groupsById.get(refId)?.name ?? "Grupo removido") : name;
+			spentCents = expenseTransactions.reduce((total, transaction) => {
+				const category = transaction.categoryId
+					? categoriesById.get(transaction.categoryId)
+					: undefined;
+				return category?.groupId === refId
+					? total + transaction.amountCents
+					: total;
+			}, 0);
+		}
+
+		if (budget.scope === "category") {
+			refId = budget.categoryId;
+			name = refId
+				? (categoriesById.get(refId)?.name ?? "Categoria removida")
+				: name;
+			spentCents = expenseTransactions.reduce(
+				(total, transaction) =>
+					transaction.categoryId === refId
+						? total + transaction.amountCents
+						: total,
+				0,
+			);
+		}
+
+		const percent = spentCents / budget.amountCents;
+		return {
+			budgetId: budget.id,
+			name,
+			percent,
+			plannedCents: budget.amountCents,
+			refId,
+			remainingCents: budget.amountCents - spentCents,
+			scope: budget.scope,
+			spentCents,
+			status: classifyBudgetStatus(spentCents, budget.amountCents),
+		};
+	});
+}
+
+export function buildBudgetHistory(
+	budgets: RuleBudget[],
+	transactions: RuleTransaction[],
+	categories: RuleCategory[],
+	groups: RuleCategoryGroup[],
+	monthKeys: string[],
+	scope: BudgetScope,
+	refId: number | null,
+) {
+	const orderedKeys = [...monthKeys].sort();
+	let previousPlannedCents: number | null = null;
+	let previousSpentCents: number | null = null;
+
+	return orderedKeys.map((monthKey) => {
+		const period = parseMonthPeriod(monthKey);
+		if (!period) throw new Error(`Mês inválido: ${monthKey}`);
+		const budget = budgets.find(
+			(candidate) =>
+				candidate.monthKey === monthKey &&
+				candidate.scope === scope &&
+				budgetRefId(candidate) === refId,
+		);
+		const usage = buildBudgetUsage(
+			[
+				budget ?? {
+					amountCents: 1,
+					categoryGroupId: scope === "category_group" ? refId : null,
+					categoryId: scope === "category" ? refId : null,
+					id: 0,
+					monthKey,
+					scope,
+				},
+			],
+			transactions,
+			categories,
+			groups,
+			period,
+		)[0];
+		const plannedCents = budget ? budget.amountCents : null;
+		const spentCents = usage?.spentCents ?? 0;
+		const row = {
+			deltaPlannedCents:
+				plannedCents === null || previousPlannedCents === null
+					? null
+					: plannedCents - previousPlannedCents,
+			deltaSpentCents:
+				spentCents === null || previousSpentCents === null
+					? null
+					: spentCents - previousSpentCents,
+			monthKey,
+			percent: budget && usage ? usage.percent : null,
+			plannedCents,
+			spentCents,
+		};
+		previousPlannedCents = plannedCents;
+		previousSpentCents = spentCents;
+		return row;
+	});
+}
+
+export function summarizeBudgetCoherence(
+	budgets: RuleBudget[],
+	categories: RuleCategory[],
+) {
+	const warnings: string[] = [];
+	const categoriesById = new Map(
+		categories.map((category) => [category.id, category]),
+	);
+	const budgetsByMonth = new Map<string, RuleBudget[]>();
+	for (const budget of budgets) {
+		budgetsByMonth.set(budget.monthKey, [
+			...(budgetsByMonth.get(budget.monthKey) ?? []),
+			budget,
+		]);
+	}
+
+	for (const [monthKey, monthBudgets] of budgetsByMonth) {
+		const groupBudgets = monthBudgets.filter(
+			(budget) => budget.scope === "category_group",
+		);
+		const categoryBudgets = monthBudgets.filter(
+			(budget) => budget.scope === "category",
+		);
+		for (const groupBudget of groupBudgets) {
+			const categorySum = categoryBudgets.reduce((total, budget) => {
+				const category = budget.categoryId
+					? categoriesById.get(budget.categoryId)
+					: undefined;
+				return category?.groupId === groupBudget.categoryGroupId
+					? total + budget.amountCents
+					: total;
+			}, 0);
+			if (categorySum > groupBudget.amountCents) {
+				warnings.push(
+					`${monthKey}: soma dos orçamentos de categoria supera o orçamento do grupo ${groupBudget.categoryGroupId}.`,
+				);
+			}
+		}
+
+		const monthBudget = monthBudgets.find((budget) => budget.scope === "month");
+		if (!monthBudget) continue;
+		const scopedSum = groupBudgets.reduce(
+			(total, budget) => total + budget.amountCents,
+			0,
+		);
+		const categorySum = categoryBudgets.reduce(
+			(total, budget) => total + budget.amountCents,
+			0,
+		);
+		const detailSum = scopedSum > 0 ? scopedSum : categorySum;
+		if (detailSum > monthBudget.amountCents) {
+			warnings.push(
+				`${monthKey}: soma dos orçamentos detalhados supera o orçamento mensal.`,
+			);
+		}
+	}
+
+	return warnings;
+}
+
+export function listMonthOptions(
+	reference: Date,
+	pastMonths = 12,
+	futureMonths = 3,
+) {
+	const options: MonthPeriod[] = [];
+	const year = reference.getFullYear();
+	const month = reference.getMonth();
+	for (let offset = -pastMonths; offset <= futureMonths; offset++) {
+		options.push(getMonthPeriod(new Date(year, month + offset, 1)));
+	}
+	return options;
+}
+
+function budgetRefId(budget: RuleBudget) {
+	if (budget.scope === "category_group") return budget.categoryGroupId;
+	if (budget.scope === "category") return budget.categoryId;
+	return null;
 }
 
 export function getInvoiceForDate(

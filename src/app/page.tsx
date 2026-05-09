@@ -9,6 +9,7 @@ import {
 } from "~/app/_components/finance-ui";
 import { SignInForm } from "~/app/_components/sign-in-form";
 import {
+	buildBudgetUsage,
 	calculateAccountBalances,
 	calculateMonthlyTotals,
 	calculateProjectedCashFlow,
@@ -143,11 +144,14 @@ export default async function Home({ searchParams }: HomeProps) {
 		{ start: monthCutoff, end: period.end },
 		normalConsolidated,
 	);
-	const budgetSummary = buildBudgetSummary(
+	const budgetUsageRows = buildBudgetUsage(
 		budgetRows.filter((budget) => budget.monthKey === period.key),
-		categoryRanking,
-		monthlyTotals.expenseCents,
+		allTransactions,
+		allCategories,
+		allGroups,
+		period,
 	);
+	const budgetSummary = buildBudgetSummary(budgetUsageRows);
 	const openInvoices = buildOpenInvoices(
 		activeAccounts,
 		allTransactions,
@@ -167,7 +171,7 @@ export default async function Home({ searchParams }: HomeProps) {
 			!transaction.categoryId,
 	).length;
 	const alerts = [
-		...budgetAlerts(budgetSummary),
+		...budgetAlerts(budgetUsageRows),
 		...invoiceAlerts(openInvoices, today),
 		...projectedAccountAlerts(activeAccounts, allTransactions, balances, {
 			start: monthCutoff,
@@ -566,89 +570,71 @@ type AccountRow = typeof financialAccounts.$inferSelect;
 type TransactionRow = typeof transactions.$inferSelect;
 type ImportBatchRow = typeof importBatches.$inferSelect;
 type ImportRow = typeof importRows.$inferSelect;
-type BudgetRow = typeof monthlyBudgets.$inferSelect;
-
 type BudgetSummary = {
-	categoryOverBudget: {
-		budgetCents: number;
-		name: string;
-		spentCents: number;
-	}[];
 	description: string;
 	label: string;
 	variant: "bad" | "default" | "good" | "warn";
 };
 
-function buildBudgetSummary(
-	budgets: BudgetRow[],
-	categoryRanking: ReturnType<typeof rankMonthlyCategories>,
-	monthlyExpenseCents: number,
-): BudgetSummary {
-	const spentByCategory = new Map(
-		categoryRanking.map((row) => [row.categoryId, row]),
-	);
-	const categoryBudgets = budgets.filter(
-		(budget) => budget.scope === "category" && budget.categoryId,
-	);
-	if (categoryBudgets.length > 0) {
-		const budgetCents = categoryBudgets.reduce(
-			(total, budget) => total + budget.amountCents,
-			0,
-		);
-		const spentCents = categoryBudgets.reduce(
-			(total, budget) =>
-				total + (spentByCategory.get(budget.categoryId)?.amountCents ?? 0),
-			0,
-		);
-		const categoryOverBudget = categoryBudgets.flatMap((budget) => {
-			const spending = spentByCategory.get(budget.categoryId);
-			if (!spending || spending.amountCents <= budget.amountCents) return [];
-			return [
-				{
-					budgetCents: budget.amountCents,
-					name: spending.categoryName,
-					spentCents: spending.amountCents,
-				},
-			];
-		});
-		return {
-			categoryOverBudget,
-			description: `${formatMoney(spentCents)} de ${formatMoney(budgetCents)} em ${categoryBudgets.length} categoria(s).`,
-			label: formatPercent(spentCents / budgetCents),
-			variant: budgetVariant(spentCents, budgetCents),
-		};
+type BudgetUsageRow = ReturnType<typeof buildBudgetUsage>[number];
+
+function buildBudgetSummary(usageRows: BudgetUsageRow[]): BudgetSummary {
+	const monthRow = usageRows.find((row) => row.scope === "month");
+	if (monthRow) return budgetSummaryFromRows([monthRow], "no mês");
+
+	const groupRows = usageRows.filter((row) => row.scope === "category_group");
+	if (groupRows.length > 0) {
+		return budgetSummaryFromRows(groupRows, `em ${groupRows.length} grupo(s)`);
 	}
 
-	const monthBudget = budgets.find((budget) => budget.scope === "month");
-	if (monthBudget) {
-		return {
-			categoryOverBudget: [],
-			description: `${formatMoney(monthlyExpenseCents)} de ${formatMoney(monthBudget.amountCents)} no mês.`,
-			label: formatPercent(monthlyExpenseCents / monthBudget.amountCents),
-			variant: budgetVariant(monthlyExpenseCents, monthBudget.amountCents),
-		};
+	const categoryRows = usageRows.filter((row) => row.scope === "category");
+	if (categoryRows.length > 0) {
+		return budgetSummaryFromRows(
+			categoryRows,
+			`em ${categoryRows.length} categoria(s)`,
+		);
 	}
 
 	return {
-		categoryOverBudget: [],
 		description: "Nenhum orçamento mensal cadastrado para este mês.",
 		label: "Não configurado",
 		variant: "warn",
 	};
 }
 
-function budgetVariant(spentCents: number, budgetCents: number) {
-	if (spentCents > budgetCents) return "bad";
-	if (spentCents >= budgetCents * 0.9) return "warn";
+function budgetSummaryFromRows(
+	rows: BudgetUsageRow[],
+	suffix: string,
+): BudgetSummary {
+	const plannedCents = rows.reduce((total, row) => total + row.plannedCents, 0);
+	const spentCents = rows.reduce((total, row) => total + row.spentCents, 0);
+	return {
+		description: `${formatMoney(spentCents)} de ${formatMoney(plannedCents)} ${suffix}.`,
+		label: formatPercent(spentCents / plannedCents),
+		variant: budgetVariant(spentCents, plannedCents),
+	};
+}
+
+function budgetVariant(
+	spentCents: number,
+	budgetCents: number,
+): BudgetSummary["variant"] {
+	if (spentCents >= budgetCents) return "bad";
+	if (spentCents >= budgetCents * 0.8) return "warn";
 	return "good";
 }
 
-function budgetAlerts(budgetSummary: BudgetSummary): DashboardAlert[] {
-	return budgetSummary.categoryOverBudget.map((category) => ({
-		kind: "danger",
-		message: `${category.name}: ${formatMoney(category.spentCents)} de ${formatMoney(category.budgetCents)} usados.`,
-		title: "Categoria acima do orçamento",
-	}));
+function budgetAlerts(usageRows: BudgetUsageRow[]): DashboardAlert[] {
+	return usageRows
+		.filter((row) => row.status === "near" || row.status === "over")
+		.map((row) => ({
+			kind: row.status === "over" ? "danger" : "warning",
+			message: `${row.name}: ${formatMoney(row.spentCents)} de ${formatMoney(row.plannedCents)} usados (${formatPercent(row.percent)}).`,
+			title:
+				row.status === "over"
+					? "Orçamento acima do limite"
+					: "Orçamento próximo do limite",
+		}));
 }
 
 function buildOpenInvoices(
