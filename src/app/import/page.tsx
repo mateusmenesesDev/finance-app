@@ -26,6 +26,7 @@ import {
 	importCategoryRules,
 	importRows,
 	importTemplates,
+	recurrences,
 } from "~/server/db/schema";
 
 type ImportPageProps = {
@@ -94,6 +95,15 @@ export default async function ImportPage({ searchParams }: ImportPageProps) {
 					),
 				)
 				.orderBy(asc(importRows.rowNumber))
+		: [];
+	const suggestedRecurrenceIds = [
+		...new Set(rows.flatMap((row) => row.suggestedRecurrenceId ?? [])),
+	];
+	const suggestedRecurrences = suggestedRecurrenceIds.length
+		? await db
+				.select()
+				.from(recurrences)
+				.where(eq(recurrences.userId, session.user.id))
 		: [];
 	const accountById = new Map(accounts.map((account) => [account.id, account]));
 	const templateById = new Map(
@@ -353,6 +363,9 @@ export default async function ImportPage({ searchParams }: ImportPageProps) {
 							<BatchReview
 								reviewAccounts={usableAccounts}
 								reviewCategories={usableCategories}
+								reviewRecurrences={suggestedRecurrences.filter((recurrence) =>
+									suggestedRecurrenceIds.includes(recurrence.id),
+								)}
 								reviewRules={rules}
 								rows={rows}
 								selectedBatch={selectedBatch}
@@ -625,14 +638,19 @@ function BatchReview({
 	reviewAccounts,
 	reviewCategories,
 	reviewRules,
+	reviewRecurrences,
 }: {
 	selectedBatch: typeof importBatches.$inferSelect;
 	rows: (typeof importRows.$inferSelect)[];
 	reviewAccounts: (typeof financialAccounts.$inferSelect)[];
 	reviewCategories: (typeof categories.$inferSelect)[];
 	reviewRules: (typeof importCategoryRules.$inferSelect)[];
+	reviewRecurrences: (typeof recurrences.$inferSelect)[];
 }) {
 	const ruleById = new Map(reviewRules.map((rule) => [rule.id, rule]));
+	const recurrenceById = new Map(
+		reviewRecurrences.map((recurrence) => [recurrence.id, recurrence]),
+	);
 	const totals = rows.reduce(
 		(summary, row) => {
 			if (row.status === "ignored") summary.ignored++;
@@ -755,6 +773,15 @@ function BatchReview({
 										: ""}
 								</p>
 							)}
+							{row.suggestedRecurrenceId &&
+								row.suggestedRecurrenceOccurrenceOn && (
+									<p className="text-cyan-300 text-sm">
+										Sugestão: recorrência{" "}
+										{recurrenceById.get(row.suggestedRecurrenceId)?.name ??
+											`#${row.suggestedRecurrenceId}`}{" "}
+										(vencimento {row.suggestedRecurrenceOccurrenceOn})
+									</p>
+								)}
 							{row.validationError && (
 								<p className="text-red-300 text-sm">{row.validationError}</p>
 							)}
@@ -822,6 +849,16 @@ function BatchReview({
 									name={`row-${row.id}-description`}
 								/>
 							</div>
+							{row.suggestedRecurrenceId && (
+								<label className="flex items-center gap-2 text-cyan-200 text-sm">
+									<input
+										defaultChecked
+										name={`row-${row.id}-acceptRecurrence`}
+										type="checkbox"
+									/>{" "}
+									Vincular recorrência sugerida ao importar
+								</label>
+							)}
 							<label className="flex items-center gap-2 text-slate-400 text-sm">
 								<input name={`row-${row.id}-createRule`} type="checkbox" />{" "}
 								Criar regra a partir desta correção

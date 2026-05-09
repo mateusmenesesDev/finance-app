@@ -54,6 +54,14 @@ Status de transação:
 - Duplicada
 - Pendente de revisão
 
+## Recorrências
+
+Recorrências descrevem movimentos financeiros esperados, como salário, aluguel, contas e assinaturas. Elas têm frequência (`once`, semanal, mensal ou anual), conta, valor e período de validade.
+
+Uma ocorrência pode estar prevista (gerada pela recorrência), confirmada (já virou transação ligada por `recurrenceId` e `recurrenceOccurrenceOn`) ou atrasada (data anterior a hoje sem confirmação).
+
+A não duplicação de confirmações é garantida por índice único parcial em `(recurrenceId, recurrenceOccurrenceOn)` nas transações.
+
 ## Importação
 
 A importação CSV tem duas etapas: lote e linhas. Linhas importadas devem ser revisadas antes de virarem transações definitivas.

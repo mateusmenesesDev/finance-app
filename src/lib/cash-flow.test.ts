@@ -12,6 +12,10 @@ import {
 	negativeBalanceAlerts,
 	projectAccountBalances,
 } from "./cash-flow";
+import {
+	type RecurrenceInput,
+	recurrencesToPlannedMovements,
+} from "./recurrences";
 
 const accounts: CashFlowAccount[] = [
 	{
@@ -208,6 +212,58 @@ describe("cash flow", () => {
 				minCents: -50_00,
 				minDate: "2026-05-02",
 			},
+		]);
+	});
+
+	test("recurrence planned movements are included and confirmed occurrences suppressed", () => {
+		const recurrence: RecurrenceInput = {
+			id: 1,
+			accountId: 1,
+			categoryId: 1,
+			movementType: "income",
+			amountCents: 2_000_00,
+			frequency: "monthly",
+			intervalCount: 1,
+			anchorDay: 5,
+			anchorWeekday: null,
+			startsOn: "2026-05-05",
+			endsOn: null,
+			isSubscription: false,
+			isBill: false,
+			isArchived: false,
+			name: "Salário",
+		};
+		const window = { start: "2026-05-01", end: "2026-06-30" };
+		const result = aggregateCashFlow({
+			accounts,
+			transactions: [],
+			window,
+			granularity: "month",
+			today: "2026-05-01",
+			extraPlannedMovements: recurrencesToPlannedMovements(
+				[recurrence],
+				[],
+				window,
+			),
+		});
+		expect(result.buckets.map((bucket) => bucket.plannedIncome)).toEqual([
+			2_000_00, 2_000_00,
+		]);
+
+		const suppressed = aggregateCashFlow({
+			accounts,
+			transactions: [],
+			window,
+			granularity: "month",
+			today: "2026-05-01",
+			extraPlannedMovements: recurrencesToPlannedMovements(
+				[recurrence],
+				[{ recurrenceId: 1, occurrenceOn: "2026-05-05" }],
+				window,
+			),
+		});
+		expect(suppressed.buckets.map((bucket) => bucket.plannedIncome)).toEqual([
+			0, 2_000_00,
 		]);
 	});
 

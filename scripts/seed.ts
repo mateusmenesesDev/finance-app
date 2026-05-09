@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { auth } from "~/server/better-auth";
 import { db } from "~/server/db";
 import {
@@ -10,6 +10,7 @@ import {
 	importRows,
 	importTemplates,
 	monthlyBudgets,
+	recurrences,
 	transactions,
 	user,
 } from "~/server/db/schema";
@@ -26,6 +27,7 @@ const DEMO_PASSWORD = "Demo@123456";
 type AccountKey = "corrente" | "poupanca" | "carteira" | "cartao" | "invest";
 type InsertTransaction = typeof transactions.$inferInsert;
 type InsertBudget = typeof monthlyBudgets.$inferInsert;
+type InsertRecurrence = typeof recurrences.$inferInsert;
 type ImportRowRecord = typeof importRows.$inferInsert;
 
 type CreatedAccount = typeof financialAccounts.$inferSelect;
@@ -84,6 +86,7 @@ const resetDemoFinanceData = async (userId: string) => {
 		.delete(importCategoryRules)
 		.where(eq(importCategoryRules.userId, userId));
 	await db.delete(monthlyBudgets).where(eq(monthlyBudgets.userId, userId));
+	await db.delete(recurrences).where(eq(recurrences.userId, userId));
 	await db.delete(categories).where(eq(categories.userId, userId));
 	await db.delete(categoryGroups).where(eq(categoryGroups.userId, userId));
 	await db
@@ -342,6 +345,166 @@ const buildTransactions = (
 	);
 
 	return rows;
+};
+
+const seedRecurrences = async (
+	userId: string,
+	accounts: Record<AccountKey, CreatedAccount>,
+	cats: Record<CategoryKey, CreatedCategory>,
+) => {
+	const futureBillOn = ymd(addDays(new Date(), 14));
+	const futureIncomeOn = ymd(addDays(new Date(), 21));
+	const rows: InsertRecurrence[] = [
+		{
+			userId,
+			name: "Salário",
+			movementType: "income",
+			accountId: accounts.corrente.id,
+			categoryId: cats.salario.id,
+			amountCents: cents(9200),
+			frequency: "monthly",
+			anchorDay: 5,
+			startsOn: ymd(addDays(monthStart(5), 4)),
+		},
+		{
+			userId,
+			name: "Aluguel",
+			movementType: "expense",
+			accountId: accounts.corrente.id,
+			categoryId: cats.aluguel.id,
+			amountCents: cents(2500),
+			frequency: "monthly",
+			anchorDay: 10,
+			startsOn: ymd(addDays(monthStart(5), 9)),
+			isBill: true,
+		},
+		{
+			userId,
+			name: "Streaming",
+			movementType: "expense",
+			accountId: accounts.cartao.id,
+			categoryId: cats.streaming.id,
+			amountCents: cents(39.9),
+			frequency: "monthly",
+			anchorDay: 12,
+			startsOn: ymd(addDays(monthStart(5), 11)),
+			isSubscription: true,
+		},
+		{
+			userId,
+			name: "Academia",
+			movementType: "expense",
+			accountId: accounts.corrente.id,
+			categoryId: cats.academia.id,
+			amountCents: cents(129.9),
+			frequency: "monthly",
+			anchorDay: 7,
+			startsOn: ymd(addDays(monthStart(5), 6)),
+			isSubscription: true,
+		},
+		{
+			userId,
+			name: "Software",
+			movementType: "expense",
+			accountId: accounts.cartao.id,
+			categoryId: cats.software.id,
+			amountCents: cents(59.9),
+			frequency: "monthly",
+			anchorDay: 18,
+			startsOn: ymd(addDays(monthStart(5), 17)),
+			isSubscription: true,
+		},
+		{
+			userId,
+			name: "IPTU parcela avulsa",
+			movementType: "expense",
+			accountId: accounts.corrente.id,
+			categoryId: cats.aluguel.id,
+			amountCents: cents(480),
+			frequency: "once",
+			startsOn: futureBillOn,
+			isBill: true,
+		},
+		{
+			userId,
+			name: "Reembolso a receber",
+			movementType: "income",
+			accountId: accounts.corrente.id,
+			categoryId: cats.freelas.id,
+			amountCents: cents(350),
+			frequency: "once",
+			startsOn: futureIncomeOn,
+		},
+	];
+	const created = await db.insert(recurrences).values(rows).returning();
+	const byName = new Map(
+		created.map((recurrence) => [recurrence.name, recurrence]),
+	);
+	const linkMonthly = async (input: {
+		name: string;
+		description: string;
+		occurrenceDay: number;
+		monthsAgo: number[];
+	}) => {
+		const recurrence = req(byName.get(input.name), input.name);
+		for (const monthsAgo of input.monthsAgo) {
+			const occurrenceOn = ymd(
+				addDays(monthStart(monthsAgo), input.occurrenceDay - 1),
+			);
+			await db
+				.update(transactions)
+				.set({
+					recurrenceId: recurrence.id,
+					recurrenceOccurrenceOn: occurrenceOn,
+				})
+				.where(
+					and(
+						eq(transactions.userId, userId),
+						eq(transactions.description, input.description),
+						eq(transactions.occurredOn, occurrenceOn),
+					),
+				);
+		}
+	};
+	await linkMonthly({
+		name: "Salário",
+		description: "Salário mensal",
+		occurrenceDay: 5,
+		monthsAgo: [5, 4, 3, 2, 1, 0],
+	});
+	const aluguel = req(byName.get("Aluguel"), "Aluguel");
+	for (let monthsAgo = 5; monthsAgo >= 0; monthsAgo--) {
+		await db
+			.update(transactions)
+			.set({
+				recurrenceId: aluguel.id,
+				recurrenceOccurrenceOn: ymd(addDays(monthStart(monthsAgo), 9)),
+			})
+			.where(
+				and(
+					eq(transactions.userId, userId),
+					eq(transactions.description, "Aluguel apartamento"),
+					eq(transactions.occurredOn, ymd(addDays(monthStart(monthsAgo), 6))),
+				),
+			);
+	}
+	const streaming = req(byName.get("Streaming"), "Streaming");
+	for (const monthsAgo of [5, 4, 3, 2]) {
+		await db
+			.update(transactions)
+			.set({
+				recurrenceId: streaming.id,
+				recurrenceOccurrenceOn: ymd(addDays(monthStart(monthsAgo), 11)),
+			})
+			.where(
+				and(
+					eq(transactions.userId, userId),
+					eq(transactions.description, "Streaming filmes"),
+					eq(transactions.occurredOn, ymd(addDays(monthStart(monthsAgo), 11))),
+				),
+			);
+	}
+	return created;
 };
 
 const seedBudgets = async (
@@ -655,11 +818,12 @@ const main = async () => {
 	const cats = await seedCategories(demoUser.id);
 	const baseTransactions = buildTransactions(demoUser.id, accounts, cats);
 	await db.insert(transactions).values(baseTransactions);
+	const seededRecurrences = await seedRecurrences(demoUser.id, accounts, cats);
 	await seedBudgets(demoUser.id, cats);
 	await seedImportDemo(demoUser.id, accounts, cats);
 
 	console.log(
-		`Seed local concluído para ${DEMO_EMAIL}: 5 contas, 11 grupos, 39 categorias, 9 orçamentos, ${baseTransactions.length} transações base + 1 transação importada.`,
+		`Seed local concluído para ${DEMO_EMAIL}: 5 contas, 11 grupos, 41 categorias, 9 orçamentos, ${seededRecurrences.length} recorrências, ${baseTransactions.length} transações base + 1 transação importada.`,
 	);
 };
 

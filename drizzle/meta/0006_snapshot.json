@@ -1,0 +1,2664 @@
+{
+	"id": "146a4d0b-64db-4415-befe-084531d35261",
+	"prevId": "6e0a97e5-ca76-4bfc-8a75-8521d187afe5",
+	"version": "7",
+	"dialect": "postgresql",
+	"tables": {
+		"public.account": {
+			"name": "account",
+			"schema": "",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "text",
+					"primaryKey": true,
+					"notNull": true
+				},
+				"account_id": {
+					"name": "account_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"provider_id": {
+					"name": "provider_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"user_id": {
+					"name": "user_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"access_token": {
+					"name": "access_token",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"refresh_token": {
+					"name": "refresh_token",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"id_token": {
+					"name": "id_token",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"access_token_expires_at": {
+					"name": "access_token_expires_at",
+					"type": "timestamp",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"refresh_token_expires_at": {
+					"name": "refresh_token_expires_at",
+					"type": "timestamp",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"scope": {
+					"name": "scope",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"password": {
+					"name": "password",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"created_at": {
+					"name": "created_at",
+					"type": "timestamp",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"updated_at": {
+					"name": "updated_at",
+					"type": "timestamp",
+					"primaryKey": false,
+					"notNull": true
+				}
+			},
+			"indexes": {},
+			"foreignKeys": {
+				"account_user_id_user_id_fk": {
+					"name": "account_user_id_user_id_fk",
+					"tableFrom": "account",
+					"tableTo": "user",
+					"columnsFrom": ["user_id"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": false
+		},
+		"public.finance_app_categories": {
+			"name": "finance_app_categories",
+			"schema": "",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "integer",
+					"primaryKey": true,
+					"notNull": true,
+					"identity": {
+						"type": "byDefault",
+						"name": "finance_app_categories_id_seq",
+						"schema": "public",
+						"increment": "1",
+						"startWith": "1",
+						"minValue": "1",
+						"maxValue": "2147483647",
+						"cache": "1",
+						"cycle": false
+					}
+				},
+				"user_id": {
+					"name": "user_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"group_id": {
+					"name": "group_id",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"name": {
+					"name": "name",
+					"type": "varchar(120)",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"kind": {
+					"name": "kind",
+					"type": "finance_app_category_kind",
+					"typeSchema": "public",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"is_archived": {
+					"name": "is_archived",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": true,
+					"default": false
+				},
+				"created_at": {
+					"name": "created_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"updated_at": {
+					"name": "updated_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": false
+				}
+			},
+			"indexes": {
+				"finance_app_categories_user_idx": {
+					"name": "finance_app_categories_user_idx",
+					"columns": [
+						{
+							"expression": "user_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"finance_app_categories_user_group_idx": {
+					"name": "finance_app_categories_user_group_idx",
+					"columns": [
+						{
+							"expression": "user_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						},
+						{
+							"expression": "group_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"finance_app_categories_user_group_name_idx": {
+					"name": "finance_app_categories_user_group_name_idx",
+					"columns": [
+						{
+							"expression": "user_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						},
+						{
+							"expression": "group_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						},
+						{
+							"expression": "name",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": true,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				}
+			},
+			"foreignKeys": {
+				"finance_app_categories_user_id_user_id_fk": {
+					"name": "finance_app_categories_user_id_user_id_fk",
+					"tableFrom": "finance_app_categories",
+					"tableTo": "user",
+					"columnsFrom": ["user_id"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				},
+				"finance_app_categories_group_user_kind_fk": {
+					"name": "finance_app_categories_group_user_kind_fk",
+					"tableFrom": "finance_app_categories",
+					"tableTo": "finance_app_category_groups",
+					"columnsFrom": ["group_id", "user_id", "kind"],
+					"columnsTo": ["id", "user_id", "kind"],
+					"onDelete": "no action",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {
+				"finance_app_categories_id_user_unique": {
+					"name": "finance_app_categories_id_user_unique",
+					"nullsNotDistinct": false,
+					"columns": ["id", "user_id"]
+				}
+			},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": false
+		},
+		"public.finance_app_category_groups": {
+			"name": "finance_app_category_groups",
+			"schema": "",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "integer",
+					"primaryKey": true,
+					"notNull": true,
+					"identity": {
+						"type": "byDefault",
+						"name": "finance_app_category_groups_id_seq",
+						"schema": "public",
+						"increment": "1",
+						"startWith": "1",
+						"minValue": "1",
+						"maxValue": "2147483647",
+						"cache": "1",
+						"cycle": false
+					}
+				},
+				"user_id": {
+					"name": "user_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"name": {
+					"name": "name",
+					"type": "varchar(120)",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"kind": {
+					"name": "kind",
+					"type": "finance_app_category_kind",
+					"typeSchema": "public",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"is_archived": {
+					"name": "is_archived",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": true,
+					"default": false
+				},
+				"created_at": {
+					"name": "created_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"updated_at": {
+					"name": "updated_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": false
+				}
+			},
+			"indexes": {
+				"finance_app_category_groups_user_idx": {
+					"name": "finance_app_category_groups_user_idx",
+					"columns": [
+						{
+							"expression": "user_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"finance_app_category_groups_user_kind_idx": {
+					"name": "finance_app_category_groups_user_kind_idx",
+					"columns": [
+						{
+							"expression": "user_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						},
+						{
+							"expression": "kind",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"finance_app_category_groups_user_kind_name_idx": {
+					"name": "finance_app_category_groups_user_kind_name_idx",
+					"columns": [
+						{
+							"expression": "user_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						},
+						{
+							"expression": "kind",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						},
+						{
+							"expression": "name",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": true,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				}
+			},
+			"foreignKeys": {
+				"finance_app_category_groups_user_id_user_id_fk": {
+					"name": "finance_app_category_groups_user_id_user_id_fk",
+					"tableFrom": "finance_app_category_groups",
+					"tableTo": "user",
+					"columnsFrom": ["user_id"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {
+				"finance_app_category_groups_id_user_unique": {
+					"name": "finance_app_category_groups_id_user_unique",
+					"nullsNotDistinct": false,
+					"columns": ["id", "user_id"]
+				},
+				"finance_app_category_groups_id_user_kind_unique": {
+					"name": "finance_app_category_groups_id_user_kind_unique",
+					"nullsNotDistinct": false,
+					"columns": ["id", "user_id", "kind"]
+				}
+			},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": false
+		},
+		"public.finance_app_accounts": {
+			"name": "finance_app_accounts",
+			"schema": "",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "integer",
+					"primaryKey": true,
+					"notNull": true,
+					"identity": {
+						"type": "byDefault",
+						"name": "finance_app_accounts_id_seq",
+						"schema": "public",
+						"increment": "1",
+						"startWith": "1",
+						"minValue": "1",
+						"maxValue": "2147483647",
+						"cache": "1",
+						"cycle": false
+					}
+				},
+				"user_id": {
+					"name": "user_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"name": {
+					"name": "name",
+					"type": "varchar(120)",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"type": {
+					"name": "type",
+					"type": "finance_app_account_type",
+					"typeSchema": "public",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"institution": {
+					"name": "institution",
+					"type": "varchar(120)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"initial_balance_cents": {
+					"name": "initial_balance_cents",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"default": 0
+				},
+				"currency": {
+					"name": "currency",
+					"type": "varchar(3)",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "'BRL'"
+				},
+				"is_active": {
+					"name": "is_active",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": true,
+					"default": true
+				},
+				"is_archived": {
+					"name": "is_archived",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": true,
+					"default": false
+				},
+				"credit_card_closing_day": {
+					"name": "credit_card_closing_day",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"credit_card_due_day": {
+					"name": "credit_card_due_day",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"created_at": {
+					"name": "created_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"updated_at": {
+					"name": "updated_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": false
+				}
+			},
+			"indexes": {
+				"finance_app_accounts_user_idx": {
+					"name": "finance_app_accounts_user_idx",
+					"columns": [
+						{
+							"expression": "user_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"finance_app_accounts_user_active_idx": {
+					"name": "finance_app_accounts_user_active_idx",
+					"columns": [
+						{
+							"expression": "user_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						},
+						{
+							"expression": "is_active",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"finance_app_accounts_user_name_idx": {
+					"name": "finance_app_accounts_user_name_idx",
+					"columns": [
+						{
+							"expression": "user_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						},
+						{
+							"expression": "name",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": true,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				}
+			},
+			"foreignKeys": {
+				"finance_app_accounts_user_id_user_id_fk": {
+					"name": "finance_app_accounts_user_id_user_id_fk",
+					"tableFrom": "finance_app_accounts",
+					"tableTo": "user",
+					"columnsFrom": ["user_id"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {
+				"finance_app_accounts_id_user_unique": {
+					"name": "finance_app_accounts_id_user_unique",
+					"nullsNotDistinct": false,
+					"columns": ["id", "user_id"]
+				}
+			},
+			"policies": {},
+			"checkConstraints": {
+				"finance_app_accounts_initial_balance_cents_non_negative": {
+					"name": "finance_app_accounts_initial_balance_cents_non_negative",
+					"value": "\"finance_app_accounts\".\"initial_balance_cents\" >= 0"
+				},
+				"finance_app_accounts_closing_day_valid": {
+					"name": "finance_app_accounts_closing_day_valid",
+					"value": "\"finance_app_accounts\".\"credit_card_closing_day\" IS NULL OR (\"finance_app_accounts\".\"credit_card_closing_day\" >= 1 AND \"finance_app_accounts\".\"credit_card_closing_day\" <= 31)"
+				},
+				"finance_app_accounts_due_day_valid": {
+					"name": "finance_app_accounts_due_day_valid",
+					"value": "\"finance_app_accounts\".\"credit_card_due_day\" IS NULL OR (\"finance_app_accounts\".\"credit_card_due_day\" >= 1 AND \"finance_app_accounts\".\"credit_card_due_day\" <= 31)"
+				}
+			},
+			"isRLSEnabled": false
+		},
+		"public.finance_app_import_batches": {
+			"name": "finance_app_import_batches",
+			"schema": "",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "integer",
+					"primaryKey": true,
+					"notNull": true,
+					"identity": {
+						"type": "byDefault",
+						"name": "finance_app_import_batches_id_seq",
+						"schema": "public",
+						"increment": "1",
+						"startWith": "1",
+						"minValue": "1",
+						"maxValue": "2147483647",
+						"cache": "1",
+						"cycle": false
+					}
+				},
+				"user_id": {
+					"name": "user_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"import_template_id": {
+					"name": "import_template_id",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"account_id": {
+					"name": "account_id",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"status": {
+					"name": "status",
+					"type": "finance_app_import_batch_status",
+					"typeSchema": "public",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "'draft'"
+				},
+				"original_file_name": {
+					"name": "original_file_name",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"source_label": {
+					"name": "source_label",
+					"type": "varchar(120)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"row_count": {
+					"name": "row_count",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"default": 0
+				},
+				"raw_file_stored": {
+					"name": "raw_file_stored",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": true,
+					"default": false
+				},
+				"suggestion_count": {
+					"name": "suggestion_count",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"default": 0
+				},
+				"suggestion_accepted_count": {
+					"name": "suggestion_accepted_count",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"default": 0
+				},
+				"suggestion_rejected_count": {
+					"name": "suggestion_rejected_count",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"default": 0
+				},
+				"suggestion_overridden_count": {
+					"name": "suggestion_overridden_count",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"default": 0
+				},
+				"created_at": {
+					"name": "created_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"confirmed_at": {
+					"name": "confirmed_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": false
+				}
+			},
+			"indexes": {
+				"finance_app_import_batches_user_idx": {
+					"name": "finance_app_import_batches_user_idx",
+					"columns": [
+						{
+							"expression": "user_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"finance_app_import_batches_user_account_idx": {
+					"name": "finance_app_import_batches_user_account_idx",
+					"columns": [
+						{
+							"expression": "user_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						},
+						{
+							"expression": "account_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"finance_app_import_batches_user_template_idx": {
+					"name": "finance_app_import_batches_user_template_idx",
+					"columns": [
+						{
+							"expression": "user_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						},
+						{
+							"expression": "import_template_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"finance_app_import_batches_user_status_idx": {
+					"name": "finance_app_import_batches_user_status_idx",
+					"columns": [
+						{
+							"expression": "user_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						},
+						{
+							"expression": "status",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				}
+			},
+			"foreignKeys": {
+				"finance_app_import_batches_user_id_user_id_fk": {
+					"name": "finance_app_import_batches_user_id_user_id_fk",
+					"tableFrom": "finance_app_import_batches",
+					"tableTo": "user",
+					"columnsFrom": ["user_id"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				},
+				"finance_app_import_batches_template_user_fk": {
+					"name": "finance_app_import_batches_template_user_fk",
+					"tableFrom": "finance_app_import_batches",
+					"tableTo": "finance_app_import_templates",
+					"columnsFrom": ["import_template_id", "user_id"],
+					"columnsTo": ["id", "user_id"],
+					"onDelete": "no action",
+					"onUpdate": "no action"
+				},
+				"finance_app_import_batches_account_user_fk": {
+					"name": "finance_app_import_batches_account_user_fk",
+					"tableFrom": "finance_app_import_batches",
+					"tableTo": "finance_app_accounts",
+					"columnsFrom": ["account_id", "user_id"],
+					"columnsTo": ["id", "user_id"],
+					"onDelete": "no action",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {
+				"finance_app_import_batches_id_user_unique": {
+					"name": "finance_app_import_batches_id_user_unique",
+					"nullsNotDistinct": false,
+					"columns": ["id", "user_id"]
+				}
+			},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": false
+		},
+		"public.finance_app_import_category_rules": {
+			"name": "finance_app_import_category_rules",
+			"schema": "",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "integer",
+					"primaryKey": true,
+					"notNull": true,
+					"identity": {
+						"type": "byDefault",
+						"name": "finance_app_import_category_rules_id_seq",
+						"schema": "public",
+						"increment": "1",
+						"startWith": "1",
+						"minValue": "1",
+						"maxValue": "2147483647",
+						"cache": "1",
+						"cycle": false
+					}
+				},
+				"user_id": {
+					"name": "user_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"category_id": {
+					"name": "category_id",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"account_id": {
+					"name": "account_id",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"movement_type": {
+					"name": "movement_type",
+					"type": "finance_app_movement_type",
+					"typeSchema": "public",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"normalized_description": {
+					"name": "normalized_description",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"text_match_mode": {
+					"name": "text_match_mode",
+					"type": "finance_app_import_rule_text_match_mode",
+					"typeSchema": "public",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "'contains'"
+				},
+				"amount_cents": {
+					"name": "amount_cents",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"amount_tolerance_cents": {
+					"name": "amount_tolerance_cents",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"priority": {
+					"name": "priority",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"default": 0
+				},
+				"match_count": {
+					"name": "match_count",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"default": 0
+				},
+				"accepted_count": {
+					"name": "accepted_count",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"default": 0
+				},
+				"rejected_count": {
+					"name": "rejected_count",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"default": 0
+				},
+				"overridden_count": {
+					"name": "overridden_count",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"default": 0
+				},
+				"is_archived": {
+					"name": "is_archived",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": true,
+					"default": false
+				},
+				"created_at": {
+					"name": "created_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"updated_at": {
+					"name": "updated_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": false
+				}
+			},
+			"indexes": {
+				"finance_app_import_category_rules_user_idx": {
+					"name": "finance_app_import_category_rules_user_idx",
+					"columns": [
+						{
+							"expression": "user_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"finance_app_import_category_rules_user_archived_idx": {
+					"name": "finance_app_import_category_rules_user_archived_idx",
+					"columns": [
+						{
+							"expression": "user_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						},
+						{
+							"expression": "is_archived",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				}
+			},
+			"foreignKeys": {
+				"finance_app_import_category_rules_user_id_user_id_fk": {
+					"name": "finance_app_import_category_rules_user_id_user_id_fk",
+					"tableFrom": "finance_app_import_category_rules",
+					"tableTo": "user",
+					"columnsFrom": ["user_id"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				},
+				"finance_app_import_category_rules_category_user_fk": {
+					"name": "finance_app_import_category_rules_category_user_fk",
+					"tableFrom": "finance_app_import_category_rules",
+					"tableTo": "finance_app_categories",
+					"columnsFrom": ["category_id", "user_id"],
+					"columnsTo": ["id", "user_id"],
+					"onDelete": "no action",
+					"onUpdate": "no action"
+				},
+				"finance_app_import_category_rules_account_user_fk": {
+					"name": "finance_app_import_category_rules_account_user_fk",
+					"tableFrom": "finance_app_import_category_rules",
+					"tableTo": "finance_app_accounts",
+					"columnsFrom": ["account_id", "user_id"],
+					"columnsTo": ["id", "user_id"],
+					"onDelete": "no action",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {
+				"finance_app_import_category_rules_id_user_unique": {
+					"name": "finance_app_import_category_rules_id_user_unique",
+					"nullsNotDistinct": false,
+					"columns": ["id", "user_id"]
+				}
+			},
+			"policies": {},
+			"checkConstraints": {
+				"finance_app_import_category_rules_type_valid": {
+					"name": "finance_app_import_category_rules_type_valid",
+					"value": "\"finance_app_import_category_rules\".\"movement_type\" IN ('income', 'expense')"
+				},
+				"finance_app_import_category_rules_amount_cents_positive": {
+					"name": "finance_app_import_category_rules_amount_cents_positive",
+					"value": "\"finance_app_import_category_rules\".\"amount_cents\" IS NULL OR \"finance_app_import_category_rules\".\"amount_cents\" > 0"
+				},
+				"finance_app_import_category_rules_amount_tolerance_non_negative": {
+					"name": "finance_app_import_category_rules_amount_tolerance_non_negative",
+					"value": "\"finance_app_import_category_rules\".\"amount_tolerance_cents\" IS NULL OR \"finance_app_import_category_rules\".\"amount_tolerance_cents\" >= 0"
+				}
+			},
+			"isRLSEnabled": false
+		},
+		"public.finance_app_import_rows": {
+			"name": "finance_app_import_rows",
+			"schema": "",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "integer",
+					"primaryKey": true,
+					"notNull": true,
+					"identity": {
+						"type": "byDefault",
+						"name": "finance_app_import_rows_id_seq",
+						"schema": "public",
+						"increment": "1",
+						"startWith": "1",
+						"minValue": "1",
+						"maxValue": "2147483647",
+						"cache": "1",
+						"cycle": false
+					}
+				},
+				"user_id": {
+					"name": "user_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"batch_id": {
+					"name": "batch_id",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"account_id": {
+					"name": "account_id",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"row_number": {
+					"name": "row_number",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"status": {
+					"name": "status",
+					"type": "finance_app_import_row_status",
+					"typeSchema": "public",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "'pending_review'"
+				},
+				"occurred_on": {
+					"name": "occurred_on",
+					"type": "date",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"amount_cents": {
+					"name": "amount_cents",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"movement_type": {
+					"name": "movement_type",
+					"type": "finance_app_movement_type",
+					"typeSchema": "public",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"original_description": {
+					"name": "original_description",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"normalized_description": {
+					"name": "normalized_description",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"external_id": {
+					"name": "external_id",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"bank_category": {
+					"name": "bank_category",
+					"type": "varchar(120)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"suggested_category_id": {
+					"name": "suggested_category_id",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"suggested_rule_id": {
+					"name": "suggested_rule_id",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"suggested_recurrence_id": {
+					"name": "suggested_recurrence_id",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"suggested_recurrence_occurrence_on": {
+					"name": "suggested_recurrence_occurrence_on",
+					"type": "date",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"suggestion_source": {
+					"name": "suggestion_source",
+					"type": "varchar(40)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"validation_error": {
+					"name": "validation_error",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"parsed_data": {
+					"name": "parsed_data",
+					"type": "jsonb",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"created_at": {
+					"name": "created_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true
+				}
+			},
+			"indexes": {
+				"finance_app_import_rows_user_idx": {
+					"name": "finance_app_import_rows_user_idx",
+					"columns": [
+						{
+							"expression": "user_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"finance_app_import_rows_user_batch_idx": {
+					"name": "finance_app_import_rows_user_batch_idx",
+					"columns": [
+						{
+							"expression": "user_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						},
+						{
+							"expression": "batch_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"finance_app_import_rows_user_status_idx": {
+					"name": "finance_app_import_rows_user_status_idx",
+					"columns": [
+						{
+							"expression": "user_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						},
+						{
+							"expression": "status",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"finance_app_import_rows_batch_row_idx": {
+					"name": "finance_app_import_rows_batch_row_idx",
+					"columns": [
+						{
+							"expression": "batch_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						},
+						{
+							"expression": "row_number",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": true,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				}
+			},
+			"foreignKeys": {
+				"finance_app_import_rows_user_id_user_id_fk": {
+					"name": "finance_app_import_rows_user_id_user_id_fk",
+					"tableFrom": "finance_app_import_rows",
+					"tableTo": "user",
+					"columnsFrom": ["user_id"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				},
+				"finance_app_import_rows_batch_user_fk": {
+					"name": "finance_app_import_rows_batch_user_fk",
+					"tableFrom": "finance_app_import_rows",
+					"tableTo": "finance_app_import_batches",
+					"columnsFrom": ["batch_id", "user_id"],
+					"columnsTo": ["id", "user_id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				},
+				"finance_app_import_rows_account_user_fk": {
+					"name": "finance_app_import_rows_account_user_fk",
+					"tableFrom": "finance_app_import_rows",
+					"tableTo": "finance_app_accounts",
+					"columnsFrom": ["account_id", "user_id"],
+					"columnsTo": ["id", "user_id"],
+					"onDelete": "no action",
+					"onUpdate": "no action"
+				},
+				"finance_app_import_rows_suggested_category_user_fk": {
+					"name": "finance_app_import_rows_suggested_category_user_fk",
+					"tableFrom": "finance_app_import_rows",
+					"tableTo": "finance_app_categories",
+					"columnsFrom": ["suggested_category_id", "user_id"],
+					"columnsTo": ["id", "user_id"],
+					"onDelete": "no action",
+					"onUpdate": "no action"
+				},
+				"finance_app_import_rows_suggested_recurrence_user_fk": {
+					"name": "finance_app_import_rows_suggested_recurrence_user_fk",
+					"tableFrom": "finance_app_import_rows",
+					"tableTo": "finance_app_recurrences",
+					"columnsFrom": ["suggested_recurrence_id", "user_id"],
+					"columnsTo": ["id", "user_id"],
+					"onDelete": "no action",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {
+				"finance_app_import_rows_id_user_unique": {
+					"name": "finance_app_import_rows_id_user_unique",
+					"nullsNotDistinct": false,
+					"columns": ["id", "user_id"]
+				}
+			},
+			"policies": {},
+			"checkConstraints": {
+				"finance_app_import_rows_amount_cents_positive": {
+					"name": "finance_app_import_rows_amount_cents_positive",
+					"value": "\"finance_app_import_rows\".\"amount_cents\" IS NULL OR \"finance_app_import_rows\".\"amount_cents\" > 0"
+				},
+				"finance_app_import_rows_suggested_recurrence_columns_valid": {
+					"name": "finance_app_import_rows_suggested_recurrence_columns_valid",
+					"value": "(\"finance_app_import_rows\".\"suggested_recurrence_id\" IS NULL) = (\"finance_app_import_rows\".\"suggested_recurrence_occurrence_on\" IS NULL)"
+				}
+			},
+			"isRLSEnabled": false
+		},
+		"public.finance_app_import_templates": {
+			"name": "finance_app_import_templates",
+			"schema": "",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "integer",
+					"primaryKey": true,
+					"notNull": true,
+					"identity": {
+						"type": "byDefault",
+						"name": "finance_app_import_templates_id_seq",
+						"schema": "public",
+						"increment": "1",
+						"startWith": "1",
+						"minValue": "1",
+						"maxValue": "2147483647",
+						"cache": "1",
+						"cycle": false
+					}
+				},
+				"user_id": {
+					"name": "user_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"name": {
+					"name": "name",
+					"type": "varchar(120)",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"source_label": {
+					"name": "source_label",
+					"type": "varchar(120)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"config": {
+					"name": "config",
+					"type": "jsonb",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"is_archived": {
+					"name": "is_archived",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": true,
+					"default": false
+				},
+				"created_at": {
+					"name": "created_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"updated_at": {
+					"name": "updated_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": false
+				}
+			},
+			"indexes": {
+				"finance_app_import_templates_user_idx": {
+					"name": "finance_app_import_templates_user_idx",
+					"columns": [
+						{
+							"expression": "user_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"finance_app_import_templates_user_archived_idx": {
+					"name": "finance_app_import_templates_user_archived_idx",
+					"columns": [
+						{
+							"expression": "user_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						},
+						{
+							"expression": "is_archived",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"finance_app_import_templates_user_name_idx": {
+					"name": "finance_app_import_templates_user_name_idx",
+					"columns": [
+						{
+							"expression": "user_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						},
+						{
+							"expression": "name",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": true,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				}
+			},
+			"foreignKeys": {
+				"finance_app_import_templates_user_id_user_id_fk": {
+					"name": "finance_app_import_templates_user_id_user_id_fk",
+					"tableFrom": "finance_app_import_templates",
+					"tableTo": "user",
+					"columnsFrom": ["user_id"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {
+				"finance_app_import_templates_id_user_unique": {
+					"name": "finance_app_import_templates_id_user_unique",
+					"nullsNotDistinct": false,
+					"columns": ["id", "user_id"]
+				}
+			},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": false
+		},
+		"public.finance_app_monthly_budgets": {
+			"name": "finance_app_monthly_budgets",
+			"schema": "",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "integer",
+					"primaryKey": true,
+					"notNull": true,
+					"identity": {
+						"type": "byDefault",
+						"name": "finance_app_monthly_budgets_id_seq",
+						"schema": "public",
+						"increment": "1",
+						"startWith": "1",
+						"minValue": "1",
+						"maxValue": "2147483647",
+						"cache": "1",
+						"cycle": false
+					}
+				},
+				"user_id": {
+					"name": "user_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"month_key": {
+					"name": "month_key",
+					"type": "varchar(7)",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"scope": {
+					"name": "scope",
+					"type": "finance_app_monthly_budget_scope",
+					"typeSchema": "public",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"category_group_id": {
+					"name": "category_group_id",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"category_id": {
+					"name": "category_id",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"amount_cents": {
+					"name": "amount_cents",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"notes": {
+					"name": "notes",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"created_at": {
+					"name": "created_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"updated_at": {
+					"name": "updated_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": false
+				}
+			},
+			"indexes": {
+				"finance_app_monthly_budgets_user_month_idx": {
+					"name": "finance_app_monthly_budgets_user_month_idx",
+					"columns": [
+						{
+							"expression": "user_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						},
+						{
+							"expression": "month_key",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"finance_app_monthly_budgets_unique_scope_idx": {
+					"name": "finance_app_monthly_budgets_unique_scope_idx",
+					"columns": [
+						{
+							"expression": "user_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						},
+						{
+							"expression": "month_key",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						},
+						{
+							"expression": "scope",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						},
+						{
+							"expression": "category_group_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						},
+						{
+							"expression": "category_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": true,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				}
+			},
+			"foreignKeys": {
+				"finance_app_monthly_budgets_user_id_user_id_fk": {
+					"name": "finance_app_monthly_budgets_user_id_user_id_fk",
+					"tableFrom": "finance_app_monthly_budgets",
+					"tableTo": "user",
+					"columnsFrom": ["user_id"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				},
+				"finance_app_monthly_budgets_group_user_fk": {
+					"name": "finance_app_monthly_budgets_group_user_fk",
+					"tableFrom": "finance_app_monthly_budgets",
+					"tableTo": "finance_app_category_groups",
+					"columnsFrom": ["category_group_id", "user_id"],
+					"columnsTo": ["id", "user_id"],
+					"onDelete": "no action",
+					"onUpdate": "no action"
+				},
+				"finance_app_monthly_budgets_category_user_fk": {
+					"name": "finance_app_monthly_budgets_category_user_fk",
+					"tableFrom": "finance_app_monthly_budgets",
+					"tableTo": "finance_app_categories",
+					"columnsFrom": ["category_id", "user_id"],
+					"columnsTo": ["id", "user_id"],
+					"onDelete": "no action",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {
+				"finance_app_monthly_budgets_id_user_unique": {
+					"name": "finance_app_monthly_budgets_id_user_unique",
+					"nullsNotDistinct": false,
+					"columns": ["id", "user_id"]
+				}
+			},
+			"policies": {},
+			"checkConstraints": {
+				"finance_app_monthly_budgets_month_key_valid": {
+					"name": "finance_app_monthly_budgets_month_key_valid",
+					"value": "\"finance_app_monthly_budgets\".\"month_key\" ~ '^\\d{4}-\\d{2}$'"
+				},
+				"finance_app_monthly_budgets_amount_positive": {
+					"name": "finance_app_monthly_budgets_amount_positive",
+					"value": "\"finance_app_monthly_budgets\".\"amount_cents\" > 0"
+				},
+				"finance_app_monthly_budgets_scope_columns_valid": {
+					"name": "finance_app_monthly_budgets_scope_columns_valid",
+					"value": "(\"finance_app_monthly_budgets\".\"scope\" = 'month' AND \"finance_app_monthly_budgets\".\"category_group_id\" IS NULL AND \"finance_app_monthly_budgets\".\"category_id\" IS NULL) OR (\"finance_app_monthly_budgets\".\"scope\" = 'category_group' AND \"finance_app_monthly_budgets\".\"category_group_id\" IS NOT NULL AND \"finance_app_monthly_budgets\".\"category_id\" IS NULL) OR (\"finance_app_monthly_budgets\".\"scope\" = 'category' AND \"finance_app_monthly_budgets\".\"category_group_id\" IS NULL AND \"finance_app_monthly_budgets\".\"category_id\" IS NOT NULL)"
+				}
+			},
+			"isRLSEnabled": false
+		},
+		"public.finance_app_recurrences": {
+			"name": "finance_app_recurrences",
+			"schema": "",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "integer",
+					"primaryKey": true,
+					"notNull": true,
+					"identity": {
+						"type": "byDefault",
+						"name": "finance_app_recurrences_id_seq",
+						"schema": "public",
+						"increment": "1",
+						"startWith": "1",
+						"minValue": "1",
+						"maxValue": "2147483647",
+						"cache": "1",
+						"cycle": false
+					}
+				},
+				"user_id": {
+					"name": "user_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"name": {
+					"name": "name",
+					"type": "varchar(120)",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"description": {
+					"name": "description",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"movement_type": {
+					"name": "movement_type",
+					"type": "finance_app_movement_type",
+					"typeSchema": "public",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"account_id": {
+					"name": "account_id",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"category_id": {
+					"name": "category_id",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"amount_cents": {
+					"name": "amount_cents",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"currency": {
+					"name": "currency",
+					"type": "varchar(3)",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "'BRL'"
+				},
+				"frequency": {
+					"name": "frequency",
+					"type": "finance_app_recurrence_frequency",
+					"typeSchema": "public",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"interval_count": {
+					"name": "interval_count",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"default": 1
+				},
+				"anchor_day": {
+					"name": "anchor_day",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"anchor_weekday": {
+					"name": "anchor_weekday",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"starts_on": {
+					"name": "starts_on",
+					"type": "date",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"ends_on": {
+					"name": "ends_on",
+					"type": "date",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"is_subscription": {
+					"name": "is_subscription",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": true,
+					"default": false
+				},
+				"is_bill": {
+					"name": "is_bill",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": true,
+					"default": false
+				},
+				"is_archived": {
+					"name": "is_archived",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": true,
+					"default": false
+				},
+				"created_at": {
+					"name": "created_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"updated_at": {
+					"name": "updated_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": false
+				}
+			},
+			"indexes": {
+				"finance_app_recurrences_user_idx": {
+					"name": "finance_app_recurrences_user_idx",
+					"columns": [
+						{
+							"expression": "user_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"finance_app_recurrences_user_archived_idx": {
+					"name": "finance_app_recurrences_user_archived_idx",
+					"columns": [
+						{
+							"expression": "user_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						},
+						{
+							"expression": "is_archived",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"finance_app_recurrences_user_frequency_idx": {
+					"name": "finance_app_recurrences_user_frequency_idx",
+					"columns": [
+						{
+							"expression": "user_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						},
+						{
+							"expression": "frequency",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				}
+			},
+			"foreignKeys": {
+				"finance_app_recurrences_user_id_user_id_fk": {
+					"name": "finance_app_recurrences_user_id_user_id_fk",
+					"tableFrom": "finance_app_recurrences",
+					"tableTo": "user",
+					"columnsFrom": ["user_id"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				},
+				"finance_app_recurrences_account_user_fk": {
+					"name": "finance_app_recurrences_account_user_fk",
+					"tableFrom": "finance_app_recurrences",
+					"tableTo": "finance_app_accounts",
+					"columnsFrom": ["account_id", "user_id"],
+					"columnsTo": ["id", "user_id"],
+					"onDelete": "no action",
+					"onUpdate": "no action"
+				},
+				"finance_app_recurrences_category_user_fk": {
+					"name": "finance_app_recurrences_category_user_fk",
+					"tableFrom": "finance_app_recurrences",
+					"tableTo": "finance_app_categories",
+					"columnsFrom": ["category_id", "user_id"],
+					"columnsTo": ["id", "user_id"],
+					"onDelete": "no action",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {
+				"finance_app_recurrences_id_user_unique": {
+					"name": "finance_app_recurrences_id_user_unique",
+					"nullsNotDistinct": false,
+					"columns": ["id", "user_id"]
+				}
+			},
+			"policies": {},
+			"checkConstraints": {
+				"finance_app_recurrences_type_valid": {
+					"name": "finance_app_recurrences_type_valid",
+					"value": "\"finance_app_recurrences\".\"movement_type\" IN ('income', 'expense')"
+				},
+				"finance_app_recurrences_amount_cents_positive": {
+					"name": "finance_app_recurrences_amount_cents_positive",
+					"value": "\"finance_app_recurrences\".\"amount_cents\" > 0"
+				},
+				"finance_app_recurrences_interval_count_positive": {
+					"name": "finance_app_recurrences_interval_count_positive",
+					"value": "\"finance_app_recurrences\".\"interval_count\" >= 1"
+				},
+				"finance_app_recurrences_anchor_day_valid": {
+					"name": "finance_app_recurrences_anchor_day_valid",
+					"value": "\"finance_app_recurrences\".\"anchor_day\" IS NULL OR (\"finance_app_recurrences\".\"anchor_day\" >= 1 AND \"finance_app_recurrences\".\"anchor_day\" <= 31)"
+				},
+				"finance_app_recurrences_anchor_weekday_valid": {
+					"name": "finance_app_recurrences_anchor_weekday_valid",
+					"value": "\"finance_app_recurrences\".\"anchor_weekday\" IS NULL OR (\"finance_app_recurrences\".\"anchor_weekday\" >= 0 AND \"finance_app_recurrences\".\"anchor_weekday\" <= 6)"
+				},
+				"finance_app_recurrences_ends_on_valid": {
+					"name": "finance_app_recurrences_ends_on_valid",
+					"value": "\"finance_app_recurrences\".\"ends_on\" IS NULL OR \"finance_app_recurrences\".\"ends_on\" >= \"finance_app_recurrences\".\"starts_on\""
+				},
+				"finance_app_recurrences_category_required_for_non_bill": {
+					"name": "finance_app_recurrences_category_required_for_non_bill",
+					"value": "\"finance_app_recurrences\".\"is_bill\" = true OR \"finance_app_recurrences\".\"category_id\" IS NOT NULL"
+				},
+				"finance_app_recurrences_once_ends_on_valid": {
+					"name": "finance_app_recurrences_once_ends_on_valid",
+					"value": "\"finance_app_recurrences\".\"frequency\" <> 'once' OR \"finance_app_recurrences\".\"ends_on\" IS NULL OR \"finance_app_recurrences\".\"ends_on\" = \"finance_app_recurrences\".\"starts_on\""
+				}
+			},
+			"isRLSEnabled": false
+		},
+		"public.session": {
+			"name": "session",
+			"schema": "",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "text",
+					"primaryKey": true,
+					"notNull": true
+				},
+				"expires_at": {
+					"name": "expires_at",
+					"type": "timestamp",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"token": {
+					"name": "token",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"created_at": {
+					"name": "created_at",
+					"type": "timestamp",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"updated_at": {
+					"name": "updated_at",
+					"type": "timestamp",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"ip_address": {
+					"name": "ip_address",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"user_agent": {
+					"name": "user_agent",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"user_id": {
+					"name": "user_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				}
+			},
+			"indexes": {},
+			"foreignKeys": {
+				"session_user_id_user_id_fk": {
+					"name": "session_user_id_user_id_fk",
+					"tableFrom": "session",
+					"tableTo": "user",
+					"columnsFrom": ["user_id"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {
+				"session_token_unique": {
+					"name": "session_token_unique",
+					"nullsNotDistinct": false,
+					"columns": ["token"]
+				}
+			},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": false
+		},
+		"public.finance_app_transactions": {
+			"name": "finance_app_transactions",
+			"schema": "",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "integer",
+					"primaryKey": true,
+					"notNull": true,
+					"identity": {
+						"type": "byDefault",
+						"name": "finance_app_transactions_id_seq",
+						"schema": "public",
+						"increment": "1",
+						"startWith": "1",
+						"minValue": "1",
+						"maxValue": "2147483647",
+						"cache": "1",
+						"cycle": false
+					}
+				},
+				"user_id": {
+					"name": "user_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"account_id": {
+					"name": "account_id",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"destination_account_id": {
+					"name": "destination_account_id",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"category_id": {
+					"name": "category_id",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"category_rule_id": {
+					"name": "category_rule_id",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"import_batch_id": {
+					"name": "import_batch_id",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"import_row_id": {
+					"name": "import_row_id",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"recurrence_id": {
+					"name": "recurrence_id",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"recurrence_occurrence_on": {
+					"name": "recurrence_occurrence_on",
+					"type": "date",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"movement_type": {
+					"name": "movement_type",
+					"type": "finance_app_movement_type",
+					"typeSchema": "public",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"status": {
+					"name": "status",
+					"type": "finance_app_transaction_status",
+					"typeSchema": "public",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "'confirmed'"
+				},
+				"amount_cents": {
+					"name": "amount_cents",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"is_archived": {
+					"name": "is_archived",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": true,
+					"default": false
+				},
+				"currency": {
+					"name": "currency",
+					"type": "varchar(3)",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "'BRL'"
+				},
+				"occurred_on": {
+					"name": "occurred_on",
+					"type": "date",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"original_description": {
+					"name": "original_description",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"description": {
+					"name": "description",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"notes": {
+					"name": "notes",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"external_id": {
+					"name": "external_id",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"created_at": {
+					"name": "created_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"updated_at": {
+					"name": "updated_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": false
+				}
+			},
+			"indexes": {
+				"finance_app_transactions_user_idx": {
+					"name": "finance_app_transactions_user_idx",
+					"columns": [
+						{
+							"expression": "user_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"finance_app_transactions_user_account_date_idx": {
+					"name": "finance_app_transactions_user_account_date_idx",
+					"columns": [
+						{
+							"expression": "user_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						},
+						{
+							"expression": "account_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						},
+						{
+							"expression": "occurred_on",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"finance_app_transactions_user_category_idx": {
+					"name": "finance_app_transactions_user_category_idx",
+					"columns": [
+						{
+							"expression": "user_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						},
+						{
+							"expression": "category_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"finance_app_transactions_user_category_rule_idx": {
+					"name": "finance_app_transactions_user_category_rule_idx",
+					"columns": [
+						{
+							"expression": "user_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						},
+						{
+							"expression": "category_rule_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"finance_app_transactions_user_type_date_idx": {
+					"name": "finance_app_transactions_user_type_date_idx",
+					"columns": [
+						{
+							"expression": "user_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						},
+						{
+							"expression": "movement_type",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						},
+						{
+							"expression": "occurred_on",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"finance_app_transactions_user_archived_idx": {
+					"name": "finance_app_transactions_user_archived_idx",
+					"columns": [
+						{
+							"expression": "user_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						},
+						{
+							"expression": "is_archived",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"finance_app_transactions_user_import_idx": {
+					"name": "finance_app_transactions_user_import_idx",
+					"columns": [
+						{
+							"expression": "user_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						},
+						{
+							"expression": "import_batch_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"finance_app_transactions_recurrence_occurrence_idx": {
+					"name": "finance_app_transactions_recurrence_occurrence_idx",
+					"columns": [
+						{
+							"expression": "recurrence_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						},
+						{
+							"expression": "recurrence_occurrence_on",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": true,
+					"where": "\"finance_app_transactions\".\"recurrence_id\" IS NOT NULL",
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				}
+			},
+			"foreignKeys": {
+				"finance_app_transactions_user_id_user_id_fk": {
+					"name": "finance_app_transactions_user_id_user_id_fk",
+					"tableFrom": "finance_app_transactions",
+					"tableTo": "user",
+					"columnsFrom": ["user_id"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				},
+				"finance_app_transactions_account_user_fk": {
+					"name": "finance_app_transactions_account_user_fk",
+					"tableFrom": "finance_app_transactions",
+					"tableTo": "finance_app_accounts",
+					"columnsFrom": ["account_id", "user_id"],
+					"columnsTo": ["id", "user_id"],
+					"onDelete": "no action",
+					"onUpdate": "no action"
+				},
+				"finance_app_transactions_destination_account_user_fk": {
+					"name": "finance_app_transactions_destination_account_user_fk",
+					"tableFrom": "finance_app_transactions",
+					"tableTo": "finance_app_accounts",
+					"columnsFrom": ["destination_account_id", "user_id"],
+					"columnsTo": ["id", "user_id"],
+					"onDelete": "no action",
+					"onUpdate": "no action"
+				},
+				"finance_app_transactions_category_user_fk": {
+					"name": "finance_app_transactions_category_user_fk",
+					"tableFrom": "finance_app_transactions",
+					"tableTo": "finance_app_categories",
+					"columnsFrom": ["category_id", "user_id"],
+					"columnsTo": ["id", "user_id"],
+					"onDelete": "no action",
+					"onUpdate": "no action"
+				},
+				"finance_app_transactions_category_rule_user_fk": {
+					"name": "finance_app_transactions_category_rule_user_fk",
+					"tableFrom": "finance_app_transactions",
+					"tableTo": "finance_app_import_category_rules",
+					"columnsFrom": ["category_rule_id", "user_id"],
+					"columnsTo": ["id", "user_id"],
+					"onDelete": "no action",
+					"onUpdate": "no action"
+				},
+				"finance_app_transactions_import_batch_user_fk": {
+					"name": "finance_app_transactions_import_batch_user_fk",
+					"tableFrom": "finance_app_transactions",
+					"tableTo": "finance_app_import_batches",
+					"columnsFrom": ["import_batch_id", "user_id"],
+					"columnsTo": ["id", "user_id"],
+					"onDelete": "no action",
+					"onUpdate": "no action"
+				},
+				"finance_app_transactions_import_row_user_fk": {
+					"name": "finance_app_transactions_import_row_user_fk",
+					"tableFrom": "finance_app_transactions",
+					"tableTo": "finance_app_import_rows",
+					"columnsFrom": ["import_row_id", "user_id"],
+					"columnsTo": ["id", "user_id"],
+					"onDelete": "no action",
+					"onUpdate": "no action"
+				},
+				"finance_app_transactions_recurrence_user_fk": {
+					"name": "finance_app_transactions_recurrence_user_fk",
+					"tableFrom": "finance_app_transactions",
+					"tableTo": "finance_app_recurrences",
+					"columnsFrom": ["recurrence_id", "user_id"],
+					"columnsTo": ["id", "user_id"],
+					"onDelete": "no action",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"policies": {},
+			"checkConstraints": {
+				"finance_app_transactions_amount_cents_positive": {
+					"name": "finance_app_transactions_amount_cents_positive",
+					"value": "\"finance_app_transactions\".\"amount_cents\" > 0"
+				},
+				"finance_app_transactions_recurrence_columns_valid": {
+					"name": "finance_app_transactions_recurrence_columns_valid",
+					"value": "(\"finance_app_transactions\".\"recurrence_id\" IS NULL) = (\"finance_app_transactions\".\"recurrence_occurrence_on\" IS NULL)"
+				}
+			},
+			"isRLSEnabled": false
+		},
+		"public.user": {
+			"name": "user",
+			"schema": "",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "text",
+					"primaryKey": true,
+					"notNull": true
+				},
+				"name": {
+					"name": "name",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"email": {
+					"name": "email",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"email_verified": {
+					"name": "email_verified",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"image": {
+					"name": "image",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"created_at": {
+					"name": "created_at",
+					"type": "timestamp",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"updated_at": {
+					"name": "updated_at",
+					"type": "timestamp",
+					"primaryKey": false,
+					"notNull": true
+				}
+			},
+			"indexes": {},
+			"foreignKeys": {},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {
+				"user_email_unique": {
+					"name": "user_email_unique",
+					"nullsNotDistinct": false,
+					"columns": ["email"]
+				}
+			},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": false
+		},
+		"public.verification": {
+			"name": "verification",
+			"schema": "",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "text",
+					"primaryKey": true,
+					"notNull": true
+				},
+				"identifier": {
+					"name": "identifier",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"value": {
+					"name": "value",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"expires_at": {
+					"name": "expires_at",
+					"type": "timestamp",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"created_at": {
+					"name": "created_at",
+					"type": "timestamp",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"updated_at": {
+					"name": "updated_at",
+					"type": "timestamp",
+					"primaryKey": false,
+					"notNull": false
+				}
+			},
+			"indexes": {},
+			"foreignKeys": {},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": false
+		}
+	},
+	"enums": {
+		"public.finance_app_account_type": {
+			"name": "finance_app_account_type",
+			"schema": "public",
+			"values": ["checking", "savings", "cash", "credit_card", "investment"]
+		},
+		"public.finance_app_category_kind": {
+			"name": "finance_app_category_kind",
+			"schema": "public",
+			"values": ["income", "expense"]
+		},
+		"public.finance_app_import_batch_status": {
+			"name": "finance_app_import_batch_status",
+			"schema": "public",
+			"values": ["draft", "reviewing", "confirmed", "cancelled", "reverted"]
+		},
+		"public.finance_app_import_row_status": {
+			"name": "finance_app_import_row_status",
+			"schema": "public",
+			"values": [
+				"pending_review",
+				"valid",
+				"invalid",
+				"ignored",
+				"duplicate",
+				"imported"
+			]
+		},
+		"public.finance_app_import_rule_text_match_mode": {
+			"name": "finance_app_import_rule_text_match_mode",
+			"schema": "public",
+			"values": ["contains", "exact"]
+		},
+		"public.finance_app_monthly_budget_scope": {
+			"name": "finance_app_monthly_budget_scope",
+			"schema": "public",
+			"values": ["month", "category_group", "category"]
+		},
+		"public.finance_app_movement_type": {
+			"name": "finance_app_movement_type",
+			"schema": "public",
+			"values": [
+				"income",
+				"expense",
+				"transfer",
+				"credit_card_payment",
+				"balance_adjustment"
+			]
+		},
+		"public.finance_app_recurrence_frequency": {
+			"name": "finance_app_recurrence_frequency",
+			"schema": "public",
+			"values": ["once", "weekly", "monthly", "yearly"]
+		},
+		"public.finance_app_transaction_status": {
+			"name": "finance_app_transaction_status",
+			"schema": "public",
+			"values": [
+				"planned",
+				"confirmed",
+				"ignored",
+				"duplicate",
+				"pending_review"
+			]
+		}
+	},
+	"schemas": {},
+	"sequences": {},
+	"roles": {},
+	"policies": {},
+	"views": {},
+	"_meta": {
+		"columns": {},
+		"schemas": {},
+		"tables": {}
+	}
+}

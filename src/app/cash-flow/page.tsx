@@ -1,4 +1,4 @@
-import { asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, isNotNull } from "drizzle-orm";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -23,12 +23,14 @@ import {
 } from "~/lib/cash-flow";
 import { calculateAccountBalances } from "~/lib/finance-rules";
 import { formatDate, formatMoney, formatPercent } from "~/lib/formatters";
+import { recurrencesToPlannedMovements } from "~/lib/recurrences";
 import { getSession } from "~/server/better-auth/server";
 import { db } from "~/server/db";
 import {
 	financialAccounts,
 	importBatches,
 	importRows,
+	recurrences,
 	transactions,
 } from "~/server/db/schema";
 
@@ -73,7 +75,14 @@ export default async function CashFlowPage({
 		? Number.parseInt(params.accountId, 10)
 		: "all";
 
-	const [allAccounts, allTransactions, rows, batches] = await Promise.all([
+	const [
+		allAccounts,
+		allTransactions,
+		allRecurrences,
+		confirmedOccurrences,
+		rows,
+		batches,
+	] = await Promise.all([
 		db
 			.select()
 			.from(financialAccounts)
@@ -84,6 +93,23 @@ export default async function CashFlowPage({
 			.from(transactions)
 			.where(eq(transactions.userId, session.user.id))
 			.orderBy(desc(transactions.occurredOn), desc(transactions.id)),
+		db
+			.select()
+			.from(recurrences)
+			.where(eq(recurrences.userId, session.user.id))
+			.orderBy(asc(recurrences.name)),
+		db
+			.select({
+				recurrenceId: transactions.recurrenceId,
+				occurrenceOn: transactions.recurrenceOccurrenceOn,
+			})
+			.from(transactions)
+			.where(
+				and(
+					eq(transactions.userId, session.user.id),
+					isNotNull(transactions.recurrenceId),
+				),
+			),
 		db
 			.select()
 			.from(importRows)
@@ -112,6 +138,15 @@ export default async function CashFlowPage({
 		typeof accountFilter === "number" && Number.isFinite(accountFilter)
 			? accountFilter
 			: "all";
+	const extraPlannedMovements = recurrencesToPlannedMovements(
+		allRecurrences,
+		confirmedOccurrences.flatMap((key) =>
+			key.recurrenceId && key.occurrenceOn
+				? [{ recurrenceId: key.recurrenceId, occurrenceOn: key.occurrenceOn }]
+				: [],
+		),
+		window,
+	);
 	const aggregate = aggregateCashFlow({
 		accounts: allAccounts,
 		transactions: allTransactions,
@@ -119,6 +154,7 @@ export default async function CashFlowPage({
 		granularity,
 		accountFilter: selectedAccountFilter,
 		today,
+		extraPlannedMovements,
 	});
 	const timeline = consolidatedTimeline({
 		accounts: allAccounts,
@@ -126,12 +162,14 @@ export default async function CashFlowPage({
 		window,
 		granularity,
 		today,
+		extraPlannedMovements,
 	});
 	const accountProjections = projectAccountBalances({
 		accounts: normalAccounts,
 		transactions: allTransactions,
 		window,
 		today,
+		extraPlannedMovements,
 	});
 	const invoices = computeFutureInvoices(
 		allAccounts,

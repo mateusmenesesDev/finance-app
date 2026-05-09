@@ -48,6 +48,13 @@ export const movementType = pgEnum("finance_app_movement_type", [
 	"balance_adjustment",
 ]);
 
+export const recurrenceFrequency = pgEnum("finance_app_recurrence_frequency", [
+	"once",
+	"weekly",
+	"monthly",
+	"yearly",
+]);
+
 export const transactionStatus = pgEnum("finance_app_transaction_status", [
 	"planned",
 	"confirmed",
@@ -418,6 +425,8 @@ export const importRows = createFinanceTable(
 		bankCategory: varchar("bank_category", { length: 120 }),
 		suggestedCategoryId: integer("suggested_category_id"),
 		suggestedRuleId: integer("suggested_rule_id"),
+		suggestedRecurrenceId: integer("suggested_recurrence_id"),
+		suggestedRecurrenceOccurrenceOn: date("suggested_recurrence_occurrence_on"),
 		suggestionSource: varchar("suggestion_source", { length: 40 }),
 		validationError: text("validation_error"),
 		parsedData: jsonb("parsed_data"),
@@ -449,9 +458,18 @@ export const importRows = createFinanceTable(
 			foreignColumns: [categories.id, categories.userId],
 			name: "finance_app_import_rows_suggested_category_user_fk",
 		}),
+		foreignKey({
+			columns: [t.suggestedRecurrenceId, t.userId],
+			foreignColumns: [recurrences.id, recurrences.userId],
+			name: "finance_app_import_rows_suggested_recurrence_user_fk",
+		}),
 		check(
 			"finance_app_import_rows_amount_cents_positive",
 			sql`${t.amountCents} IS NULL OR ${t.amountCents} > 0`,
+		),
+		check(
+			"finance_app_import_rows_suggested_recurrence_columns_valid",
+			sql`(${t.suggestedRecurrenceId} IS NULL) = (${t.suggestedRecurrenceOccurrenceOn} IS NULL)`,
 		),
 	],
 );
@@ -520,6 +538,92 @@ export const importCategoryRules = createFinanceTable(
 	],
 );
 
+export const recurrences = createFinanceTable(
+	"recurrences",
+	{
+		id: integer().primaryKey().generatedByDefaultAsIdentity(),
+		userId: text("user_id")
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
+		name: varchar({ length: 120 }).notNull(),
+		description: text("description"),
+		movementType: movementType("movement_type").notNull(),
+		accountId: integer("account_id").notNull(),
+		categoryId: integer("category_id"),
+		amountCents: integer("amount_cents").notNull(),
+		currency: varchar({ length: 3 }).notNull().default("BRL"),
+		frequency: recurrenceFrequency().notNull(),
+		intervalCount: integer("interval_count").notNull().default(1),
+		anchorDay: integer("anchor_day"),
+		anchorWeekday: integer("anchor_weekday"),
+		startsOn: date("starts_on").notNull(),
+		endsOn: date("ends_on"),
+		isSubscription: boolean("is_subscription").notNull().default(false),
+		isBill: boolean("is_bill").notNull().default(false),
+		isArchived: boolean("is_archived").notNull().default(false),
+		createdAt: timestamp("created_at", { withTimezone: true })
+			.$defaultFn(() => new Date())
+			.notNull(),
+		updatedAt: timestamp("updated_at", { withTimezone: true }).$onUpdate(
+			() => new Date(),
+		),
+	},
+	(t) => [
+		index("finance_app_recurrences_user_idx").on(t.userId),
+		index("finance_app_recurrences_user_archived_idx").on(
+			t.userId,
+			t.isArchived,
+		),
+		index("finance_app_recurrences_user_frequency_idx").on(
+			t.userId,
+			t.frequency,
+		),
+		unique("finance_app_recurrences_id_user_unique").on(t.id, t.userId),
+		foreignKey({
+			columns: [t.accountId, t.userId],
+			foreignColumns: [financialAccounts.id, financialAccounts.userId],
+			name: "finance_app_recurrences_account_user_fk",
+		}),
+		foreignKey({
+			columns: [t.categoryId, t.userId],
+			foreignColumns: [categories.id, categories.userId],
+			name: "finance_app_recurrences_category_user_fk",
+		}),
+		check(
+			"finance_app_recurrences_type_valid",
+			sql`${t.movementType} IN ('income', 'expense')`,
+		),
+		check(
+			"finance_app_recurrences_amount_cents_positive",
+			sql`${t.amountCents} > 0`,
+		),
+		check(
+			"finance_app_recurrences_interval_count_positive",
+			sql`${t.intervalCount} >= 1`,
+		),
+		check(
+			"finance_app_recurrences_anchor_day_valid",
+			sql`${t.anchorDay} IS NULL OR (${t.anchorDay} >= 1 AND ${t.anchorDay} <= 31)`,
+		),
+		check(
+			"finance_app_recurrences_anchor_weekday_valid",
+			sql`${t.anchorWeekday} IS NULL OR (${t.anchorWeekday} >= 0 AND ${t.anchorWeekday} <= 6)`,
+		),
+		check(
+			"finance_app_recurrences_ends_on_valid",
+			sql`${t.endsOn} IS NULL OR ${t.endsOn} >= ${t.startsOn}`,
+		),
+		check(
+			"finance_app_recurrences_category_required_for_non_bill",
+			sql`${t.isBill} = true OR ${t.categoryId} IS NOT NULL`,
+		),
+		check(
+			"finance_app_recurrences_once_ends_on_valid",
+			sql`${t.frequency} <> 'once' OR ${t.endsOn} IS NULL OR ${t.endsOn} = ${t.startsOn}`,
+		),
+	],
+);
+
 export const transactions = createFinanceTable(
 	"transactions",
 	{
@@ -533,6 +637,8 @@ export const transactions = createFinanceTable(
 		categoryRuleId: integer("category_rule_id"),
 		importBatchId: integer("import_batch_id"),
 		importRowId: integer("import_row_id"),
+		recurrenceId: integer("recurrence_id"),
+		recurrenceOccurrenceOn: date("recurrence_occurrence_on"),
 		movementType: movementType("movement_type").notNull(),
 		status: transactionStatus().notNull().default("confirmed"),
 		amountCents: integer("amount_cents").notNull(),
@@ -578,6 +684,9 @@ export const transactions = createFinanceTable(
 			t.userId,
 			t.importBatchId,
 		),
+		uniqueIndex("finance_app_transactions_recurrence_occurrence_idx")
+			.on(t.recurrenceId, t.recurrenceOccurrenceOn)
+			.where(sql`${t.recurrenceId} IS NOT NULL`),
 		foreignKey({
 			columns: [t.accountId, t.userId],
 			foreignColumns: [financialAccounts.id, financialAccounts.userId],
@@ -608,9 +717,18 @@ export const transactions = createFinanceTable(
 			foreignColumns: [importRows.id, importRows.userId],
 			name: "finance_app_transactions_import_row_user_fk",
 		}),
+		foreignKey({
+			columns: [t.recurrenceId, t.userId],
+			foreignColumns: [recurrences.id, recurrences.userId],
+			name: "finance_app_transactions_recurrence_user_fk",
+		}),
 		check(
 			"finance_app_transactions_amount_cents_positive",
 			sql`${t.amountCents} > 0`,
+		),
+		check(
+			"finance_app_transactions_recurrence_columns_valid",
+			sql`(${t.recurrenceId} IS NULL) = (${t.recurrenceOccurrenceOn} IS NULL)`,
 		),
 	],
 );
@@ -623,6 +741,7 @@ export const userRelations = relations(user, ({ many }) => ({
 	categories: many(categories),
 	monthlyBudgets: many(monthlyBudgets),
 	transactions: many(transactions),
+	recurrences: many(recurrences),
 	importTemplates: many(importTemplates),
 	importBatches: many(importBatches),
 	importRows: many(importRows),
@@ -651,6 +770,7 @@ export const financialAccountRelations = relations(
 		importBatches: many(importBatches),
 		importRows: many(importRows),
 		importCategoryRules: many(importCategoryRules),
+		recurrences: many(recurrences),
 	}),
 );
 
@@ -670,6 +790,7 @@ export const categoryRelations = relations(categories, ({ many, one }) => ({
 		references: [categoryGroups.id],
 	}),
 	transactions: many(transactions),
+	recurrences: many(recurrences),
 	importCategoryRules: many(importCategoryRules),
 	monthlyBudgets: many(monthlyBudgets),
 }));
@@ -732,6 +853,24 @@ export const importRowRelations = relations(importRows, ({ one }) => ({
 		fields: [importRows.suggestedRuleId],
 		references: [importCategoryRules.id],
 	}),
+	suggestedRecurrence: one(recurrences, {
+		fields: [importRows.suggestedRecurrenceId],
+		references: [recurrences.id],
+	}),
+}));
+
+export const recurrenceRelations = relations(recurrences, ({ many, one }) => ({
+	user: one(user, { fields: [recurrences.userId], references: [user.id] }),
+	account: one(financialAccounts, {
+		fields: [recurrences.accountId],
+		references: [financialAccounts.id],
+	}),
+	category: one(categories, {
+		fields: [recurrences.categoryId],
+		references: [categories.id],
+	}),
+	transactions: many(transactions),
+	suggestedImportRows: many(importRows),
 }));
 
 export const importCategoryRuleRelations = relations(
@@ -779,5 +918,9 @@ export const transactionRelations = relations(transactions, ({ one }) => ({
 	importRow: one(importRows, {
 		fields: [transactions.importRowId],
 		references: [importRows.id],
+	}),
+	recurrence: one(recurrences, {
+		fields: [transactions.recurrenceId],
+		references: [recurrences.id],
 	}),
 }));

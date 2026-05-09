@@ -1,0 +1,4 @@
+ALTER TABLE "finance_app_import_rows" ADD COLUMN "suggested_recurrence_id" integer;--> statement-breakpoint
+ALTER TABLE "finance_app_import_rows" ADD COLUMN "suggested_recurrence_occurrence_on" date;--> statement-breakpoint
+ALTER TABLE "finance_app_import_rows" ADD CONSTRAINT "finance_app_import_rows_suggested_recurrence_user_fk" FOREIGN KEY ("suggested_recurrence_id","user_id") REFERENCES "public"."finance_app_recurrences"("id","user_id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "finance_app_import_rows" ADD CONSTRAINT "finance_app_import_rows_suggested_recurrence_columns_valid" CHECK (("finance_app_import_rows"."suggested_recurrence_id" IS NULL) = ("finance_app_import_rows"."suggested_recurrence_occurrence_on" IS NULL));

@@ -1,4 +1,4 @@
-import { asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, isNotNull } from "drizzle-orm";
 import Link from "next/link";
 
 import {
@@ -24,6 +24,12 @@ import {
 	formatMonthLabel,
 	formatPercent,
 } from "~/lib/formatters";
+import {
+	lateRecurrences,
+	rankFixedExpenses,
+	recurrencesToPlannedMovements,
+	subscriptionReviewSuggestions,
+} from "~/lib/recurrences";
 import { getSession } from "~/server/better-auth/server";
 import { db } from "~/server/db";
 import {
@@ -33,6 +39,7 @@ import {
 	importBatches,
 	importRows,
 	monthlyBudgets,
+	recurrences,
 	transactions,
 } from "~/server/db/schema";
 
@@ -61,6 +68,8 @@ export default async function Home({ searchParams }: HomeProps) {
 		batches,
 		rows,
 		budgetRows,
+		allRecurrences,
+		confirmedOccurrences,
 	] = await Promise.all([
 		db
 			.select()
@@ -97,6 +106,23 @@ export default async function Home({ searchParams }: HomeProps) {
 			.from(monthlyBudgets)
 			.where(eq(monthlyBudgets.userId, session.user.id))
 			.orderBy(asc(monthlyBudgets.scope), asc(monthlyBudgets.amountCents)),
+		db
+			.select()
+			.from(recurrences)
+			.where(eq(recurrences.userId, session.user.id))
+			.orderBy(asc(recurrences.name)),
+		db
+			.select({
+				recurrenceId: transactions.recurrenceId,
+				occurrenceOn: transactions.recurrenceOccurrenceOn,
+			})
+			.from(transactions)
+			.where(
+				and(
+					eq(transactions.userId, session.user.id),
+					isNotNull(transactions.recurrenceId),
+				),
+			),
 	]);
 
 	const activeAccounts = allAccounts.filter((account) => !account.isArchived);
@@ -138,6 +164,22 @@ export default async function Home({ searchParams }: HomeProps) {
 		"expense",
 		6,
 	);
+	const confirmedKeys = confirmedOccurrences.flatMap((key) =>
+		key.recurrenceId && key.occurrenceOn
+			? [{ recurrenceId: key.recurrenceId, occurrenceOn: key.occurrenceOn }]
+			: [],
+	);
+	const extraPlannedMovements = recurrencesToPlannedMovements(
+		allRecurrences,
+		confirmedKeys,
+		{ start: monthCutoff, end: period.end },
+	);
+	const fixedExpenseRanking = rankFixedExpenses(allRecurrences).slice(0, 6);
+	const reviewSuggestions = new Map(
+		subscriptionReviewSuggestions(allRecurrences, confirmedKeys, today).map(
+			(suggestion) => [suggestion.recurrenceId, suggestion],
+		),
+	);
 	const projectedCashFlow = aggregateCashFlow({
 		accounts: allAccounts,
 		transactions: allTransactions,
@@ -145,6 +187,7 @@ export default async function Home({ searchParams }: HomeProps) {
 		granularity: "day",
 		accountFilter: "all",
 		today,
+		extraPlannedMovements,
 	});
 	const projectedIncomeCents = projectedCashFlow.totals.plannedIncome;
 	const projectedExpenseCents =
@@ -180,6 +223,7 @@ export default async function Home({ searchParams }: HomeProps) {
 	).length;
 	const alerts = [
 		...budgetAlerts(budgetUsageRows),
+		...lateRecurrenceAlerts(allRecurrences, confirmedKeys, today),
 		...invoiceAlerts(openInvoices, today),
 		...projectedAccountAlerts(activeAccounts, allTransactions, balances, {
 			start: monthCutoff,
@@ -374,11 +418,47 @@ export default async function Home({ searchParams }: HomeProps) {
 						/>
 					</div>
 					<p className="mt-4 text-slate-500 text-xs">
-						Inclui transações previstas e faturas futuras de cartão no
-						vencimento; recorrências entram na Fase 8.
+						Inclui transações previstas, recorrências e faturas futuras de
+						cartão.
 					</p>
 				</Panel>
 			</section>
+
+			<Panel title="Assinaturas e gastos fixos">
+				{fixedExpenseRanking.length > 0 ? (
+					<div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+						{fixedExpenseRanking.map((item) => {
+							const suggestion = reviewSuggestions.get(item.recurrenceId);
+							return (
+								<div
+									className="rounded-2xl border border-slate-800 bg-slate-950/50 p-4"
+									key={item.recurrenceId}
+								>
+									<div className="flex items-start justify-between gap-3">
+										<div>
+											<p className="font-medium">{item.name}</p>
+											<p className="text-slate-500 text-xs">
+												{item.isSubscription ? "Assinatura" : "Gasto fixo"}
+												{item.isBill ? " · conta" : ""}
+											</p>
+										</div>
+										{suggestion ? (
+											<span className="rounded-full bg-amber-400/15 px-2 py-1 font-medium text-amber-200 text-xs">
+												Revisar
+											</span>
+										) : null}
+									</div>
+									<p className="mt-3 font-semibold text-rose-300">
+										{formatMoney(item.monthlyAmountCents)} / mês
+									</p>
+								</div>
+							);
+						})}
+					</div>
+				) : (
+					<EmptyState text="Cadastre recorrências para ver gastos fixos." />
+				)}
+			</Panel>
 
 			<section className="grid gap-6 xl:grid-cols-2">
 				<Panel title="Gasto por grupo de categoria">
@@ -574,6 +654,7 @@ type DashboardAlert = {
 
 type AccountRow = typeof financialAccounts.$inferSelect;
 type TransactionRow = typeof transactions.$inferSelect;
+type RecurrenceRow = typeof recurrences.$inferSelect;
 type ImportBatchRow = typeof importBatches.$inferSelect;
 type ImportRow = typeof importRows.$inferSelect;
 type BudgetSummary = {
@@ -640,6 +721,20 @@ function budgetAlerts(usageRows: BudgetUsageRow[]): DashboardAlert[] {
 				row.status === "over"
 					? "Orçamento acima do limite"
 					: "Orçamento próximo do limite",
+		}));
+}
+
+function lateRecurrenceAlerts(
+	allRecurrences: RecurrenceRow[],
+	confirmedKeys: { occurrenceOn: string; recurrenceId: number }[],
+	today: string,
+): DashboardAlert[] {
+	return lateRecurrences(allRecurrences, confirmedKeys, today)
+		.slice(0, 6)
+		.map(({ recurrence, occurrenceOn }) => ({
+			kind: "danger",
+			message: `${recurrence.name} era esperada em ${formatDate(occurrenceOn)} (${formatMoney(recurrence.amountCents)}).`,
+			title: "Recorrência atrasada",
 		}));
 }
 

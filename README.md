@@ -37,4 +37,4 @@ Credenciais fixas, somente para desenvolvimento local:
 - Email: `demo@finance.local`
 - Senha: `Demo@123456`
 
-O seed não apaga outros usuários nem dados financeiros de outros usuários. Os exemplos de importação usam somente valores mascarados.
+O seed não apaga outros usuários nem dados financeiros de outros usuários. Os exemplos de importação usam somente valores mascarados. A massa inclui recorrências realistas (salário, aluguel, assinaturas e contas avulsas) com parte das transações dos últimos meses vinculada para validar dashboard e fluxo de caixa.

@@ -13,6 +13,7 @@ import {
 	normalizeImportTemplateConfig,
 	parseImportCsv,
 } from "~/lib/import-rules";
+import { matchImportedRowToRecurrence } from "~/lib/recurrences";
 import { getSession } from "~/server/better-auth/server";
 import { db } from "~/server/db";
 import {
@@ -24,6 +25,7 @@ import {
 	importRows,
 	importTemplates,
 	monthlyBudgets,
+	recurrences,
 	transactions,
 } from "~/server/db/schema";
 
@@ -48,7 +50,7 @@ type TransactionStatus =
 type CategoryKind = "income" | "expense";
 type ImportRuleTextMatchMode = "contains" | "exact";
 type MonthlyBudgetScope = "month" | "category_group" | "category";
-
+type RecurrenceFrequency = "once" | "weekly" | "monthly" | "yearly";
 const accountTypes = new Set<AccountType>([
 	"checking",
 	"savings",
@@ -56,7 +58,6 @@ const accountTypes = new Set<AccountType>([
 	"credit_card",
 	"investment",
 ]);
-
 const movementTypes = new Set<MovementType>([
 	"income",
 	"expense",
@@ -64,7 +65,6 @@ const movementTypes = new Set<MovementType>([
 	"credit_card_payment",
 	"balance_adjustment",
 ]);
-
 const transactionStatuses = new Set<TransactionStatus>([
 	"planned",
 	"confirmed",
@@ -72,7 +72,6 @@ const transactionStatuses = new Set<TransactionStatus>([
 	"duplicate",
 	"pending_review",
 ]);
-
 const categoryKinds = new Set<CategoryKind>(["income", "expense"]);
 const importRuleTextMatchModes = new Set<ImportRuleTextMatchMode>([
 	"contains",
@@ -87,7 +86,16 @@ const monthlyBudgetScopes = new Set<MonthlyBudgetScope>([
 	"category_group",
 	"category",
 ]);
-
+const recurrenceMovementTypes = new Set<"income" | "expense">([
+	"income",
+	"expense",
+]);
+const recurrenceFrequencies = new Set<RecurrenceFrequency>([
+	"once",
+	"weekly",
+	"monthly",
+	"yearly",
+]);
 const defaultGroups = [
 	{
 		name: "Renda",
@@ -127,17 +135,14 @@ async function requireUserId() {
 	if (!session?.user.id) redirect("/");
 	return session.user.id;
 }
-
 function requiredString(formData: FormData, name: string) {
 	const value = formData.get(name)?.toString().trim();
 	if (!value) throw new Error(`Campo obrigatório: ${name}`);
 	return value;
 }
-
 function optionalString(formData: FormData, name: string) {
 	return formData.get(name)?.toString().trim() || null;
 }
-
 function intField(formData: FormData, name: string, fallback?: number) {
 	const value = formData.get(name)?.toString().trim();
 	if (!value) {
@@ -148,7 +153,6 @@ function intField(formData: FormData, name: string, fallback?: number) {
 	if (!Number.isFinite(parsed)) throw new Error(`Número inválido: ${name}`);
 	return parsed;
 }
-
 function optionalIntField(formData: FormData, name: string) {
 	const value = optionalString(formData, name);
 	if (!value) return null;
@@ -156,7 +160,6 @@ function optionalIntField(formData: FormData, name: string) {
 	if (!Number.isFinite(parsed)) throw new Error(`Número inválido: ${name}`);
 	return parsed;
 }
-
 function moneyToCents(value: string, { allowZero }: { allowZero: boolean }) {
 	const normalized = value.replace(/\./g, "").replace(",", ".");
 	const amount = Number.parseFloat(normalized);
@@ -165,7 +168,6 @@ function moneyToCents(value: string, { allowZero }: { allowZero: boolean }) {
 		throw new Error("Valor deve ser maior que zero");
 	return Math.round(amount * 100);
 }
-
 function enumField<T extends string>(
 	formData: FormData,
 	name: string,
@@ -175,7 +177,6 @@ function enumField<T extends string>(
 	if (!allowed.has(value as T)) throw new Error(`Valor inválido: ${name}`);
 	return value as T;
 }
-
 function cardDay(formData: FormData, name: string) {
 	const day = intField(formData, name);
 	if (day < 1 || day > 31) throw new Error(`${name} deve ficar entre 1 e 31`);
@@ -203,6 +204,45 @@ function monthKeyField(formData: FormData, name: string) {
 	const value = requiredString(formData, name);
 	if (!/^\d{4}-\d{2}$/.test(value)) throw new Error(`Mês inválido: ${name}`);
 	return value;
+}
+
+function optionalIsoDateField(formData: FormData, name: string) {
+	if (!optionalString(formData, name)) return null;
+	return isoDateField(formData, name);
+}
+
+function boolField(formData: FormData, name: string) {
+	const value = formData.get(name);
+	return value === "on" || value === "true" || value === "1";
+}
+
+function weekdayFromIso(isoDate: string) {
+	return new Date(`${isoDate}T00:00:00Z`).getUTCDay();
+}
+
+function dayFromIso(isoDate: string) {
+	return Number.parseInt(isoDate.slice(8, 10), 10);
+}
+
+function moneyOrCents(
+	formData: FormData,
+	moneyName: string,
+	centsName: string,
+) {
+	const money = optionalString(formData, moneyName);
+	if (money) return moneyToCents(money, { allowZero: false });
+	const cents = optionalIntField(formData, centsName);
+	if (cents !== null) {
+		if (cents <= 0) throw new Error("Valor deve ser maior que zero");
+		return cents;
+	}
+	throw new Error("Valor inválido");
+}
+
+function revalidateRecurrenceViews() {
+	revalidatePath("/");
+	revalidatePath("/cash-flow");
+	revalidatePath("/recurrences");
 }
 
 function revalidateBudgetViews() {
@@ -474,6 +514,19 @@ async function transactionValues(userId: string, formData: FormData) {
 				),
 			})
 		: null;
+	const recurrenceId = optionalIntField(formData, "recurrenceId");
+	const recurrenceOccurrenceOn = optionalIsoDateField(
+		formData,
+		"recurrenceOccurrenceOn",
+	);
+	const recurrence = recurrenceId
+		? await db.query.recurrences.findFirst({
+				where: and(
+					eq(recurrences.id, recurrenceId),
+					eq(recurrences.userId, userId),
+				),
+			})
+		: null;
 
 	if (!account || account.isArchived) throw new Error("Conta inválida");
 	if (
@@ -527,12 +580,23 @@ async function transactionValues(userId: string, formData: FormData) {
 			);
 		}
 	}
+	if ((recurrenceId === null) !== (recurrenceOccurrenceOn === null)) {
+		throw new Error(
+			"Recorrência e data da ocorrência devem ser informadas juntas",
+		);
+	}
+	if (recurrenceId && !recurrence) throw new Error("Recorrência inválida");
+	if (recurrence && recurrence.movementType !== movementType) {
+		throw new Error("Tipo da transação não combina com a recorrência");
+	}
 
 	return {
 		userId,
 		accountId,
 		destinationAccountId,
 		categoryId,
+		recurrenceId,
+		recurrenceOccurrenceOn,
 		movementType,
 		status: enumField(formData, "status", transactionStatuses),
 		amountCents: moneyToCents(requiredString(formData, "amount"), {
@@ -579,6 +643,212 @@ export async function archiveTransaction(formData: FormData) {
 			),
 		);
 	revalidatePath("/");
+}
+
+async function recurrenceValues(userId: string, formData: FormData) {
+	const name = requiredString(formData, "name");
+	if (name.length > 120) throw new Error("Nome deve ter até 120 caracteres");
+	const movementType = enumField(
+		formData,
+		"movementType",
+		recurrenceMovementTypes,
+	);
+	const accountId = intField(formData, "accountId");
+	const isBill = boolField(formData, "isBill");
+	const categoryId = isBill
+		? optionalIntField(formData, "categoryId")
+		: intField(formData, "categoryId");
+	const frequency = enumField(formData, "frequency", recurrenceFrequencies);
+	const startsOn = isoDateField(formData, "startsOn");
+	let endsOn = optionalIsoDateField(formData, "endsOn");
+	const intervalCount = intField(formData, "intervalCount", 1);
+	if (intervalCount < 1)
+		throw new Error("Intervalo deve ser maior ou igual a 1");
+	if (endsOn && endsOn < startsOn)
+		throw new Error("Data final deve ser maior ou igual à inicial");
+	if (frequency === "once" && endsOn && endsOn !== startsOn) {
+		throw new Error("Recorrência única deve terminar na data inicial");
+	}
+	if (frequency === "once") endsOn ??= null;
+
+	const account = await db.query.financialAccounts.findFirst({
+		where: and(
+			eq(financialAccounts.id, accountId),
+			eq(financialAccounts.userId, userId),
+		),
+	});
+	if (!account || account.isArchived) throw new Error("Conta inválida");
+
+	const category = categoryId
+		? await db.query.categories.findFirst({
+				where: and(
+					eq(categories.id, categoryId),
+					eq(categories.userId, userId),
+				),
+			})
+		: null;
+	if (!isBill && !category) throw new Error("Categoria é obrigatória");
+	if (category?.isArchived)
+		throw new Error("Categoria arquivada não pode ser usada");
+	if (movementType === "income" && category && category.kind !== "income") {
+		throw new Error("Receita deve usar categoria de receita");
+	}
+	if (movementType === "expense" && category && category.kind !== "expense") {
+		throw new Error("Despesa deve usar categoria de despesa");
+	}
+
+	let anchorDay = optionalIntField(formData, "anchorDay");
+	let anchorWeekday = optionalIntField(formData, "anchorWeekday");
+	if (frequency === "monthly") anchorDay ??= dayFromIso(startsOn);
+	if (frequency === "weekly") anchorWeekday ??= weekdayFromIso(startsOn);
+	if (anchorDay !== null && (anchorDay < 1 || anchorDay > 31)) {
+		throw new Error("Dia âncora deve ficar entre 1 e 31");
+	}
+	if (anchorWeekday !== null && (anchorWeekday < 0 || anchorWeekday > 6)) {
+		throw new Error("Dia da semana deve ficar entre 0 e 6");
+	}
+
+	return {
+		userId,
+		name,
+		description: optionalString(formData, "description"),
+		movementType,
+		accountId,
+		categoryId,
+		amountCents: moneyOrCents(formData, "amount", "amountCents"),
+		currency: optionalString(formData, "currency") ?? "BRL",
+		frequency,
+		intervalCount,
+		anchorDay,
+		anchorWeekday,
+		startsOn,
+		endsOn,
+		isSubscription: boolField(formData, "isSubscription"),
+		isBill,
+	};
+}
+
+export async function createRecurrence(formData: FormData) {
+	const userId = await requireUserId();
+	await db.insert(recurrences).values(await recurrenceValues(userId, formData));
+	revalidateRecurrenceViews();
+}
+
+export async function updateRecurrence(formData: FormData) {
+	const userId = await requireUserId();
+	const id = intField(formData, "id");
+	await db
+		.update(recurrences)
+		.set(await recurrenceValues(userId, formData))
+		.where(and(eq(recurrences.id, id), eq(recurrences.userId, userId)));
+	revalidateRecurrenceViews();
+}
+
+export async function archiveRecurrence(formData: FormData) {
+	const userId = await requireUserId();
+	await db
+		.update(recurrences)
+		.set({ isArchived: boolField(formData, "isArchived") })
+		.where(
+			and(
+				eq(recurrences.id, intField(formData, "id")),
+				eq(recurrences.userId, userId),
+			),
+		);
+	revalidateRecurrenceViews();
+}
+
+export async function confirmRecurrenceOccurrence(formData: FormData) {
+	const userId = await requireUserId();
+	const recurrenceId = intField(formData, "recurrenceId");
+	const occurrenceOn = isoDateField(formData, "occurrenceOn");
+	const recurrence = await db.query.recurrences.findFirst({
+		where: and(
+			eq(recurrences.id, recurrenceId),
+			eq(recurrences.userId, userId),
+		),
+	});
+	if (!recurrence) throw new Error("Recorrência inválida");
+
+	try {
+		await db.insert(transactions).values({
+			userId,
+			accountId: recurrence.accountId,
+			categoryId: recurrence.categoryId,
+			recurrenceId,
+			recurrenceOccurrenceOn: occurrenceOn,
+			movementType: recurrence.movementType,
+			status: "confirmed",
+			amountCents: moneyOrCents(formData, "amount", "amountCents"),
+			currency: recurrence.currency,
+			occurredOn: optionalIsoDateField(formData, "occurredOn") ?? occurrenceOn,
+			description: optionalString(formData, "description") ?? recurrence.name,
+			notes: optionalString(formData, "notes"),
+		});
+	} catch (error) {
+		if (
+			String(error).includes(
+				"finance_app_transactions_recurrence_occurrence_idx",
+			)
+		) {
+			throw new Error("Ocorrência já confirmada para esta recorrência");
+		}
+		throw error;
+	}
+	revalidateRecurrenceViews();
+}
+
+export async function linkTransactionToRecurrence(formData: FormData) {
+	const userId = await requireUserId();
+	const id = intField(formData, "transactionId");
+	const recurrenceId = intField(formData, "recurrenceId");
+	const occurrenceOn = isoDateField(formData, "occurrenceOn");
+	const [transaction, recurrence] = await Promise.all([
+		db.query.transactions.findFirst({
+			where: and(eq(transactions.id, id), eq(transactions.userId, userId)),
+		}),
+		db.query.recurrences.findFirst({
+			where: and(
+				eq(recurrences.id, recurrenceId),
+				eq(recurrences.userId, userId),
+			),
+		}),
+	]);
+	if (!transaction) throw new Error("Transação inválida");
+	if (!recurrence) throw new Error("Recorrência inválida");
+	if (transaction.movementType !== recurrence.movementType) {
+		throw new Error("Tipo da transação não combina com a recorrência");
+	}
+	try {
+		await db
+			.update(transactions)
+			.set({ recurrenceId, recurrenceOccurrenceOn: occurrenceOn })
+			.where(and(eq(transactions.id, id), eq(transactions.userId, userId)));
+	} catch (error) {
+		if (
+			String(error).includes(
+				"finance_app_transactions_recurrence_occurrence_idx",
+			)
+		) {
+			throw new Error("Ocorrência já confirmada para esta recorrência");
+		}
+		throw error;
+	}
+	revalidateRecurrenceViews();
+}
+
+export async function unlinkTransactionFromRecurrence(formData: FormData) {
+	const userId = await requireUserId();
+	await db
+		.update(transactions)
+		.set({ recurrenceId: null, recurrenceOccurrenceOn: null })
+		.where(
+			and(
+				eq(transactions.id, intField(formData, "transactionId")),
+				eq(transactions.userId, userId),
+			),
+		);
+	revalidateRecurrenceViews();
 }
 
 async function budgetValues(userId: string, formData: FormData) {
@@ -863,6 +1133,43 @@ async function activeImportRules(userId: string) {
 			(rule.accountId === null || accountIds.has(rule.accountId))
 		);
 	});
+}
+
+async function activeRecurrencesAndConfirmedOccurrences(userId: string) {
+	const [activeRecurrences, confirmedOccurrences] = await Promise.all([
+		db
+			.select()
+			.from(recurrences)
+			.where(
+				and(eq(recurrences.userId, userId), eq(recurrences.isArchived, false)),
+			),
+		db
+			.select({
+				recurrenceId: transactions.recurrenceId,
+				occurrenceOn: transactions.recurrenceOccurrenceOn,
+			})
+			.from(transactions)
+			.where(
+				and(
+					eq(transactions.userId, userId),
+					eq(transactions.isArchived, false),
+					sql`${transactions.recurrenceId} IS NOT NULL`,
+				),
+			),
+	]);
+	return {
+		activeRecurrences,
+		confirmedOccurrences: confirmedOccurrences.flatMap((occurrence) =>
+			occurrence.recurrenceId && occurrence.occurrenceOn
+				? [
+						{
+							recurrenceId: occurrence.recurrenceId,
+							occurrenceOn: occurrence.occurrenceOn,
+						},
+					]
+				: [],
+		),
+	};
 }
 
 async function reprocessReviewingImportRows(userId: string) {
@@ -1171,7 +1478,10 @@ export async function createImportBatch(formData: FormData) {
 			),
 	);
 	const fileKeys = new Set<string>();
-	const rules = await activeImportRules(userId);
+	const [rules, recurrenceContext] = await Promise.all([
+		activeImportRules(userId),
+		activeRecurrencesAndConfirmedOccurrences(userId),
+	]);
 
 	const [batch] = await db
 		.insert(importBatches)
@@ -1191,8 +1501,8 @@ export async function createImportBatch(formData: FormData) {
 	let suggestionCount = 0;
 	const suggestedRuleMatchCounts = new Map<number, number>();
 	if (parsedRows.length > 0) {
-		await db.insert(importRows).values(
-			parsedRows.map((row) => {
+		const rowValues: (typeof importRows.$inferInsert)[] = parsedRows.map(
+			(row) => {
 				let rowStatus: "invalid" | "duplicate" | "pending_review" =
 					row.validationError ? "invalid" : "pending_review";
 				let duplicateReason: string | null = null;
@@ -1241,14 +1551,89 @@ export async function createImportBatch(formData: FormData) {
 					bankCategory: row.bankCategory,
 					suggestedCategoryId: suggestion?.categoryId ?? null,
 					suggestedRuleId: suggestion?.id ?? null,
+					suggestedRecurrenceId: null,
+					suggestedRecurrenceOccurrenceOn: null,
 					suggestionSource: suggestion ? "rule" : null,
 					validationError:
 						[row.validationError, duplicateReason].filter(Boolean).join("; ") ||
 						null,
 					parsedData: row.parsedData,
 				};
-			}),
+			},
 		);
+		const suggestedOccurrences = [...recurrenceContext.confirmedOccurrences];
+		const rankedRecurrenceRows = rowValues
+			.map((row, index) => {
+				const amountCents = row.amountCents;
+				const match =
+					row.status === "pending_review" &&
+					row.occurredOn &&
+					amountCents &&
+					(row.movementType === "income" || row.movementType === "expense")
+						? matchImportedRowToRecurrence(
+								{
+									accountId: row.accountId,
+									movementType: row.movementType,
+									amountCents,
+									occurredOn: row.occurredOn,
+								},
+								recurrenceContext.activeRecurrences,
+								recurrenceContext.confirmedOccurrences,
+								row.occurredOn,
+							)
+						: null;
+				const occurrence = match
+					? recurrenceContext.activeRecurrences.find(
+							(recurrence) => recurrence.id === match.recurrenceId,
+						)
+					: null;
+				if (!match || !occurrence || !amountCents) return null;
+				return {
+					index,
+					dayDelta: Math.abs(
+						Date.parse(`${row.occurredOn}T00:00:00Z`) -
+							Date.parse(`${match.occurrenceOn}T00:00:00Z`),
+					),
+					valueDelta: Math.abs(amountCents - occurrence.amountCents),
+				};
+			})
+			.filter((row) => row !== null)
+			.sort(
+				(left, right) =>
+					left.dayDelta - right.dayDelta ||
+					left.valueDelta - right.valueDelta ||
+					(rowValues[left.index]?.rowNumber ?? 0) -
+						(rowValues[right.index]?.rowNumber ?? 0),
+			);
+		for (const ranked of rankedRecurrenceRows) {
+			const row = rowValues[ranked.index];
+			if (!row) continue;
+			const amountCents = row.amountCents;
+			const recurrenceSuggestion =
+				row.occurredOn &&
+				amountCents &&
+				(row.movementType === "income" || row.movementType === "expense")
+					? matchImportedRowToRecurrence(
+							{
+								accountId: row.accountId,
+								movementType: row.movementType,
+								amountCents,
+								occurredOn: row.occurredOn,
+							},
+							recurrenceContext.activeRecurrences,
+							suggestedOccurrences,
+							row.occurredOn,
+						)
+					: null;
+			if (!recurrenceSuggestion) continue;
+			row.suggestedRecurrenceId = recurrenceSuggestion.recurrenceId;
+			row.suggestedRecurrenceOccurrenceOn = recurrenceSuggestion.occurrenceOn;
+			suggestedOccurrences.push({
+				recurrenceId: recurrenceSuggestion.recurrenceId,
+				occurrenceOn: recurrenceSuggestion.occurrenceOn,
+			});
+		}
+		await db.insert(importRows).values(rowValues);
 	}
 	if (suggestionCount > 0) {
 		await db
@@ -1337,6 +1722,7 @@ export async function confirmImportBatch(formData: FormData) {
 			counters[kind]++;
 			ruleCounters.set(ruleId, counters);
 		};
+		const acceptedRecurrenceKeys = new Set<string>();
 		for (const row of rows) {
 			const decision = formData.get(`row-${row.id}-decision`)?.toString();
 			if (!decision)
@@ -1349,7 +1735,11 @@ export async function confirmImportBatch(formData: FormData) {
 				}
 				await tx
 					.update(importRows)
-					.set({ status: "ignored" })
+					.set({
+						status: "ignored",
+						suggestedRecurrenceId: null,
+						suggestedRecurrenceOccurrenceOn: null,
+					})
 					.where(and(eq(importRows.id, row.id), eq(importRows.userId, userId)));
 				continue;
 			}
@@ -1360,7 +1750,11 @@ export async function confirmImportBatch(formData: FormData) {
 				}
 				await tx
 					.update(importRows)
-					.set({ status: "duplicate" })
+					.set({
+						status: "duplicate",
+						suggestedRecurrenceId: null,
+						suggestedRecurrenceOccurrenceOn: null,
+					})
 					.where(and(eq(importRows.id, row.id), eq(importRows.userId, userId)));
 				continue;
 			}
@@ -1428,6 +1822,40 @@ export async function confirmImportBatch(formData: FormData) {
 					priority: 0,
 				});
 			}
+			const acceptedRecurrence =
+				row.suggestedRecurrenceId &&
+				row.suggestedRecurrenceOccurrenceOn &&
+				formData.get(`row-${row.id}-acceptRecurrence`) === "on"
+					? {
+							recurrenceId: row.suggestedRecurrenceId,
+							occurrenceOn: row.suggestedRecurrenceOccurrenceOn,
+						}
+					: null;
+			if (acceptedRecurrence) {
+				const recurrenceKey = `${acceptedRecurrence.recurrenceId}:${acceptedRecurrence.occurrenceOn}`;
+				if (acceptedRecurrenceKeys.has(recurrenceKey)) {
+					throw new Error(
+						`Duas linhas do lote apontam para a mesma recorrência na linha ${row.rowNumber}; rejeite uma sugestão.`,
+					);
+				}
+				const existingOccurrence = await tx.query.transactions.findFirst({
+					where: and(
+						eq(transactions.userId, userId),
+						eq(transactions.recurrenceId, acceptedRecurrence.recurrenceId),
+						eq(
+							transactions.recurrenceOccurrenceOn,
+							acceptedRecurrence.occurrenceOn,
+						),
+						eq(transactions.isArchived, false),
+					),
+				});
+				if (existingOccurrence) {
+					throw new Error(
+						`A recorrência sugerida na linha ${row.rowNumber} já foi confirmada; rejeite a sugestão.`,
+					);
+				}
+				acceptedRecurrenceKeys.add(recurrenceKey);
+			}
 
 			await tx.insert(transactions).values({
 				userId,
@@ -1436,6 +1864,8 @@ export async function confirmImportBatch(formData: FormData) {
 				categoryRuleId: acceptedRuleId,
 				importBatchId: batch.id,
 				importRowId: row.id,
+				recurrenceId: acceptedRecurrence?.recurrenceId ?? null,
+				recurrenceOccurrenceOn: acceptedRecurrence?.occurrenceOn ?? null,
 				movementType,
 				status: "confirmed",
 				amountCents,
@@ -1452,6 +1882,9 @@ export async function confirmImportBatch(formData: FormData) {
 					occurredOn,
 					amountCents,
 					movementType,
+					suggestedRecurrenceId: acceptedRecurrence?.recurrenceId ?? null,
+					suggestedRecurrenceOccurrenceOn:
+						acceptedRecurrence?.occurrenceOn ?? null,
 				})
 				.where(and(eq(importRows.id, row.id), eq(importRows.userId, userId)));
 		}
@@ -1506,7 +1939,11 @@ export async function cancelImportBatch(formData: FormData) {
 	await db.transaction(async (tx) => {
 		await tx
 			.update(importRows)
-			.set({ status: "ignored" })
+			.set({
+				status: "ignored",
+				suggestedRecurrenceId: null,
+				suggestedRecurrenceOccurrenceOn: null,
+			})
 			.where(
 				and(eq(importRows.batchId, batchId), eq(importRows.userId, userId)),
 			);
@@ -1532,7 +1969,11 @@ export async function revertImportBatch(formData: FormData) {
 	await db.transaction(async (tx) => {
 		await tx
 			.update(transactions)
-			.set({ isArchived: true })
+			.set({
+				isArchived: true,
+				recurrenceId: null,
+				recurrenceOccurrenceOn: null,
+			})
 			.where(
 				and(
 					eq(transactions.userId, userId),

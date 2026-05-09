@@ -213,7 +213,7 @@ Objetivo: popular o ambiente de desenvolvimento com dados brasileiros plausívei
 - [x] Pelo menos 30 categorias.
 - [x] Pelo menos 6 meses de transações.
 - [x] Pelo menos 1 importação confirmada e 1 importação pendente de revisão.
-- [x] Casos suficientes para validar dashboard, orçamento, fluxo de caixa, duplicidade e categorização.
+- [x] Casos suficientes para validar dashboard, orçamento, fluxo de caixa, duplicidade, categorização e recorrências.
 
 ---
 
@@ -292,8 +292,7 @@ Objetivo: prever saldo futuro e evitar surpresas.
 - [x] Separar realizado, previsto e pendente.
 - [x] Permitir visão diária, semanal, mensal e anual.
 - [x] Incluir faturas futuras de cartão.
-- [ ] Incluir recorrências futuras.
-  - *Depende da Fase 8; o motor de fluxo já expõe o gancho `extraPlannedMovements`.*
+- [x] Incluir recorrências futuras.
 - [x] Alertar risco de saldo negativo.
 - [x] Comparar fluxo previsto vs realizado.
 
@@ -303,20 +302,20 @@ Objetivo: prever saldo futuro e evitar surpresas.
 
 Objetivo: controlar receitas, despesas, assinaturas e contas a pagar/receber.
 
-- [ ] Cadastrar receita recorrente.
-- [ ] Cadastrar despesa recorrente.
-- [ ] Cadastrar assinatura.
-- [ ] Cadastrar conta a pagar.
-- [ ] Cadastrar conta a receber.
-- [ ] Definir frequência: semanal, mensal, anual ou personalizada.
-- [ ] Definir data de vencimento.
-- [ ] Definir conta padrão.
-- [ ] Definir categoria padrão.
-- [ ] Gerar previsão no fluxo de caixa.
-- [ ] Confirmar recorrência quando aparecer em CSV importado.
-- [ ] Alertar recorrência atrasada.
-- [ ] Exibir ranking de assinaturas e gastos fixos.
-- [ ] Sugerir cancelamento/revisão de assinaturas pouco usadas ou caras.
+- [x] Cadastrar receita recorrente.
+- [x] Cadastrar despesa recorrente.
+- [x] Cadastrar assinatura.
+- [x] Cadastrar conta a pagar.
+- [x] Cadastrar conta a receber.
+- [x] Definir frequência: semanal, mensal, anual ou personalizada.
+- [x] Definir data de vencimento.
+- [x] Definir conta padrão.
+- [x] Definir categoria padrão.
+- [x] Gerar previsão no fluxo de caixa.
+- [x] Confirmar recorrência quando aparecer em CSV importado.
+- [x] Alertar recorrência atrasada.
+- [x] Exibir ranking de assinaturas e gastos fixos.
+- [x] Sugerir cancelamento/revisão de assinaturas pouco usadas ou caras.
 
 ---
 
