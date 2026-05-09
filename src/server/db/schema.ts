@@ -85,6 +85,21 @@ export const importRuleTextMatchMode = pgEnum(
 	["contains", "exact"],
 );
 
+export const assistantSuggestionKind = pgEnum(
+	"finance_app_assistant_suggestion_kind",
+	[
+		"category_for_transaction",
+		"category_rule",
+		"anomaly",
+		"savings_opportunity",
+	],
+);
+
+export const assistantSuggestionStatus = pgEnum(
+	"finance_app_assistant_suggestion_status",
+	["pending", "accepted", "rejected", "superseded"],
+);
+
 export const user = pgTable("user", {
 	id: text("id").primaryKey(),
 	name: text("name").notNull(),
@@ -746,6 +761,7 @@ export const userRelations = relations(user, ({ many }) => ({
 	importBatches: many(importBatches),
 	importRows: many(importRows),
 	importCategoryRules: many(importCategoryRules),
+	assistantSuggestions: many(assistantSuggestions),
 }));
 
 export const accountRelations = relations(account, ({ one }) => ({
@@ -887,6 +903,48 @@ export const importCategoryRuleRelations = relations(
 		account: one(financialAccounts, {
 			fields: [importCategoryRules.accountId],
 			references: [financialAccounts.id],
+		}),
+	}),
+);
+
+export const assistantSuggestions = createFinanceTable(
+	"assistant_suggestions",
+	{
+		id: integer().primaryKey().generatedByDefaultAsIdentity(),
+		userId: text("user_id")
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
+		kind: assistantSuggestionKind().notNull(),
+		fingerprint: varchar({ length: 200 }).notNull(),
+		payload: jsonb().notNull(),
+		reason: text().notNull(),
+		status: assistantSuggestionStatus().notNull().default("pending"),
+		decidedAt: timestamp("decided_at", { withTimezone: true }),
+		createdAt: timestamp("created_at", { withTimezone: true })
+			.$defaultFn(() => new Date())
+			.notNull(),
+		updatedAt: timestamp("updated_at", { withTimezone: true }).$onUpdate(
+			() => new Date(),
+		),
+	},
+	(t) => [
+		index("finance_app_assistant_suggestions_user_status_kind_idx").on(
+			t.userId,
+			t.status,
+			t.kind,
+		),
+		uniqueIndex("finance_app_assistant_suggestions_pending_unique_idx")
+			.on(t.userId, t.kind, t.fingerprint)
+			.where(sql`${t.status} = 'pending'`),
+	],
+);
+
+export const assistantSuggestionRelations = relations(
+	assistantSuggestions,
+	({ one }) => ({
+		user: one(user, {
+			fields: [assistantSuggestions.userId],
+			references: [user.id],
 		}),
 	}),
 );

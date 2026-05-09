@@ -14,6 +14,7 @@ import {
 	parseImportCsv,
 } from "~/lib/import-rules";
 import { matchImportedRowToRecurrence } from "~/lib/recurrences";
+import { regenerateAssistantSuggestionsForUser } from "~/server/assistant";
 import { getSession } from "~/server/better-auth/server";
 import { db } from "~/server/db";
 import {
@@ -1923,8 +1924,11 @@ export async function confirmImportBatch(formData: FormData) {
 	if (rulesFromCorrections.length > 0)
 		await reprocessReviewingImportRows(userId);
 
+	await regenerateAssistantSuggestionsForUser(userId);
+
 	revalidatePath("/");
 	revalidatePath("/import");
+	revalidatePath("/assistente");
 }
 
 export async function cancelImportBatch(formData: FormData) {

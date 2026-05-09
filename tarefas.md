@@ -325,33 +325,33 @@ Objetivo: transformar histórico financeiro em decisões melhores.
 
 ### Rankings
 
-- [ ] Ranking de gastos por categoria.
-- [ ] Ranking de gastos por grupo.
-- [ ] Ranking de gastos por conta.
-- [ ] Ranking de estabelecimentos/descrições.
-- [ ] Ranking de assinaturas.
-- [ ] Ranking de maiores transações do período.
+- [x] Ranking de gastos por categoria.
+- [x] Ranking de gastos por grupo.
+- [x] Ranking de gastos por conta.
+- [x] Ranking de estabelecimentos/descrições.
+- [x] Ranking de assinaturas.
+- [x] Ranking de maiores transações do período.
 
 ### Tendências
 
-- [ ] Tendência mensal por categoria.
-- [ ] Tendência mensal por grupo.
-- [ ] Tendência de receitas.
-- [ ] Tendência de despesas.
-- [ ] Tendência de saldo.
-- [ ] Comparação com mês anterior.
-- [ ] Comparação com média dos últimos meses.
-- [ ] Comparação com mesmo mês do ano anterior.
+- [x] Tendência mensal por categoria.
+- [x] Tendência mensal por grupo.
+- [x] Tendência de receitas.
+- [x] Tendência de despesas.
+- [x] Tendência de saldo.
+- [x] Comparação com mês anterior.
+- [x] Comparação com média dos últimos meses.
+- [x] Comparação com mesmo mês do ano anterior.
 
 ### Insights
 
-- [ ] Identificar categorias que mais cresceram.
-- [ ] Identificar categorias que mais reduziram.
-- [ ] Identificar gastos fora do padrão.
-- [ ] Identificar concentração excessiva em poucos tipos de gasto.
-- [ ] Identificar gastos pequenos recorrentes que somam valor relevante.
-- [ ] Identificar oportunidades de economia.
-- [ ] Identificar despesas sem categoria ou mal classificadas.
+- [x] Identificar categorias que mais cresceram.
+- [x] Identificar categorias que mais reduziram.
+- [x] Identificar gastos fora do padrão.
+- [x] Identificar concentração excessiva em poucos tipos de gasto.
+- [x] Identificar gastos pequenos recorrentes que somam valor relevante.
+- [x] Identificar oportunidades de economia.
+- [x] Identificar despesas sem categoria ou mal classificadas.
 
 ---
 
@@ -370,20 +370,20 @@ Princípios:
 
 Tarefas:
 
-- [ ] Sugerir categoria para transações importadas.
-- [ ] Explicar por que uma categoria foi sugerida.
-- [ ] Gerar resumo mensal das transações.
-- [ ] Gerar resumo das receitas.
-- [ ] Gerar resumo das despesas.
-- [ ] Gerar resumo das contas e cartões.
-- [ ] Gerar resumo de orçamento.
-- [ ] Gerar resumo de fluxo de caixa.
-- [ ] Detectar anomalias em gastos.
-- [ ] Sugerir regras de categorização.
-- [ ] Sugerir categorias para transações sem categoria.
-- [ ] Sugerir oportunidades de economia.
-- [ ] Criar painel de sugestões pendentes de aprovação.
-- [ ] Registrar quando uma sugestão foi aceita ou rejeitada.
+- [x] Sugerir categoria para transações importadas.
+- [x] Explicar por que uma categoria foi sugerida.
+- [x] Gerar resumo mensal das transações.
+- [x] Gerar resumo das receitas.
+- [x] Gerar resumo das despesas.
+- [x] Gerar resumo das contas e cartões.
+- [x] Gerar resumo de orçamento.
+- [x] Gerar resumo de fluxo de caixa.
+- [x] Detectar anomalias em gastos.
+- [x] Sugerir regras de categorização.
+- [x] Sugerir categorias para transações sem categoria.
+- [x] Sugerir oportunidades de economia.
+- [x] Criar painel de sugestões pendentes de aprovação.
+- [x] Registrar quando uma sugestão foi aceita ou rejeitada.
 
 ---
 

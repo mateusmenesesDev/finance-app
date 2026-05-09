@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, isNotNull } from "drizzle-orm";
+import { and, asc, desc, eq, isNotNull, sql } from "drizzle-orm";
 import Link from "next/link";
 
 import {
@@ -8,6 +8,7 @@ import {
 	TextInput,
 } from "~/app/_components/finance-ui";
 import { SignInForm } from "~/app/_components/sign-in-form";
+import { summarizeMonthly } from "~/lib/assistant";
 import { aggregateCashFlow, computeFutureInvoices } from "~/lib/cash-flow";
 import {
 	buildBudgetUsage,
@@ -33,6 +34,7 @@ import {
 import { getSession } from "~/server/better-auth/server";
 import { db } from "~/server/db";
 import {
+	assistantSuggestions,
 	categories,
 	categoryGroups,
 	financialAccounts,
@@ -70,6 +72,7 @@ export default async function Home({ searchParams }: HomeProps) {
 		budgetRows,
 		allRecurrences,
 		confirmedOccurrences,
+		assistantPending,
 	] = await Promise.all([
 		db
 			.select()
@@ -123,7 +126,17 @@ export default async function Home({ searchParams }: HomeProps) {
 					isNotNull(transactions.recurrenceId),
 				),
 			),
+		db
+			.select({ count: sql<number>`count(*)::int` })
+			.from(assistantSuggestions)
+			.where(
+				and(
+					eq(assistantSuggestions.userId, session.user.id),
+					eq(assistantSuggestions.status, "pending"),
+				),
+			),
 	]);
+	const pendingAssistantCount = assistantPending[0]?.count ?? 0;
 
 	const activeAccounts = allAccounts.filter((account) => !account.isArchived);
 	const activeGroups = allGroups.filter((group) => !group.isArchived);
@@ -345,6 +358,43 @@ export default async function Home({ searchParams }: HomeProps) {
 					)}
 				</Panel>
 			</section>
+
+			<Panel
+				description={
+					pendingAssistantCount > 0
+						? `${pendingAssistantCount} sugestões aguardam revisão.`
+						: "Sem sugestões pendentes neste momento."
+				}
+				title="Assistente"
+			>
+				<ul className="grid gap-2 text-slate-300 text-sm">
+					{summarizeMonthly({
+						period,
+						totals: monthlyTotals,
+						previousNet: previousTotals.netCents,
+						pendingReviewCount: pendingImports.length,
+						uncategorizedCount,
+						openInvoicesCents: openInvoices.reduce(
+							(sum, inv) => sum + inv.remainingCents,
+							0,
+						),
+						alertsCount: alerts.length,
+					}).bullets.map((line) => (
+						<li
+							className="rounded-2xl border border-slate-800 bg-slate-950/50 p-3"
+							key={line}
+						>
+							{line}
+						</li>
+					))}
+				</ul>
+				<Link
+					className="mt-4 inline-block text-emerald-300 text-sm hover:underline"
+					href="/assistente"
+				>
+					Abrir assistente
+				</Link>
+			</Panel>
 
 			<section className="grid gap-6 xl:grid-cols-2">
 				<Panel title="Saldo por conta">

@@ -12,7 +12,9 @@ const navigation = [
 	{ href: "/budgets", label: "Orçamento" },
 	{ href: "/recurrences", label: "Recorrências" },
 	{ href: "/cash-flow", label: "Fluxo de caixa" },
+	{ href: "/analysis", label: "Análise" },
 	{ href: "/import", label: "Importações" },
+	{ href: "/assistente", label: "Assistente" },
 ];
 
 export function FinanceShell({
