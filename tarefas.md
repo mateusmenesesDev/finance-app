@@ -391,21 +391,21 @@ Tarefas:
 
 Objetivo: permitir análise por período e exportação de informações.
 
-- [ ] Visualizar por dia.
-- [ ] Visualizar por semana.
-- [ ] Visualizar por mês.
-- [ ] Visualizar por ano.
-- [ ] Filtrar qualquer relatório por conta.
-- [ ] Filtrar qualquer relatório por categoria.
-- [ ] Filtrar qualquer relatório por grupo.
-- [ ] Filtrar qualquer relatório por tipo de transação.
-- [ ] Visualizar gráfico de receitas e despesas.
-- [ ] Visualizar gráfico de categorias.
-- [ ] Visualizar gráfico de contas.
-- [ ] Visualizar gráfico de cartões.
-- [ ] Visualizar gráfico de orçamento.
-- [ ] Visualizar gráfico de fluxo de caixa.
-- [ ] Exportar relatório em CSV.
+- [x] Visualizar por dia.
+- [x] Visualizar por semana.
+- [x] Visualizar por mês.
+- [x] Visualizar por ano.
+- [x] Filtrar qualquer relatório por conta.
+- [x] Filtrar qualquer relatório por categoria.
+- [x] Filtrar qualquer relatório por grupo.
+- [x] Filtrar qualquer relatório por tipo de transação.
+- [x] Visualizar gráfico de receitas e despesas.
+- [x] Visualizar gráfico de categorias.
+- [x] Visualizar gráfico de contas.
+- [x] Visualizar gráfico de cartões.
+- [x] Visualizar gráfico de orçamento.
+- [x] Visualizar gráfico de fluxo de caixa.
+- [x] Exportar relatório em CSV.
 - [ ] Exportar relatório em PDF no futuro.
 
 ---
@@ -591,6 +591,75 @@ Princípios:
 
 ---
 
+## Fase 16 — Reporte de bugs e sugestões de features
+
+Objetivo: criar canal direto dentro do app para o usuário reportar problemas e propor melhorias, sem depender de ferramentas externas e sem vazar dados financeiros sensíveis.
+
+Princípios:
+
+- Modelar bug, sugestão de feature e feedback geral como uma única entidade `feedback` com campo `tipo`, evitando duplicar tabelas, telas e regras.
+- Cada usuário visualiza e altera apenas seus próprios reportes; isolamento multiusuário deve continuar explícito.
+- Coleta de contexto técnico deve ser opcional, transparente e nunca incluir dados financeiros do usuário.
+- O fluxo deve ser leve: abrir, descrever, enviar; não virar sistema de tickets completo.
+
+### Domínio
+
+- [ ] Definir entidade `feedback` com `id`, `usuário`, `tipo`, `título`, `descrição`, `status`, `criado_em` e `atualizado_em`.
+- [ ] Definir tipos suportados:
+  - [ ] Bug
+  - [ ] Sugestão de feature
+  - [ ] Outro/feedback geral
+- [ ] Definir status do reporte:
+  - [ ] Aberto
+  - [ ] Em análise
+  - [ ] Resolvido
+  - [ ] Recusado
+  - [ ] Duplicado
+- [ ] Definir campos opcionais de contexto técnico: rota atual, versão do app, navegador/SO, identificador da sessão.
+- [ ] Definir limites de tamanho para título e descrição e mensagens de erro claras.
+
+### Envio de reporte
+
+- [ ] Criar ponto de acesso visível em todas as telas (ex.: item no menu ou botão flutuante discreto).
+- [ ] Criar formulário com tipo, título, descrição e anexos opcionais.
+- [ ] Pré-preencher rota atual e dados técnicos não sensíveis quando o usuário consentir.
+- [ ] Permitir ao usuário revisar e remover qualquer dado de contexto antes de enviar.
+- [ ] Bloquear envio de campos vazios ou claramente inválidos com mensagem útil.
+- [ ] Confirmar envio com mensagem clara e link para acompanhar o reporte.
+
+### Acompanhamento pelo usuário
+
+- [ ] Listar reportes do próprio usuário com tipo, título, status e data.
+- [ ] Filtrar a lista por tipo e status.
+- [ ] Exibir detalhe do reporte com histórico de mudanças de status.
+- [ ] Permitir editar título e descrição enquanto o status estiver `Aberto`.
+- [ ] Permitir cancelar/arquivar reporte próprio sem apagar histórico do mantenedor.
+- [ ] Notificar o usuário quando o status do reporte mudar.
+
+### Privacidade e segurança
+
+- [ ] Avisar explicitamente que descrição e anexos podem ser lidos pelo mantenedor.
+- [ ] Não incluir transações, saldos, CPF, números de cartão ou tokens no contexto técnico automático.
+- [ ] Sanitizar descrição usando as mesmas regras de dados sigilosos da importação CSV.
+- [ ] Permitir ao usuário excluir seus reportes ao excluir a conta.
+- [ ] Registrar quem leu e respondeu cada reporte para auditoria interna.
+
+### Operação do mantenedor
+
+- [ ] Definir como o mantenedor acessa os reportes (rota administrativa restrita ou exportação).
+- [ ] Permitir alterar status e adicionar resposta visível ao usuário.
+- [ ] Permitir marcar reporte como duplicado vinculando ao reporte original.
+- [ ] Exibir métricas básicas: reportes abertos, tempo médio até resposta, principais áreas afetadas.
+
+### Critérios de aceite
+
+- [ ] Usuário consegue abrir um reporte em menos de um minuto a partir de qualquer tela.
+- [ ] Usuário só vê seus próprios reportes; nenhum dado financeiro vaza no contexto enviado.
+- [ ] Mantenedor consegue triar, responder e fechar reportes sem ferramenta externa.
+- [ ] Mudanças de status chegam ao usuário sem precisar consultar manualmente.
+
+---
+
 ## Ordem recomendada de execução
 
 1. Fundação técnica e modelo de dados.
@@ -608,6 +677,7 @@ Princípios:
 13. Relatórios, privacidade e acabamento.
 14. Clareza visual, tema claro/escuro e experiência base.
 15. Arquitetura simples e organização sustentável do código.
+16. Reporte de bugs e sugestões de features.
 
 ---
 
