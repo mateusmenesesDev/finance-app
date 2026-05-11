@@ -13,8 +13,10 @@ const navigation = [
 	{ href: "/recurrences", label: "Recorrências" },
 	{ href: "/cash-flow", label: "Fluxo de caixa" },
 	{ href: "/analysis", label: "Análise" },
+	{ href: "/reports", label: "Relatórios" },
 	{ href: "/import", label: "Importações" },
 	{ href: "/assistente", label: "Assistente" },
+	{ href: "/configuracoes", label: "Configurações" },
 ];
 
 export function FinanceShell({
@@ -43,7 +45,29 @@ export function FinanceShell({
 					</div>
 
 					<div className="flex flex-col gap-3 lg:items-end">
-						<nav className="flex flex-wrap gap-2">
+						<search className="w-full max-w-md">
+							<form action="/search" className="flex gap-2">
+								<label className="sr-only" htmlFor="global-search">
+									Buscar
+								</label>
+								<input
+									className="min-w-0 flex-1 rounded-full border border-slate-700 bg-slate-950 px-4 py-2 text-slate-100 text-sm"
+									id="global-search"
+									name="q"
+									placeholder="Buscar transações, contas, categorias..."
+								/>
+								<button
+									className="rounded-full border border-slate-700 px-4 py-2 font-medium text-sm"
+									type="submit"
+								>
+									Buscar
+								</button>
+							</form>
+						</search>
+						<nav
+							aria-label="Navegação principal"
+							className="flex flex-wrap gap-2"
+						>
 							{navigation.map((item) => (
 								<Link
 									className="rounded-full border border-slate-700 px-4 py-2 font-medium text-sm transition hover:border-slate-500 hover:bg-slate-900"

@@ -95,6 +95,29 @@ export const assistantSuggestionKind = pgEnum(
 	],
 );
 
+export const auditEntityType = pgEnum("finance_app_audit_entity_type", [
+	"transaction",
+	"financial_account",
+	"import_batch",
+	"assistant_suggestion",
+	"user_data",
+]);
+
+export const auditAction = pgEnum("finance_app_audit_action", [
+	"created",
+	"updated",
+	"archived",
+	"restored",
+	"deleted",
+	"sanitized",
+	"purged",
+]);
+
+export const transactionSavedFilterSort = pgEnum(
+	"finance_app_transaction_saved_filter_sort",
+	["date", "value", "category"],
+);
+
 export const assistantSuggestionStatus = pgEnum(
 	"finance_app_assistant_suggestion_status",
 	["pending", "accepted", "rejected", "superseded"],
@@ -416,7 +439,7 @@ export const importBatches = createFinanceTable(
 			columns: [t.accountId, t.userId],
 			foreignColumns: [financialAccounts.id, financialAccounts.userId],
 			name: "finance_app_import_batches_account_user_fk",
-		}),
+		}).onDelete("cascade"),
 	],
 );
 
@@ -467,7 +490,7 @@ export const importRows = createFinanceTable(
 			columns: [t.accountId, t.userId],
 			foreignColumns: [financialAccounts.id, financialAccounts.userId],
 			name: "finance_app_import_rows_account_user_fk",
-		}),
+		}).onDelete("cascade"),
 		foreignKey({
 			columns: [t.suggestedCategoryId, t.userId],
 			foreignColumns: [categories.id, categories.userId],
@@ -598,7 +621,7 @@ export const recurrences = createFinanceTable(
 			columns: [t.accountId, t.userId],
 			foreignColumns: [financialAccounts.id, financialAccounts.userId],
 			name: "finance_app_recurrences_account_user_fk",
-		}),
+		}).onDelete("cascade"),
 		foreignKey({
 			columns: [t.categoryId, t.userId],
 			foreignColumns: [categories.id, categories.userId],
@@ -635,6 +658,55 @@ export const recurrences = createFinanceTable(
 		check(
 			"finance_app_recurrences_once_ends_on_valid",
 			sql`${t.frequency} <> 'once' OR ${t.endsOn} IS NULL OR ${t.endsOn} = ${t.startsOn}`,
+		),
+	],
+);
+
+export const transactionSavedFilters = createFinanceTable(
+	"transaction_saved_filters",
+	{
+		id: integer().primaryKey().generatedByDefaultAsIdentity(),
+		userId: text("user_id")
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
+		name: varchar({ length: 120 }).notNull(),
+		start: date("start_on").notNull(),
+		end: date("end_on").notNull(),
+		accountId: integer("account_id"),
+		categoryId: integer("category_id"),
+		movementType: movementType("movement_type"),
+		query: text("query"),
+		sort: transactionSavedFilterSort().notNull().default("date"),
+		createdAt: timestamp("created_at", { withTimezone: true })
+			.$defaultFn(() => new Date())
+			.notNull(),
+		updatedAt: timestamp("updated_at", { withTimezone: true }).$onUpdate(
+			() => new Date(),
+		),
+	},
+	(t) => [
+		index("finance_app_transaction_saved_filters_user_idx").on(t.userId),
+		unique("finance_app_transaction_saved_filters_id_user_unique").on(
+			t.id,
+			t.userId,
+		),
+		uniqueIndex("finance_app_transaction_saved_filters_user_name_idx").on(
+			t.userId,
+			t.name,
+		),
+		foreignKey({
+			columns: [t.accountId, t.userId],
+			foreignColumns: [financialAccounts.id, financialAccounts.userId],
+			name: "finance_app_transaction_saved_filters_account_user_fk",
+		}),
+		foreignKey({
+			columns: [t.categoryId, t.userId],
+			foreignColumns: [categories.id, categories.userId],
+			name: "finance_app_transaction_saved_filters_category_user_fk",
+		}),
+		check(
+			"finance_app_transaction_saved_filters_period_valid",
+			sql`${t.end} >= ${t.start}`,
 		),
 	],
 );
@@ -706,12 +778,12 @@ export const transactions = createFinanceTable(
 			columns: [t.accountId, t.userId],
 			foreignColumns: [financialAccounts.id, financialAccounts.userId],
 			name: "finance_app_transactions_account_user_fk",
-		}),
+		}).onDelete("cascade"),
 		foreignKey({
 			columns: [t.destinationAccountId, t.userId],
 			foreignColumns: [financialAccounts.id, financialAccounts.userId],
 			name: "finance_app_transactions_destination_account_user_fk",
-		}),
+		}).onDelete("cascade"),
 		foreignKey({
 			columns: [t.categoryId, t.userId],
 			foreignColumns: [categories.id, categories.userId],
@@ -756,6 +828,7 @@ export const userRelations = relations(user, ({ many }) => ({
 	categories: many(categories),
 	monthlyBudgets: many(monthlyBudgets),
 	transactions: many(transactions),
+	transactionSavedFilters: many(transactionSavedFilters),
 	recurrences: many(recurrences),
 	importTemplates: many(importTemplates),
 	importBatches: many(importBatches),
@@ -786,6 +859,7 @@ export const financialAccountRelations = relations(
 		importBatches: many(importBatches),
 		importRows: many(importRows),
 		importCategoryRules: many(importCategoryRules),
+		transactionSavedFilters: many(transactionSavedFilters),
 		recurrences: many(recurrences),
 	}),
 );
@@ -809,7 +883,26 @@ export const categoryRelations = relations(categories, ({ many, one }) => ({
 	recurrences: many(recurrences),
 	importCategoryRules: many(importCategoryRules),
 	monthlyBudgets: many(monthlyBudgets),
+	transactionSavedFilters: many(transactionSavedFilters),
 }));
+
+export const transactionSavedFilterRelations = relations(
+	transactionSavedFilters,
+	({ one }) => ({
+		user: one(user, {
+			fields: [transactionSavedFilters.userId],
+			references: [user.id],
+		}),
+		account: one(financialAccounts, {
+			fields: [transactionSavedFilters.accountId],
+			references: [financialAccounts.id],
+		}),
+		category: one(categories, {
+			fields: [transactionSavedFilters.categoryId],
+			references: [categories.id],
+		}),
+	}),
+);
 
 export const monthlyBudgetRelations = relations(monthlyBudgets, ({ one }) => ({
 	user: one(user, { fields: [monthlyBudgets.userId], references: [user.id] }),
@@ -948,6 +1041,39 @@ export const assistantSuggestionRelations = relations(
 		}),
 	}),
 );
+
+export const auditEvents = createFinanceTable(
+	"audit_events",
+	{
+		id: integer().primaryKey().generatedByDefaultAsIdentity(),
+		userId: text("user_id")
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
+		entityType: auditEntityType("entity_type").notNull(),
+		entityId: integer("entity_id"),
+		action: auditAction().notNull(),
+		summary: varchar({ length: 240 }).notNull(),
+		diff: jsonb(),
+		createdAt: timestamp("created_at", { withTimezone: true })
+			.$defaultFn(() => new Date())
+			.notNull(),
+	},
+	(t) => [
+		index("finance_app_audit_events_user_created_idx").on(
+			t.userId,
+			t.createdAt.desc(),
+		),
+		index("finance_app_audit_events_user_entity_idx").on(
+			t.userId,
+			t.entityType,
+			t.entityId,
+		),
+	],
+);
+
+export const auditEventsRelations = relations(auditEvents, ({ one }) => ({
+	user: one(user, { fields: [auditEvents.userId], references: [user.id] }),
+}));
 
 export const transactionRelations = relations(transactions, ({ one }) => ({
 	user: one(user, { fields: [transactions.userId], references: [user.id] }),

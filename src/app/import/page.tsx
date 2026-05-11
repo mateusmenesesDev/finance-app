@@ -136,13 +136,44 @@ export default async function ImportPage({ searchParams }: ImportPageProps) {
 							reutilizáveis, revisão manual e sem armazenar arquivo bruto.
 						</p>
 					</div>
-					<Link
-						className="rounded-full border border-slate-700 px-4 py-2 text-sm"
-						href="/"
-					>
-						Voltar
-					</Link>
+					<div className="flex flex-wrap gap-2">
+						<Link
+							className="rounded-full border border-slate-700 px-4 py-2 text-sm"
+							href="/import/help"
+						>
+							Ajuda CSV
+						</Link>
+						<Link
+							className="rounded-full border border-slate-700 px-4 py-2 text-sm"
+							href="/"
+						>
+							Voltar
+						</Link>
+					</div>
 				</header>
+
+				<Panel title="Ajuda CSV">
+					<ul className="list-disc space-y-1 pl-5 text-slate-300 text-sm">
+						<li>
+							Use uma linha de cabeçalho e colunas estáveis para data, descrição
+							e valor.
+						</li>
+						<li>
+							Valores podem vir em coluna única com sinal ou em colunas
+							separadas de entrada e saída.
+						</li>
+						<li>
+							Revise linhas inválidas ou duplicadas antes de confirmar; o
+							arquivo bruto não é armazenado.
+						</li>
+					</ul>
+					<Link
+						className="mt-3 inline-block text-emerald-300 text-sm hover:underline"
+						href="/import/help"
+					>
+						Abrir guia completo de exportação CSV
+					</Link>
+				</Panel>
 
 				<section className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
 					<Panel title="Novo modelo reutilizável">
@@ -783,7 +814,14 @@ function BatchReview({
 									</p>
 								)}
 							{row.validationError && (
-								<p className="text-red-300 text-sm">{row.validationError}</p>
+								<div className="rounded-xl border border-red-900/70 bg-red-950/30 p-3 text-sm">
+									<p className="font-medium text-red-200">
+										Erro da linha: {row.validationError}
+									</p>
+									<p className="mt-1 text-red-100/80">
+										{actionableImportError(row.validationError)}
+									</p>
+								</div>
 							)}
 							<div className="grid gap-2 md:grid-cols-7">
 								<select
@@ -929,6 +967,19 @@ function rowStatusClass(status: string) {
 	if (status === "invalid") return "text-red-300";
 	if (status === "imported") return "text-emerald-300";
 	return "text-slate-300";
+}
+
+function actionableImportError(error: string) {
+	const lower = error.toLowerCase();
+	if (lower.includes("data"))
+		return "Confira a coluna de data e o formato escolhido no modelo.";
+	if (lower.includes("valor") || lower.includes("amount"))
+		return "Confira separador decimal, sinal e colunas de entrada/saída.";
+	if (lower.includes("descr"))
+		return "Confira se a coluna de descrição existe e tem conteúdo.";
+	if (lower.includes("duplic"))
+		return "Marque como duplicada ou ajuste o ID externo/descrição antes de importar.";
+	return "Ajuste a linha no formulário ou marque como ignorada antes de confirmar.";
 }
 
 function rowHadSensitiveData(parsedData: unknown) {

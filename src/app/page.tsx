@@ -1,6 +1,7 @@
 import { and, asc, desc, eq, isNotNull, sql } from "drizzle-orm";
 import Link from "next/link";
 
+import { createDefaultCategories } from "~/app/_actions/finance-actions";
 import {
 	FinanceShell,
 	Panel,
@@ -143,6 +144,10 @@ export default async function Home({ searchParams }: HomeProps) {
 	const activeCategories = allCategories.filter(
 		(category) => !category.isArchived,
 	);
+	const showFirstAccountOnboarding = activeAccounts.length === 0;
+	const showFirstImportOnboarding =
+		activeAccounts.length > 0 && batches.length === 0;
+	const showCategoryOnboarding = activeCategories.length === 0;
 	const accountById = new Map(
 		allAccounts.map((account) => [account.id, account]),
 	);
@@ -267,6 +272,62 @@ export default async function Home({ searchParams }: HomeProps) {
 			eyebrow="Dashboard"
 			title={`Olá, ${session.user.name}`}
 		>
+			{showFirstAccountOnboarding ||
+			showFirstImportOnboarding ||
+			showCategoryOnboarding ? (
+				<section className="grid gap-4 md:grid-cols-3">
+					{showFirstAccountOnboarding ? (
+						<div className="rounded-3xl border border-emerald-800 bg-emerald-950/30 p-5">
+							<p className="font-semibold text-emerald-200">
+								Comece criando sua primeira conta
+							</p>
+							<p className="mt-2 text-slate-300 text-sm">
+								Cadastre uma conta corrente, carteira ou cartão para liberar
+								saldos, importação e lançamentos.
+							</p>
+							<Link
+								className="mt-4 inline-block rounded-full bg-emerald-400 px-4 py-2 font-medium text-slate-950 text-sm"
+								href="/accounts"
+							>
+								Criar conta
+							</Link>
+						</div>
+					) : null}
+					{showFirstImportOnboarding ? (
+						<div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-5">
+							<p className="font-semibold">Faça sua primeira importação CSV</p>
+							<p className="mt-2 text-slate-300 text-sm">
+								Crie um modelo com as colunas do banco/cartão, envie o CSV e
+								revise cada linha antes de confirmar.
+							</p>
+							<Link
+								className="mt-4 inline-block rounded-full border border-slate-700 px-4 py-2 text-sm"
+								href="/import"
+							>
+								Ver guia de importação
+							</Link>
+						</div>
+					) : null}
+					{showCategoryOnboarding ? (
+						<div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-5">
+							<p className="font-semibold">Use categorias iniciais</p>
+							<p className="mt-2 text-slate-300 text-sm">
+								Crie exemplos de renda, moradia, alimentação, transporte e
+								outros grupos para acelerar a organização.
+							</p>
+							<form action={createDefaultCategories} className="mt-4">
+								<button
+									className="rounded-full border border-slate-700 px-4 py-2 text-sm"
+									type="submit"
+								>
+									Criar categorias iniciais
+								</button>
+							</form>
+						</div>
+					) : null}
+				</section>
+			) : null}
+
 			<section className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6">
 				<div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
 					<div>

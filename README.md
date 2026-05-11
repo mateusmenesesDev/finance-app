@@ -26,6 +26,7 @@ bun run typecheck
 bun run db:generate
 bun run db:migrate
 bun run db:seed
+bun run db:sanitize -- --email <email>
 ```
 
 ## Seed local de desenvolvimento
@@ -38,3 +39,24 @@ Credenciais fixas, somente para desenvolvimento local:
 - Senha: `Demo@123456`
 
 O seed não apaga outros usuários nem dados financeiros de outros usuários. Os exemplos de importação usam somente valores mascarados. A massa inclui recorrências realistas (salário, aluguel, assinaturas e contas avulsas) com parte das transações dos últimos meses vinculada para validar dashboard e fluxo de caixa.
+
+## Privacidade e auditoria
+
+A política oficial de dados sigilosos vive em `src/lib/sensitive-data.ts` e é documentada em `dominio.md`. Toda escrita de texto livre (transações, recorrências, lotes de importação) passa pela mesma função de mascaramento.
+
+A página `/configuracoes` cobre quatro abas:
+
+- **Privacidade**: lista de dados sigilosos, status do armazenamento de CSV bruto e botão para re-sanitizar todo o histórico do usuário.
+- **Auditoria**: histórico filtrável de eventos relevantes (criações, atualizações, arquivamentos, sanitizações e deleções).
+- **Sugestões da IA**: histórico de sugestões com aceite/rejeição e timestamp da decisão.
+- **Dados**: download do JSON com todas as tabelas financeiras, hard-delete de contas arquivadas e limpeza completa dos dados financeiros (mantém a conta de login).
+
+O comando `bun run db:sanitize -- --email <email>` re-aplica as regras de mascaramento em transações, recorrências, lotes e templates do usuário informado. É idempotente: rodar duas vezes seguidas não muda nada na segunda execução.
+
+## Relatórios
+
+A página `/reports` reúne relatórios por período com filtros de conta, grupo, categoria e tipo de transação. Ela exibe visualizações de receitas/despesas, categorias, grupos, contas, cartões, orçamento e fluxo de caixa.
+
+Cada painel pode ser exportado em CSV no formato BR: UTF-8 com BOM, separador `;`, datas `DD/MM/AAAA` e decimais com `,`.
+
+Os gráficos usam Recharts. O pacote `react-is` deve casar com a versão de React instalada; por isso `package.json` fixa `react-is@19.2.6` via `overrides`/`resolutions`.

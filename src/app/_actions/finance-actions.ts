@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq, or, sql } from "drizzle-orm";
+import { and, eq, inArray, or, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
@@ -14,7 +14,13 @@ import {
 	parseImportCsv,
 } from "~/lib/import-rules";
 import { matchImportedRowToRecurrence } from "~/lib/recurrences";
+import { maskSensitive } from "~/lib/sensitive-data";
 import { regenerateAssistantSuggestionsForUser } from "~/server/assistant";
+import {
+	diffTransaction,
+	recordAudit,
+	type TransactionAuditSnapshot,
+} from "~/server/audit";
 import { getSession } from "~/server/better-auth/server";
 import { db } from "~/server/db";
 import {
@@ -27,6 +33,7 @@ import {
 	importTemplates,
 	monthlyBudgets,
 	recurrences,
+	transactionSavedFilters,
 	transactions,
 } from "~/server/db/schema";
 
@@ -52,6 +59,7 @@ type CategoryKind = "income" | "expense";
 type ImportRuleTextMatchMode = "contains" | "exact";
 type MonthlyBudgetScope = "month" | "category_group" | "category";
 type RecurrenceFrequency = "once" | "weekly" | "monthly" | "yearly";
+type TransactionSavedFilterSort = "date" | "value" | "category";
 const accountTypes = new Set<AccountType>([
 	"checking",
 	"savings",
@@ -96,6 +104,11 @@ const recurrenceFrequencies = new Set<RecurrenceFrequency>([
 	"weekly",
 	"monthly",
 	"yearly",
+]);
+const transactionSavedFilterSorts = new Set<TransactionSavedFilterSort>([
+	"date",
+	"value",
+	"category",
 ]);
 const defaultGroups = [
 	{
@@ -143,6 +156,13 @@ function requiredString(formData: FormData, name: string) {
 }
 function optionalString(formData: FormData, name: string) {
 	return formData.get(name)?.toString().trim() || null;
+}
+function sensitiveRequired(formData: FormData, name: string) {
+	return maskSensitive(requiredString(formData, name));
+}
+function sensitiveOptional(formData: FormData, name: string) {
+	const value = optionalString(formData, name);
+	return value === null ? null : maskSensitive(value);
 }
 function intField(formData: FormData, name: string, fallback?: number) {
 	const value = formData.get(name)?.toString().trim();
@@ -332,15 +352,29 @@ export async function updateAccount(formData: FormData) {
 
 export async function archiveAccount(formData: FormData) {
 	const userId = await requireUserId();
-	await db
-		.update(financialAccounts)
-		.set({ isArchived: true, isActive: false })
-		.where(
-			and(
-				eq(financialAccounts.id, intField(formData, "id")),
+	const id = intField(formData, "id");
+	await db.transaction(async (tx) => {
+		const before = await tx.query.financialAccounts.findFirst({
+			where: and(
+				eq(financialAccounts.id, id),
 				eq(financialAccounts.userId, userId),
 			),
-		);
+		});
+		if (!before || before.isArchived) return;
+		await tx
+			.update(financialAccounts)
+			.set({ isArchived: true, isActive: false })
+			.where(
+				and(eq(financialAccounts.id, id), eq(financialAccounts.userId, userId)),
+			);
+		await recordAudit(tx, {
+			userId,
+			entityType: "financial_account",
+			entityId: id,
+			action: "archived",
+			summary: `Conta "${before.name}" arquivada`,
+		});
+	});
 	revalidatePath("/");
 }
 
@@ -604,46 +638,360 @@ async function transactionValues(userId: string, formData: FormData) {
 			allowZero: false,
 		}),
 		occurredOn: requiredString(formData, "occurredOn"),
-		originalDescription: optionalString(formData, "originalDescription"),
-		description: requiredString(formData, "description"),
-		notes: optionalString(formData, "notes"),
+		originalDescription: sensitiveOptional(formData, "originalDescription"),
+		description: sensitiveRequired(formData, "description"),
+		notes: sensitiveOptional(formData, "notes"),
 	};
 }
 
 export async function createTransaction(formData: FormData) {
 	const userId = await requireUserId();
-	await db
-		.insert(transactions)
-		.values(await transactionValues(userId, formData));
+	const values = await transactionValues(userId, formData);
+	await db.transaction(async (tx) => {
+		const [inserted] = await tx
+			.insert(transactions)
+			.values(values)
+			.returning({ id: transactions.id });
+		if (!inserted) throw new Error("Falha ao criar transação");
+		await recordAudit(tx, {
+			userId,
+			entityType: "transaction",
+			entityId: inserted.id,
+			action: "created",
+			summary: `Transação criada (${values.movementType}, ${values.amountCents} centavos)`,
+		});
+	});
 	revalidatePath("/");
+	revalidatePath("/transactions");
 }
 
 export async function updateTransaction(formData: FormData) {
 	const userId = await requireUserId();
-	await db
-		.update(transactions)
-		.set(await transactionValues(userId, formData))
-		.where(
-			and(
-				eq(transactions.id, intField(formData, "id")),
-				eq(transactions.userId, userId),
-			),
+	const id = intField(formData, "id");
+	const values = await transactionValues(userId, formData);
+	await db.transaction(async (tx) => {
+		const before = await tx.query.transactions.findFirst({
+			where: and(eq(transactions.id, id), eq(transactions.userId, userId)),
+		});
+		if (!before) throw new Error("Transação não encontrada");
+		await tx
+			.update(transactions)
+			.set(values)
+			.where(and(eq(transactions.id, id), eq(transactions.userId, userId)));
+		const diff = diffTransaction(
+			toTransactionSnapshot(before),
+			toTransactionSnapshot({ ...before, ...values }),
 		);
+		if (diff.length > 0) {
+			await recordAudit(tx, {
+				userId,
+				entityType: "transaction",
+				entityId: id,
+				action: "updated",
+				summary: `Transação ${id} atualizada (${diff.length} campo(s))`,
+				diff,
+			});
+		}
+	});
 	revalidatePath("/");
+	revalidatePath("/transactions");
 }
 
 export async function archiveTransaction(formData: FormData) {
 	const userId = await requireUserId();
+	const id = intField(formData, "id");
+	await db.transaction(async (tx) => {
+		const before = await tx.query.transactions.findFirst({
+			where: and(eq(transactions.id, id), eq(transactions.userId, userId)),
+		});
+		if (!before) return;
+		if (before.isArchived) return;
+		await tx
+			.update(transactions)
+			.set({ isArchived: true })
+			.where(and(eq(transactions.id, id), eq(transactions.userId, userId)));
+		await recordAudit(tx, {
+			userId,
+			entityType: "transaction",
+			entityId: id,
+			action: "archived",
+			summary: `Transação ${id} arquivada`,
+			diff: [{ field: "isArchived", from: false, to: true }],
+		});
+	});
+	revalidatePath("/");
+	revalidatePath("/transactions");
+}
+
+export async function saveTransactionFilter(formData: FormData) {
+	const userId = await requireUserId();
+	const start = isoDateField(formData, "start");
+	const end = isoDateField(formData, "end");
+	if (end < start) throw new Error("Período inválido");
+	const name = requiredString(formData, "name");
+	if (name.length > 120) throw new Error("Nome deve ter até 120 caracteres");
+	const accountId = optionalIntField(formData, "accountId");
+	const categoryId = optionalIntField(formData, "categoryId");
+	const movementType = optionalString(formData, "movementType");
+	if (movementType && !movementTypes.has(movementType as MovementType)) {
+		throw new Error("Tipo inválido");
+	}
+	const sort = optionalString(formData, "sort") ?? "date";
+	if (!transactionSavedFilterSorts.has(sort as TransactionSavedFilterSort)) {
+		throw new Error("Ordenação inválida");
+	}
+	if (accountId) {
+		const account = await db.query.financialAccounts.findFirst({
+			where: and(
+				eq(financialAccounts.id, accountId),
+				eq(financialAccounts.userId, userId),
+			),
+		});
+		if (!account || account.isArchived) throw new Error("Conta inválida");
+	}
+	if (categoryId) {
+		const category = await db.query.categories.findFirst({
+			where: and(eq(categories.id, categoryId), eq(categories.userId, userId)),
+		});
+		if (!category || category.isArchived) throw new Error("Categoria inválida");
+	}
+	const values = {
+		start,
+		end,
+		accountId,
+		categoryId,
+		movementType: movementType ? (movementType as MovementType) : null,
+		query: optionalString(formData, "q"),
+		sort: sort as TransactionSavedFilterSort,
+	};
+	const existing = await db.query.transactionSavedFilters.findFirst({
+		where: and(
+			eq(transactionSavedFilters.userId, userId),
+			eq(transactionSavedFilters.name, name),
+		),
+	});
+	if (existing) {
+		await db
+			.update(transactionSavedFilters)
+			.set(values)
+			.where(
+				and(
+					eq(transactionSavedFilters.id, existing.id),
+					eq(transactionSavedFilters.userId, userId),
+				),
+			);
+	} else {
+		await db
+			.insert(transactionSavedFilters)
+			.values({ userId, name, ...values });
+	}
+	revalidatePath("/transactions");
+}
+
+export async function deleteTransactionFilter(formData: FormData) {
+	const userId = await requireUserId();
 	await db
-		.update(transactions)
-		.set({ isArchived: true })
+		.delete(transactionSavedFilters)
 		.where(
 			and(
-				eq(transactions.id, intField(formData, "id")),
-				eq(transactions.userId, userId),
+				eq(transactionSavedFilters.id, intField(formData, "id")),
+				eq(transactionSavedFilters.userId, userId),
 			),
 		);
+	revalidatePath("/transactions");
+}
+
+export async function quickCategorizeTransaction(formData: FormData) {
+	const userId = await requireUserId();
+	const id = intField(formData, "id");
+	const categoryId = intField(formData, "categoryId");
+	const [transaction, category] = await Promise.all([
+		db.query.transactions.findFirst({
+			where: and(eq(transactions.id, id), eq(transactions.userId, userId)),
+		}),
+		db.query.categories.findFirst({
+			where: and(eq(categories.id, categoryId), eq(categories.userId, userId)),
+		}),
+	]);
+	if (!transaction) throw new Error("Transação não encontrada");
+	if (!category || category.isArchived) throw new Error("Categoria inválida");
+	if (
+		(transaction.movementType === "income" && category.kind !== "income") ||
+		(transaction.movementType === "expense" && category.kind !== "expense") ||
+		(transaction.movementType !== "income" &&
+			transaction.movementType !== "expense")
+	) {
+		throw new Error("Categoria incompatível com o tipo da transação");
+	}
+	await db.transaction(async (tx) => {
+		await tx
+			.update(transactions)
+			.set({ categoryId })
+			.where(and(eq(transactions.id, id), eq(transactions.userId, userId)));
+		await recordAudit(tx, {
+			userId,
+			entityType: "transaction",
+			entityId: id,
+			action: "updated",
+			summary: `Transação ${id} categorizada rapidamente`,
+			diff: [
+				{ field: "categoryId", from: transaction.categoryId, to: categoryId },
+			],
+		});
+	});
+	revalidatePath("/transactions");
 	revalidatePath("/");
+}
+
+export async function bulkUpdateTransactions(formData: FormData) {
+	const userId = await requireUserId();
+	const ids = formData
+		.getAll("transactionId")
+		.map((value) => Number.parseInt(value.toString(), 10))
+		.filter((id) => Number.isFinite(id));
+	const uniqueIds = [...new Set(ids)];
+	if (uniqueIds.length === 0) throw new Error("Selecione transações");
+	if (uniqueIds.length > 100)
+		throw new Error("Edição em massa limitada a 100 transações");
+
+	const values: Partial<typeof transactions.$inferInsert> = {};
+	if (boolField(formData, "changeCategory")) {
+		values.categoryId = optionalIntField(formData, "bulkCategoryId");
+	}
+	if (boolField(formData, "changeStatus")) {
+		values.status = enumField(formData, "bulkStatus", transactionStatuses);
+	}
+	if (boolField(formData, "changeAccount")) {
+		values.accountId = intField(formData, "bulkAccountId");
+	}
+	if (boolField(formData, "changeNotes")) {
+		values.notes = sensitiveOptional(formData, "bulkNotes");
+	}
+	if (boolField(formData, "changeArchive")) {
+		values.isArchived =
+			enumField(formData, "bulkArchive", new Set(["true", "false"])) === "true";
+	}
+	if (Object.keys(values).length === 0)
+		throw new Error("Nenhuma alteração escolhida");
+
+	const selected = await db
+		.select()
+		.from(transactions)
+		.where(
+			and(eq(transactions.userId, userId), inArray(transactions.id, uniqueIds)),
+		);
+	if (selected.length !== uniqueIds.length) throw new Error("Seleção inválida");
+	if (values.accountId) {
+		const [account, userAccounts] = await Promise.all([
+			db.query.financialAccounts.findFirst({
+				where: and(
+					eq(financialAccounts.id, values.accountId),
+					eq(financialAccounts.userId, userId),
+				),
+			}),
+			db
+				.select()
+				.from(financialAccounts)
+				.where(eq(financialAccounts.userId, userId)),
+		]);
+		if (!account || account.isArchived) throw new Error("Conta inválida");
+		const accountById = new Map(
+			userAccounts.map((candidate) => [candidate.id, candidate]),
+		);
+		for (const transaction of selected) {
+			if (transaction.destinationAccountId === values.accountId) {
+				throw new Error("Conta origem e destino devem ser diferentes");
+			}
+			if (
+				transaction.movementType === "credit_card_payment" &&
+				account.type === "credit_card"
+			) {
+				throw new Error(
+					"Pagamento de fatura deve sair de conta normal, não de cartão",
+				);
+			}
+			if (
+				transaction.movementType === "credit_card_payment" &&
+				transaction.destinationAccountId &&
+				accountById.get(transaction.destinationAccountId)?.type !==
+					"credit_card"
+			) {
+				throw new Error("Pagamento de fatura exige cartão como destino");
+			}
+		}
+	}
+	const bulkCategoryId = values.categoryId;
+	if (bulkCategoryId !== undefined && bulkCategoryId !== null) {
+		const category = await db.query.categories.findFirst({
+			where: and(
+				eq(categories.id, bulkCategoryId),
+				eq(categories.userId, userId),
+			),
+		});
+		if (!category || category.isArchived) throw new Error("Categoria inválida");
+		for (const transaction of selected) {
+			if (
+				(transaction.movementType === "income" && category.kind !== "income") ||
+				(transaction.movementType === "expense" &&
+					category.kind !== "expense") ||
+				(transaction.movementType !== "income" &&
+					transaction.movementType !== "expense")
+			) {
+				throw new Error("Categoria incompatível com uma transação selecionada");
+			}
+		}
+	}
+
+	await db.transaction(async (tx) => {
+		await tx
+			.update(transactions)
+			.set(values)
+			.where(
+				and(
+					eq(transactions.userId, userId),
+					inArray(transactions.id, uniqueIds),
+				),
+			);
+		for (const before of selected) {
+			const diff = diffTransaction(
+				toTransactionSnapshot(before),
+				toTransactionSnapshot({ ...before, ...values }),
+			);
+			if (diff.length === 0) continue;
+			await recordAudit(tx, {
+				userId,
+				entityType: "transaction",
+				entityId: before.id,
+				action: "updated",
+				summary: `Transação ${before.id} atualizada em massa (${diff.length} campo(s))`,
+				diff,
+			});
+		}
+	});
+	revalidatePath("/transactions");
+	revalidatePath("/");
+}
+
+function toTransactionSnapshot(row: {
+	accountId: number;
+	destinationAccountId: number | null;
+	categoryId: number | null;
+	movementType: string;
+	status: string;
+	amountCents: number;
+	occurredOn: string;
+	isArchived: boolean;
+}): TransactionAuditSnapshot {
+	return {
+		accountId: row.accountId,
+		destinationAccountId: row.destinationAccountId,
+		categoryId: row.categoryId,
+		movementType: row.movementType,
+		status: row.status,
+		amountCents: row.amountCents,
+		occurredOn: row.occurredOn,
+		isArchived: row.isArchived,
+	};
 }
 
 async function recurrenceValues(userId: string, formData: FormData) {
@@ -712,7 +1060,7 @@ async function recurrenceValues(userId: string, formData: FormData) {
 	return {
 		userId,
 		name,
-		description: optionalString(formData, "description"),
+		description: sensitiveOptional(formData, "description"),
 		movementType,
 		accountId,
 		categoryId,
@@ -783,8 +1131,10 @@ export async function confirmRecurrenceOccurrence(formData: FormData) {
 			amountCents: moneyOrCents(formData, "amount", "amountCents"),
 			currency: recurrence.currency,
 			occurredOn: optionalIsoDateField(formData, "occurredOn") ?? occurrenceOn,
-			description: optionalString(formData, "description") ?? recurrence.name,
-			notes: optionalString(formData, "notes"),
+			description:
+				sensitiveOptional(formData, "description") ??
+				maskSensitive(recurrence.name),
+			notes: sensitiveOptional(formData, "notes"),
 		});
 	} catch (error) {
 		if (
@@ -1056,7 +1406,7 @@ export async function createImportTemplate(formData: FormData) {
 	await db.insert(importTemplates).values({
 		userId,
 		name: requiredString(formData, "name"),
-		sourceLabel: optionalString(formData, "sourceLabel"),
+		sourceLabel: sensitiveOptional(formData, "sourceLabel"),
 		config: templateConfigFromForm(formData),
 	});
 	revalidatePath("/import");
@@ -1068,7 +1418,7 @@ export async function updateImportTemplate(formData: FormData) {
 		.update(importTemplates)
 		.set({
 			name: requiredString(formData, "name"),
-			sourceLabel: optionalString(formData, "sourceLabel"),
+			sourceLabel: sensitiveOptional(formData, "sourceLabel"),
 			config: templateConfigFromForm(formData),
 		})
 		.where(
@@ -1491,8 +1841,10 @@ export async function createImportBatch(formData: FormData) {
 			importTemplateId: template.id,
 			accountId,
 			status: "reviewing",
-			originalFileName: file.name.slice(0, 255),
-			sourceLabel: template.sourceLabel,
+			originalFileName: maskSensitive(file.name).slice(0, 255),
+			sourceLabel: template.sourceLabel
+				? maskSensitive(template.sourceLabel)
+				: template.sourceLabel,
 			rowCount: parsedRows.length,
 			rawFileStored: false,
 		})
@@ -1805,11 +2157,12 @@ export async function confirmImportBatch(formData: FormData) {
 			if (category.kind !== movementType) {
 				throw new Error(`Categoria incompatível na linha ${row.rowNumber}`);
 			}
-			const description =
+			const description = maskSensitive(
 				formData.get(`row-${row.id}-description`)?.toString().trim() ||
-				row.originalDescription ||
-				row.normalizedDescription ||
-				"Importação CSV";
+					row.originalDescription ||
+					row.normalizedDescription ||
+					"Importação CSV",
+			);
 			if (formData.get(`row-${row.id}-createRule`) === "on") {
 				rulesFromCorrections.push({
 					userId,
@@ -1916,6 +2269,14 @@ export async function confirmImportBatch(formData: FormData) {
 			.where(
 				and(eq(importBatches.id, batch.id), eq(importBatches.userId, userId)),
 			);
+		await recordAudit(tx, {
+			userId,
+			entityType: "import_batch",
+			entityId: batch.id,
+			action: "updated",
+			summary: `Lote "${batch.originalFileName}" confirmado`,
+			diff: [{ field: "status", from: "reviewing", to: "confirmed" }],
+		});
 	});
 
 	for (const rule of rulesFromCorrections) {
@@ -1957,6 +2318,14 @@ export async function cancelImportBatch(formData: FormData) {
 			.where(
 				and(eq(importBatches.id, batchId), eq(importBatches.userId, userId)),
 			);
+		await recordAudit(tx, {
+			userId,
+			entityType: "import_batch",
+			entityId: batchId,
+			action: "updated",
+			summary: `Lote "${batch.originalFileName}" cancelado`,
+			diff: [{ field: "status", from: batch.status, to: "cancelled" }],
+		});
 	});
 	revalidatePath("/import");
 }
@@ -1971,7 +2340,7 @@ export async function revertImportBatch(formData: FormData) {
 		throw new Error("Importação não confirmada");
 
 	await db.transaction(async (tx) => {
-		await tx
+		const updatedTransactions = await tx
 			.update(transactions)
 			.set({
 				isArchived: true,
@@ -1983,13 +2352,22 @@ export async function revertImportBatch(formData: FormData) {
 					eq(transactions.userId, userId),
 					eq(transactions.importBatchId, batchId),
 				),
-			);
+			)
+			.returning({ id: transactions.id });
 		await tx
 			.update(importBatches)
 			.set({ status: "reverted" })
 			.where(
 				and(eq(importBatches.id, batchId), eq(importBatches.userId, userId)),
 			);
+		await recordAudit(tx, {
+			userId,
+			entityType: "import_batch",
+			entityId: batchId,
+			action: "updated",
+			summary: `Lote "${batch.originalFileName}" revertido (${updatedTransactions.length} transações arquivadas)`,
+			diff: [{ field: "status", from: batch.status, to: "reverted" }],
+		});
 	});
 
 	revalidatePath("/");

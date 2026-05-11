@@ -1,9 +1,13 @@
 import { asc, desc, eq } from "drizzle-orm";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import {
 	archiveTransaction,
+	bulkUpdateTransactions,
 	createTransaction,
+	deleteTransactionFilter,
+	saveTransactionFilter,
 	updateTransaction,
 } from "~/app/_actions/finance-actions";
 import {
@@ -14,6 +18,7 @@ import {
 	SubmitButton,
 	TextInput,
 } from "~/app/_components/finance-ui";
+import { QuickCategorizeForm } from "~/app/transactions/_components";
 import { getCurrentMonthPeriod } from "~/lib/finance-rules";
 import { formatDate, formatMoney, formatMoneyInput } from "~/lib/formatters";
 import { getSession } from "~/server/better-auth/server";
@@ -21,6 +26,7 @@ import { db } from "~/server/db";
 import {
 	categories,
 	financialAccounts,
+	transactionSavedFilters,
 	transactions,
 } from "~/server/db/schema";
 
@@ -61,26 +67,33 @@ export default async function TransactionsPage({
 	const period = getCurrentMonthPeriod();
 	const filters = {
 		end: period.end,
+		sort: "date",
 		start: period.start,
 		...(await searchParams),
 	};
-	const [allAccounts, allCategories, allTransactions] = await Promise.all([
-		db
-			.select()
-			.from(financialAccounts)
-			.where(eq(financialAccounts.userId, session.user.id))
-			.orderBy(asc(financialAccounts.name)),
-		db
-			.select()
-			.from(categories)
-			.where(eq(categories.userId, session.user.id))
-			.orderBy(asc(categories.kind), asc(categories.name)),
-		db
-			.select()
-			.from(transactions)
-			.where(eq(transactions.userId, session.user.id))
-			.orderBy(desc(transactions.occurredOn), desc(transactions.id)),
-	]);
+	const [allAccounts, allCategories, allTransactions, savedFilters] =
+		await Promise.all([
+			db
+				.select()
+				.from(financialAccounts)
+				.where(eq(financialAccounts.userId, session.user.id))
+				.orderBy(asc(financialAccounts.name)),
+			db
+				.select()
+				.from(categories)
+				.where(eq(categories.userId, session.user.id))
+				.orderBy(asc(categories.kind), asc(categories.name)),
+			db
+				.select()
+				.from(transactions)
+				.where(eq(transactions.userId, session.user.id))
+				.orderBy(desc(transactions.occurredOn), desc(transactions.id)),
+			db
+				.select()
+				.from(transactionSavedFilters)
+				.where(eq(transactionSavedFilters.userId, session.user.id))
+				.orderBy(asc(transactionSavedFilters.name)),
+		]);
 	const activeAccounts = allAccounts.filter((account) => !account.isArchived);
 	const usableAccounts = activeAccounts.filter((account) => account.isActive);
 	const activeCategories = allCategories.filter(
@@ -186,7 +199,10 @@ export default async function TransactionsPage({
 				</form>
 			</Panel>
 
-			<Panel title="Filtros">
+			<Panel
+				description="Filtros salvos guardam somente esta tela; onboarding é inferido dos dados, sem flags manuais."
+				title="Filtros"
+			>
 				<form className="grid gap-3 rounded-2xl border border-slate-800 p-4 md:grid-cols-7">
 					<TextInput defaultValue={filters.start} name="start" type="date" />
 					<TextInput defaultValue={filters.end} name="end" type="date" />
@@ -242,16 +258,141 @@ export default async function TransactionsPage({
 					</select>
 					<SubmitButton>Filtrar</SubmitButton>
 				</form>
+				<div className="mt-4 grid gap-3 rounded-2xl border border-slate-800 p-4 lg:grid-cols-[1fr_1.4fr]">
+					<form
+						action={saveTransactionFilter}
+						className="grid gap-3 md:grid-cols-2"
+					>
+						<input name="start" type="hidden" value={filters.start} />
+						<input name="end" type="hidden" value={filters.end} />
+						<input
+							name="accountId"
+							type="hidden"
+							value={filters.accountId ?? ""}
+						/>
+						<input
+							name="categoryId"
+							type="hidden"
+							value={filters.categoryId ?? ""}
+						/>
+						<input
+							name="movementType"
+							type="hidden"
+							value={filters.movementType ?? ""}
+						/>
+						<input name="q" type="hidden" value={filters.q ?? ""} />
+						<input name="sort" type="hidden" value={filters.sort ?? "date"} />
+						<TextInput
+							name="name"
+							placeholder="Nome do filtro atual"
+							required
+						/>
+						<SubmitButton>Salvar filtro</SubmitButton>
+					</form>
+					<div className="flex flex-wrap gap-2">
+						{savedFilters.map((filter) => {
+							const href = `/transactions?${new URLSearchParams({
+								accountId: filter.accountId?.toString() ?? "",
+								categoryId: filter.categoryId?.toString() ?? "",
+								end: filter.end,
+								movementType: filter.movementType ?? "",
+								q: filter.query ?? "",
+								sort: filter.sort,
+								start: filter.start,
+							}).toString()}`;
+							return (
+								<span
+									className="inline-flex items-center gap-2 rounded-full border border-slate-700 px-3 py-1 text-sm"
+									key={filter.id}
+								>
+									<Link className="hover:text-emerald-300" href={href}>
+										{filter.name}
+									</Link>
+									<form action={deleteTransactionFilter}>
+										<input name="id" type="hidden" value={filter.id} />
+										<button
+											className="text-slate-500 hover:text-rose-300"
+											type="submit"
+										>
+											×
+										</button>
+									</form>
+								</span>
+							);
+						})}
+						{savedFilters.length === 0 ? (
+							<p className="text-slate-500 text-sm">Nenhum filtro salvo.</p>
+						) : null}
+					</div>
+				</div>
 			</Panel>
 
-			<Panel title="Lista de transações">
+			<Panel
+				description="Selecione linhas visíveis e aplique mudanças seguras. Limite: 100 transações por envio."
+				title="Lista de transações"
+			>
+				<form
+					action={bulkUpdateTransactions}
+					className="mb-4 grid gap-3 rounded-2xl border border-slate-800 p-4 lg:grid-cols-6"
+					id="bulk-edit-transactions"
+				>
+					<label className="flex items-center gap-2 text-slate-300 text-sm">
+						<input name="changeCategory" type="checkbox" /> Categoria
+					</label>
+					<select className={inputClass} name="bulkCategoryId">
+						<option value="">Sem categoria</option>
+						{activeCategories.map((category) => (
+							<option key={category.id} value={category.id}>
+								{category.name}
+							</option>
+						))}
+					</select>
+					<label className="flex items-center gap-2 text-slate-300 text-sm">
+						<input name="changeStatus" type="checkbox" /> Status
+					</label>
+					<Select name="bulkStatus" options={statusLabels} />
+					<label className="flex items-center gap-2 text-slate-300 text-sm">
+						<input name="changeAccount" type="checkbox" /> Conta
+					</label>
+					<select className={inputClass} name="bulkAccountId">
+						{usableAccounts.map((account) => (
+							<option key={account.id} value={account.id}>
+								{account.name}
+							</option>
+						))}
+					</select>
+					<label className="flex items-center gap-2 text-slate-300 text-sm">
+						<input name="changeNotes" type="checkbox" /> Notas
+					</label>
+					<TextInput name="bulkNotes" placeholder="Substituir notas" />
+					<label className="flex items-center gap-2 text-slate-300 text-sm">
+						<input name="changeArchive" type="checkbox" /> Arquivo
+					</label>
+					<select className={inputClass} name="bulkArchive">
+						<option value="false">Restaurar</option>
+						<option value="true">Arquivar</option>
+					</select>
+					<button
+						className="rounded-xl bg-amber-400 px-4 py-2 font-medium text-slate-950 text-sm"
+						type="submit"
+					>
+						Aplicar nas selecionadas
+					</button>
+				</form>
 				<div className="overflow-hidden rounded-2xl border border-slate-800">
 					{visibleTransactions.map((transaction) => (
 						<details
 							className="border-slate-800 border-b p-4 text-sm"
 							key={transaction.id}
 						>
-							<summary className="grid cursor-pointer gap-2 md:grid-cols-[110px_1fr_160px_160px_120px]">
+							<summary className="grid cursor-pointer gap-2 md:grid-cols-[32px_110px_1fr_160px_160px_120px]">
+								<input
+									aria-label={`Selecionar transação ${transaction.description}`}
+									form="bulk-edit-transactions"
+									name="transactionId"
+									type="checkbox"
+									value={transaction.id}
+								/>
 								<span>{formatDate(transaction.occurredOn)}</span>
 								<span>
 									{transaction.description}
@@ -265,6 +406,22 @@ export default async function TransactionsPage({
 								</span>
 								<span>{formatMoney(transaction.amountCents)}</span>
 							</summary>
+							{transaction.movementType === "income" ||
+							transaction.movementType === "expense" ? (
+								<QuickCategorizeForm
+									categories={activeCategories
+										.filter(
+											(category) => category.kind === transaction.movementType,
+										)
+										.map((category) => ({
+											id: category.id,
+											name: category.name,
+										}))}
+									currentCategoryId={transaction.categoryId}
+									transactionDescription={transaction.description}
+									transactionId={transaction.id}
+								/>
+							) : null}
 							<form
 								action={updateTransaction}
 								className="mt-4 grid gap-3 rounded-xl border border-slate-800 p-4 md:grid-cols-4"

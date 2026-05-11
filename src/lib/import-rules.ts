@@ -1,5 +1,9 @@
 import { parse } from "csv-parse/sync";
 
+import { maskSensitive, sanitizeSensitive } from "./sensitive-data";
+
+export { maskSensitive, sanitizeSensitive };
+
 export type ImportTemplateConfig = {
 	delimiter: "auto" | "," | ";";
 	dateFormat: "yyyy-mm-dd" | "dd/mm/yyyy" | "dd-mm-yyyy";
@@ -186,36 +190,6 @@ export function duplicateKey(row: {
 		row.movementType,
 		row.normalizedDescription,
 	].join("|");
-}
-
-export function maskSensitive(value: string) {
-	return sanitizeSensitive(value).value;
-}
-
-export function sanitizeSensitive(value: string) {
-	let detected = false;
-	const masked = value
-		.replace(/\b\d{3}\.?\d{3}\.?\d{3}-?\d{2}\b/g, (match) => {
-			detected = true;
-			return `CPF ${"*".repeat(Math.max(0, match.length - 4))}${match.slice(-4)}`;
-		})
-		.replace(/\b(?:\d[ -]*?){13,19}\b/g, (match) => {
-			detected = true;
-			const digits = match.replace(/\D/g, "");
-			return `${"*".repeat(Math.max(0, digits.length - 4))}${digits.slice(-4)}`;
-		})
-		.replace(/\d{5,}/g, (match) => {
-			detected = true;
-			return `${"*".repeat(match.length - 4)}${match.slice(-4)}`;
-		})
-		.replace(
-			/\b(senha|password|token|secret|chave)\b\s*[:=]?\s*\S+/gi,
-			(_match, label: string) => {
-				detected = true;
-				return `${label}: ***`;
-			},
-		);
-	return { value: masked.trim(), detected };
 }
 
 export function normalizeDescription(value: string) {

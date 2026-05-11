@@ -414,19 +414,19 @@ Objetivo: permitir análise por período e exportação de informações.
 
 Objetivo: proteger dados financeiros e reduzir risco de vazamento acidental.
 
-- [ ] Definir lista de dados sigilosos que nunca devem ser exibidos sem máscara.
-- [ ] Mascarar CPF.
-- [ ] Mascarar número de cartão.
-- [ ] Mascarar senhas, tokens e chaves.
-- [ ] Evitar salvar senhas ou credenciais bancárias.
-- [ ] Criar rotina para sanitizar descrições importadas.
-- [ ] Permitir apagar arquivos brutos importados.
-- [ ] Permitir apagar dados de uma conta específica.
-- [ ] Registrar histórico de importações.
-- [ ] Registrar alterações relevantes em transações.
-- [ ] Registrar aceite/rejeição de sugestões de IA.
-- [ ] Permitir exportar dados do usuário.
-- [ ] Permitir excluir todos os dados financeiros do usuário.
+- [x] Definir lista de dados sigilosos que nunca devem ser exibidos sem máscara.
+- [x] Mascarar CPF.
+- [x] Mascarar número de cartão.
+- [x] Mascarar senhas, tokens e chaves.
+- [x] Evitar salvar senhas ou credenciais bancárias.
+- [x] Criar rotina para sanitizar descrições importadas.
+- [x] Permitir apagar arquivos brutos importados.
+- [x] Permitir apagar dados de uma conta específica.
+- [x] Registrar histórico de importações.
+- [x] Registrar alterações relevantes em transações.
+- [x] Registrar aceite/rejeição de sugestões de IA.
+- [x] Permitir exportar dados do usuário.
+- [x] Permitir excluir todos os dados financeiros do usuário.
 
 ---
 
@@ -434,17 +434,17 @@ Objetivo: proteger dados financeiros e reduzir risco de vazamento acidental.
 
 Objetivo: deixar o app confortável para uso contínuo.
 
-- [ ] Criar onboarding para primeira conta.
-- [ ] Criar onboarding para primeira importação CSV.
-- [ ] Criar exemplos de categorias iniciais.
-- [ ] Criar atalhos para categorizar rápido.
-- [ ] Criar edição em lote de transações.
-- [ ] Criar busca global.
-- [ ] Criar filtros salvos.
-- [ ] Criar indicadores de dados pendentes.
-- [ ] Criar mensagens claras de erro na importação.
-- [ ] Criar tela de ajuda sobre como exportar CSV dos bancos.
-- [ ] Revisar preferências de aparência e acessibilidade após uso contínuo.
+- [x] Criar onboarding para primeira conta.
+- [x] Criar onboarding para primeira importação CSV.
+- [x] Criar exemplos de categorias iniciais.
+- [x] Criar atalhos para categorizar rápido.
+- [x] Criar edição em lote de transações.
+- [x] Criar busca global.
+- [x] Criar filtros salvos.
+- [x] Criar indicadores de dados pendentes.
+- [x] Criar mensagens claras de erro na importação.
+- [x] Criar tela de ajuda sobre como exportar CSV dos bancos.
+- [x] Revisar preferências de aparência e acessibilidade após uso contínuo.
 
 ---
 

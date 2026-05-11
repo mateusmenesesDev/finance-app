@@ -62,6 +62,24 @@ Uma ocorrência pode estar prevista (gerada pela recorrência), confirmada (já 
 
 A não duplicação de confirmações é garantida por índice único parcial em `(recurrenceId, recurrenceOccurrenceOn)` nas transações.
 
+## Dados sigilosos
+
+A política de mascaramento é única e vive em `src/lib/sensitive-data.ts` (`sensitiveDataRules`).
+É aplicada na **escrita** de todo texto livre vindo do usuário ou de CSV.
+
+Dados sigilosos cobertos:
+
+- CPF.
+- Número de cartão (13 a 19 dígitos contíguos).
+- Identificadores numéricos longos (5+ dígitos): contas, agências, IDs externos.
+- Senhas, tokens, secrets e chaves (`senha`, `password`, `token`, `secret`, `chave`, `api_key`).
+
+Garantias:
+
+- Tabelas `finance_app_*` não devem ter colunas para senhas/tokens/credenciais; o teste em `src/lib/sensitive-data.test.ts` falha se isso mudar.
+- CSV bruto não é armazenado por padrão (`import_batches.rawFileStored=false`).
+- Comando idempotente `bun run db:sanitize -- --email <email>` re-aplica a política em texto já persistido para um usuário.
+
 ## Importação
 
 A importação CSV tem duas etapas: lote e linhas. Linhas importadas devem ser revisadas antes de virarem transações definitivas.

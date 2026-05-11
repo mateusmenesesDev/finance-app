@@ -23,6 +23,14 @@ export function formatMonthLabel(period: { start: string }) {
 	}).format(new Date(`${period.start}T00:00:00Z`));
 }
 
+export function formatDateTime(value: Date | string) {
+	const date = typeof value === "string" ? new Date(value) : value;
+	return new Intl.DateTimeFormat("pt-BR", {
+		dateStyle: "short",
+		timeStyle: "short",
+	}).format(date);
+}
+
 export function formatPercent(value: number) {
 	return new Intl.NumberFormat("pt-BR", {
 		maximumFractionDigits: 0,
