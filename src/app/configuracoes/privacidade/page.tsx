@@ -44,23 +44,29 @@ export default async function PrivacidadePage() {
 				<ul className="grid gap-3 sm:grid-cols-2">
 					{sensitiveDataRules.map((rule) => (
 						<li
-							className="rounded-2xl border border-slate-800 bg-slate-950/60 p-4"
+							className="rounded-2xl border border-[color:var(--color-border-subtle)] bg-[color:var(--color-surface-muted)] p-4"
 							key={rule.id}
 						>
-							<p className="font-semibold text-slate-100 text-sm">
+							<p className="font-semibold text-[color:var(--color-text)] text-sm">
 								{rule.label}
 							</p>
-							<p className="mt-1 text-slate-400 text-xs">{rule.description}</p>
+							<p className="mt-1 text-[color:var(--color-text-muted)] text-xs">
+								{rule.description}
+							</p>
 							<dl className="mt-3 space-y-1 text-xs">
 								<div className="flex gap-2">
-									<dt className="w-16 shrink-0 text-slate-500">Entrada</dt>
-									<dd className="font-mono text-slate-300">
+									<dt className="w-16 shrink-0 text-[color:var(--color-text-subtle)]">
+										Entrada
+									</dt>
+									<dd className="font-mono text-[color:var(--color-text-muted)]">
 										{rule.example.input}
 									</dd>
 								</div>
 								<div className="flex gap-2">
-									<dt className="w-16 shrink-0 text-slate-500">Saída</dt>
-									<dd className="font-mono text-emerald-300">
+									<dt className="w-16 shrink-0 text-[color:var(--color-text-subtle)]">
+										Saída
+									</dt>
+									<dd className="font-mono text-[color:var(--color-accent)]">
 										{rule.example.output}
 									</dd>
 								</div>
@@ -75,12 +81,12 @@ export default async function PrivacidadePage() {
 				title="Re-sanitizar histórico"
 			>
 				{lastSanitize ? (
-					<p className="mb-3 text-slate-400 text-sm">
+					<p className="mb-3 text-[color:var(--color-text-muted)] text-sm">
 						Última execução em {formatDateTime(lastSanitize.createdAt)} —{" "}
 						{lastSanitize.summary}
 					</p>
 				) : (
-					<p className="mb-3 text-slate-400 text-sm">
+					<p className="mb-3 text-[color:var(--color-text-muted)] text-sm">
 						Nenhuma re-sanitização registrada para este usuário.
 					</p>
 				)}
@@ -94,12 +100,12 @@ export default async function PrivacidadePage() {
 				title="Arquivos brutos importados"
 			>
 				{batchSummary.length === 0 ? (
-					<p className="text-slate-400 text-sm">
+					<p className="text-[color:var(--color-text-muted)] text-sm">
 						Nenhum lote de importação encontrado.
 					</p>
 				) : (
 					<table className="w-full text-left text-sm">
-						<thead className="text-slate-400 text-xs uppercase">
+						<thead className="text-[color:var(--color-text-muted)] text-xs uppercase">
 							<tr>
 								<th className="py-2">Arquivo</th>
 								<th className="py-2">Status</th>
@@ -109,15 +115,20 @@ export default async function PrivacidadePage() {
 						</thead>
 						<tbody>
 							{batchSummary.map((batch) => (
-								<tr className="border-slate-800 border-t" key={batch.id}>
-									<td className="py-2 font-mono text-slate-200 text-xs">
+								<tr
+									className="border-[color:var(--color-border-subtle)] border-t"
+									key={batch.id}
+								>
+									<td className="py-2 font-mono text-[color:var(--color-text)] text-xs">
 										{batch.originalFileName}
 									</td>
-									<td className="py-2 text-slate-300">{batch.status}</td>
-									<td className="py-2 text-slate-400">
+									<td className="py-2 text-[color:var(--color-text-muted)]">
+										{batch.status}
+									</td>
+									<td className="py-2 text-[color:var(--color-text-muted)]">
 										{formatDateTime(batch.createdAt)}
 									</td>
-									<td className="py-2 text-slate-300">
+									<td className="py-2 text-[color:var(--color-text-muted)]">
 										{batch.rawFileStored ? "Sim" : "Não"}
 									</td>
 								</tr>
@@ -125,7 +136,7 @@ export default async function PrivacidadePage() {
 						</tbody>
 					</table>
 				)}
-				<p className="mt-3 text-slate-500 text-xs">
+				<p className="mt-3 text-[color:var(--color-text-subtle)] text-xs">
 					O Finance App não persiste senhas ou credenciais bancárias e não
 					armazena CSV bruto por padrão.
 				</p>

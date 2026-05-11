@@ -46,18 +46,24 @@ function BarRow({
 	return (
 		<div>
 			<div className="mb-1 flex justify-between gap-3 text-sm">
-				<span className="truncate text-slate-200">{label}</span>
-				<span className="font-medium text-slate-100">{formatMoney(value)}</span>
+				<span className="truncate text-[color:var(--color-text)]">{label}</span>
+				<span className="font-medium text-[color:var(--color-text)]">
+					{formatMoney(value)}
+				</span>
 			</div>
-			<div className="h-2 overflow-hidden rounded-full bg-slate-800">
+			<div className="h-2 overflow-hidden rounded-full bg-[color:var(--color-surface-muted)]">
 				<div
-					className="h-full rounded-full bg-emerald-400"
+					className="h-full rounded-full bg-[color:var(--color-accent)]"
 					style={{
 						width: `${max > 0 ? Math.max(4, (value / max) * 100) : 0}%`,
 					}}
 				/>
 			</div>
-			{detail ? <p className="mt-1 text-slate-500 text-xs">{detail}</p> : null}
+			{detail ? (
+				<p className="mt-1 text-[color:var(--color-text-subtle)] text-xs">
+					{detail}
+				</p>
+			) : null}
 		</div>
 	);
 }
@@ -82,7 +88,7 @@ export function TotalsTable({
 		<div className="overflow-x-auto">
 			<table className="w-full text-sm">
 				<thead>
-					<tr className="text-left text-slate-400">
+					<tr className="text-left text-[color:var(--color-text-muted)]">
 						<th className="py-2">Mês</th>
 						<th>Receitas</th>
 						<th>Despesas</th>
@@ -91,7 +97,10 @@ export function TotalsTable({
 				</thead>
 				<tbody>
 					{rows.map((row) => (
-						<tr className="border-slate-800 border-t" key={row.monthKey}>
+						<tr
+							className="border-[color:var(--color-border-subtle)] border-t"
+							key={row.monthKey}
+						>
 							<td className="py-3">{row.monthKey}</td>
 							<td>
 								<MiniBar max={max} value={row.incomeCents} />
@@ -132,7 +141,7 @@ export function SeriesTable({
 				<div className="overflow-x-auto">
 					<table className="w-full text-sm">
 						<thead>
-							<tr className="text-left text-slate-400">
+							<tr className="text-left text-[color:var(--color-text-muted)]">
 								<th className="py-2">Nome</th>
 								<th>Atual</th>
 								<th>Anterior</th>
@@ -165,7 +174,7 @@ export function SeriesTable({
 									previous === 0 ? null : (current - previous) / previous;
 								return (
 									<tr
-										className="border-slate-800 border-t"
+										className="border-[color:var(--color-border-subtle)] border-t"
 										key={row.categoryName ?? row.groupName}
 									>
 										<td className="py-3">
@@ -190,12 +199,18 @@ export function SeriesTable({
 function MiniBar({ value, max }: { value: number; max: number }) {
 	return (
 		<div className="min-w-36">
-			<span className={value < 0 ? "text-rose-300" : "text-slate-100"}>
+			<span
+				className={
+					value < 0
+						? "text-[color:var(--color-bad)]"
+						: "text-[color:var(--color-text)]"
+				}
+			>
 				{formatMoney(value)}
 			</span>
-			<div className="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-800">
+			<div className="mt-1 h-1.5 overflow-hidden rounded-full bg-[color:var(--color-surface-muted)]">
 				<div
-					className="h-full rounded-full bg-emerald-400"
+					className="h-full rounded-full bg-[color:var(--color-accent)]"
 					style={{ width: `${max > 0 ? Math.abs(value / max) * 100 : 0}%` }}
 				/>
 			</div>
@@ -218,15 +233,17 @@ export function InsightList({
 				<div className="space-y-3">
 					{rows.map((row) => (
 						<div
-							className="rounded-2xl bg-slate-950/60 p-3"
+							className="rounded-2xl bg-[color:var(--color-surface-muted)] p-3"
 							key={`${row.label}-${row.value}`}
 						>
 							<div className="flex justify-between gap-3">
 								<p className="font-medium">{row.label}</p>
-								<p className="text-slate-100">{row.value}</p>
+								<p className="text-[color:var(--color-text)]">{row.value}</p>
 							</div>
 							{row.detail ? (
-								<p className="mt-1 text-slate-500 text-xs">{row.detail}</p>
+								<p className="mt-1 text-[color:var(--color-text-subtle)] text-xs">
+									{row.detail}
+								</p>
 							) : null}
 						</div>
 					))}
@@ -237,7 +254,11 @@ export function InsightList({
 }
 
 export function Empty() {
-	return <p className="text-slate-500 text-sm">Sem dados no período.</p>;
+	return (
+		<p className="text-[color:var(--color-text-subtle)] text-sm">
+			Sem dados no período.
+		</p>
+	);
 }
 
 export function comparisonText(

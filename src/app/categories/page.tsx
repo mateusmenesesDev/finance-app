@@ -92,7 +92,7 @@ export default async function CategoriesPage() {
 				</form>
 				<form
 					action={createCategoryGroup}
-					className="grid gap-3 rounded-2xl border border-slate-800 p-4 md:grid-cols-3"
+					className="grid gap-3 rounded-2xl border border-[color:var(--color-border-subtle)] p-4 md:grid-cols-3"
 				>
 					<TextInput name="name" placeholder="Grupo" />
 					<Select
@@ -103,7 +103,7 @@ export default async function CategoriesPage() {
 				</form>
 				<form
 					action={createCategory}
-					className="mt-3 grid gap-3 rounded-2xl border border-slate-800 p-4 md:grid-cols-3"
+					className="mt-3 grid gap-3 rounded-2xl border border-[color:var(--color-border-subtle)] p-4 md:grid-cols-3"
 				>
 					<TextInput name="name" placeholder="Categoria" />
 					<select className={inputClass} name="groupId">
@@ -123,19 +123,19 @@ export default async function CategoriesPage() {
 						{activeGroups.map((group) => (
 							<form
 								action={updateCategoryGroup}
-								className="grid gap-2 rounded-xl border border-slate-800 p-3 md:grid-cols-[1fr_110px_120px_90px]"
+								className="grid gap-2 rounded-xl border border-[color:var(--color-border-subtle)] p-3 md:grid-cols-[1fr_110px_120px_90px]"
 								key={group.id}
 							>
 								<input name="id" type="hidden" value={group.id} />
 								<TextInput defaultValue={group.name} name="name" />
-								<p className="text-slate-400 text-sm">
+								<p className="text-[color:var(--color-text-muted)] text-sm">
 									{group.kind === "income" ? "Receita" : "Despesa"}
 									<br />
 									{formatMoney(groupTotals.get(group.id) ?? 0)}
 								</p>
 								<SubmitButton>Salvar</SubmitButton>
 								<button
-									className="rounded-xl border border-rose-900 px-3 py-2 text-rose-200 text-sm"
+									className="rounded-xl border border-[color:var(--color-bad-border)] px-3 py-2 text-[color:var(--color-bad)] text-sm"
 									formAction={archiveCategoryGroup}
 									type="submit"
 								>
@@ -151,7 +151,7 @@ export default async function CategoriesPage() {
 						{activeCategories.map((category) => (
 							<form
 								action={updateCategory}
-								className="grid gap-2 rounded-xl border border-slate-800 p-3 md:grid-cols-[1fr_1fr_120px_90px]"
+								className="grid gap-2 rounded-xl border border-[color:var(--color-border-subtle)] p-3 md:grid-cols-[1fr_1fr_120px_90px]"
 								key={category.id}
 							>
 								<input name="id" type="hidden" value={category.id} />
@@ -169,7 +169,7 @@ export default async function CategoriesPage() {
 											</option>
 										))}
 								</select>
-								<p className="text-slate-400 text-sm">
+								<p className="text-[color:var(--color-text-muted)] text-sm">
 									{category.kind === "income" ? "Receita" : "Despesa"}
 									<br />
 									{categoryTotals.has(category.id)
@@ -178,7 +178,7 @@ export default async function CategoriesPage() {
 								</p>
 								<SubmitButton>Salvar</SubmitButton>
 								<button
-									className="rounded-xl border border-rose-900 px-3 py-2 text-rose-200 text-sm md:col-start-4"
+									className="rounded-xl border border-[color:var(--color-bad-border)] px-3 py-2 text-[color:var(--color-bad)] text-sm md:col-start-4"
 									formAction={archiveCategory}
 									type="submit"
 								>

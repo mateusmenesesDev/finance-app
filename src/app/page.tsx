@@ -277,16 +277,16 @@ export default async function Home({ searchParams }: HomeProps) {
 			showCategoryOnboarding ? (
 				<section className="grid gap-4 md:grid-cols-3">
 					{showFirstAccountOnboarding ? (
-						<div className="rounded-3xl border border-emerald-800 bg-emerald-950/30 p-5">
-							<p className="font-semibold text-emerald-200">
+						<div className="rounded-3xl border border-[color:var(--color-good-border)] bg-[color:var(--color-good-bg)] p-5">
+							<p className="font-semibold text-[color:var(--color-good)]">
 								Comece criando sua primeira conta
 							</p>
-							<p className="mt-2 text-slate-300 text-sm">
+							<p className="mt-2 text-[color:var(--color-text-muted)] text-sm">
 								Cadastre uma conta corrente, carteira ou cartão para liberar
 								saldos, importação e lançamentos.
 							</p>
 							<Link
-								className="mt-4 inline-block rounded-full bg-emerald-400 px-4 py-2 font-medium text-slate-950 text-sm"
+								className="mt-4 inline-block rounded-full bg-[color:var(--color-accent)] px-4 py-2 font-medium text-[color:var(--color-accent-text)] text-sm"
 								href="/accounts"
 							>
 								Criar conta
@@ -294,14 +294,14 @@ export default async function Home({ searchParams }: HomeProps) {
 						</div>
 					) : null}
 					{showFirstImportOnboarding ? (
-						<div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-5">
+						<div className="rounded-3xl border border-[color:var(--color-border-subtle)] bg-[color:var(--color-surface)] p-5">
 							<p className="font-semibold">Faça sua primeira importação CSV</p>
-							<p className="mt-2 text-slate-300 text-sm">
+							<p className="mt-2 text-[color:var(--color-text-muted)] text-sm">
 								Crie um modelo com as colunas do banco/cartão, envie o CSV e
 								revise cada linha antes de confirmar.
 							</p>
 							<Link
-								className="mt-4 inline-block rounded-full border border-slate-700 px-4 py-2 text-sm"
+								className="mt-4 inline-block rounded-full border border-[color:var(--color-border)] px-4 py-2 text-sm"
 								href="/import"
 							>
 								Ver guia de importação
@@ -309,15 +309,15 @@ export default async function Home({ searchParams }: HomeProps) {
 						</div>
 					) : null}
 					{showCategoryOnboarding ? (
-						<div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-5">
+						<div className="rounded-3xl border border-[color:var(--color-border-subtle)] bg-[color:var(--color-surface)] p-5">
 							<p className="font-semibold">Use categorias iniciais</p>
-							<p className="mt-2 text-slate-300 text-sm">
+							<p className="mt-2 text-[color:var(--color-text-muted)] text-sm">
 								Crie exemplos de renda, moradia, alimentação, transporte e
 								outros grupos para acelerar a organização.
 							</p>
 							<form action={createDefaultCategories} className="mt-4">
 								<button
-									className="rounded-full border border-slate-700 px-4 py-2 text-sm"
+									className="rounded-full border border-[color:var(--color-border)] px-4 py-2 text-sm"
 									type="submit"
 								>
 									Criar categorias iniciais
@@ -328,20 +328,22 @@ export default async function Home({ searchParams }: HomeProps) {
 				</section>
 			) : null}
 
-			<section className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6">
+			<section className="rounded-3xl border border-[color:var(--color-border-subtle)] bg-[color:var(--color-surface)] p-6">
 				<div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
 					<div>
-						<p className="text-slate-400 text-sm">Mês analisado</p>
+						<p className="text-[color:var(--color-text-muted)] text-sm">
+							Mês analisado
+						</p>
 						<h2 className="mt-1 font-semibold text-2xl capitalize">
 							{formatMonthLabel(period)}
 						</h2>
-						<p className="mt-1 text-slate-500 text-sm">
+						<p className="mt-1 text-[color:var(--color-text-subtle)] text-sm">
 							{formatDate(period.start)} – {formatDate(period.end)}
 						</p>
 					</div>
 					<form className="flex flex-wrap items-end gap-3">
 						<label
-							className="grid gap-1 text-slate-300 text-sm"
+							className="grid gap-1 text-[color:var(--color-text-muted)] text-sm"
 							htmlFor="dashboard-month"
 						>
 							Mês
@@ -353,7 +355,7 @@ export default async function Home({ searchParams }: HomeProps) {
 							/>
 						</label>
 						<button
-							className="rounded-xl bg-emerald-500 px-4 py-2 font-medium text-slate-950 text-sm"
+							className="rounded-xl bg-[color:var(--color-accent-strong)] px-4 py-2 font-medium text-[color:var(--color-accent-text)] text-sm"
 							type="submit"
 						>
 							Atualizar
@@ -404,10 +406,10 @@ export default async function Home({ searchParams }: HomeProps) {
 
 				<Panel title="Insights principais do mês">
 					{insights.length > 0 ? (
-						<ul className="grid gap-3 text-slate-300 text-sm">
+						<ul className="grid gap-3 text-[color:var(--color-text-muted)] text-sm">
 							{insights.map((insight) => (
 								<li
-									className="rounded-2xl border border-slate-800 bg-slate-950/50 p-4"
+									className="rounded-2xl border border-[color:var(--color-border-subtle)] bg-[color:var(--color-surface-muted)] p-4"
 									key={insight}
 								>
 									{insight}
@@ -428,7 +430,7 @@ export default async function Home({ searchParams }: HomeProps) {
 				}
 				title="Assistente"
 			>
-				<ul className="grid gap-2 text-slate-300 text-sm">
+				<ul className="grid gap-2 text-[color:var(--color-text-muted)] text-sm">
 					{summarizeMonthly({
 						period,
 						totals: monthlyTotals,
@@ -442,7 +444,7 @@ export default async function Home({ searchParams }: HomeProps) {
 						alertsCount: alerts.length,
 					}).bullets.map((line) => (
 						<li
-							className="rounded-2xl border border-slate-800 bg-slate-950/50 p-3"
+							className="rounded-2xl border border-[color:var(--color-border-subtle)] bg-[color:var(--color-surface-muted)] p-3"
 							key={line}
 						>
 							{line}
@@ -450,7 +452,7 @@ export default async function Home({ searchParams }: HomeProps) {
 					))}
 				</ul>
 				<Link
-					className="mt-4 inline-block text-emerald-300 text-sm hover:underline"
+					className="mt-4 inline-block text-[color:var(--color-accent)] text-sm hover:underline"
 					href="/assistente"
 				>
 					Abrir assistente
@@ -468,20 +470,20 @@ export default async function Home({ searchParams }: HomeProps) {
 									: (balance?.normalBalanceCents ?? 0);
 							return (
 								<div
-									className="flex items-center justify-between gap-4 rounded-2xl border border-slate-800 bg-slate-950/50 p-4"
+									className="flex items-center justify-between gap-4 rounded-2xl border border-[color:var(--color-border-subtle)] bg-[color:var(--color-surface-muted)] p-4"
 									key={account.id}
 								>
 									<div>
 										<p className="font-medium">{account.name}</p>
-										<p className="text-slate-500 text-xs">
+										<p className="text-[color:var(--color-text-subtle)] text-xs">
 											{account.institution ?? "Sem instituição"}
 										</p>
 									</div>
 									<p
 										className={
 											account.type === "credit_card"
-												? "font-semibold text-rose-300"
-												: "font-semibold text-slate-100"
+												? "font-semibold text-[color:var(--color-bad)]"
+												: "font-semibold text-[color:var(--color-text)]"
 										}
 									>
 										{formatMoney(value)}
@@ -528,7 +530,7 @@ export default async function Home({ searchParams }: HomeProps) {
 							variant={projectedBalanceCents >= 0 ? "good" : "bad"}
 						/>
 					</div>
-					<p className="mt-4 text-slate-500 text-xs">
+					<p className="mt-4 text-[color:var(--color-text-subtle)] text-xs">
 						Inclui transações previstas, recorrências e faturas futuras de
 						cartão.
 					</p>
@@ -542,24 +544,24 @@ export default async function Home({ searchParams }: HomeProps) {
 							const suggestion = reviewSuggestions.get(item.recurrenceId);
 							return (
 								<div
-									className="rounded-2xl border border-slate-800 bg-slate-950/50 p-4"
+									className="rounded-2xl border border-[color:var(--color-border-subtle)] bg-[color:var(--color-surface-muted)] p-4"
 									key={item.recurrenceId}
 								>
 									<div className="flex items-start justify-between gap-3">
 										<div>
 											<p className="font-medium">{item.name}</p>
-											<p className="text-slate-500 text-xs">
+											<p className="text-[color:var(--color-text-subtle)] text-xs">
 												{item.isSubscription ? "Assinatura" : "Gasto fixo"}
 												{item.isBill ? " · conta" : ""}
 											</p>
 										</div>
 										{suggestion ? (
-											<span className="rounded-full bg-amber-400/15 px-2 py-1 font-medium text-amber-200 text-xs">
+											<span className="rounded-full bg-[color:var(--color-warn-bg)] px-2 py-1 font-medium text-[color:var(--color-warn)] text-xs">
 												Revisar
 											</span>
 										) : null}
 									</div>
-									<p className="mt-3 font-semibold text-rose-300">
+									<p className="mt-3 font-semibold text-[color:var(--color-bad)]">
 										{formatMoney(item.monthlyAmountCents)} / mês
 									</p>
 								</div>
@@ -601,18 +603,18 @@ export default async function Home({ searchParams }: HomeProps) {
 						<div className="grid gap-3">
 							{openInvoices.slice(0, 6).map((invoice) => (
 								<div
-									className="rounded-2xl border border-slate-800 bg-slate-950/50 p-4"
+									className="rounded-2xl border border-[color:var(--color-border-subtle)] bg-[color:var(--color-surface-muted)] p-4"
 									key={`${invoice.accountId}-${invoice.key}`}
 								>
 									<div className="flex items-start justify-between gap-4">
 										<div>
 											<p className="font-medium">{invoice.accountName}</p>
-											<p className="text-slate-500 text-xs">
+											<p className="text-[color:var(--color-text-subtle)] text-xs">
 												Fecha {formatDate(invoice.closingDate)} · vence{" "}
 												{formatDate(invoice.dueDate)}
 											</p>
 										</div>
-										<p className="font-semibold text-rose-300">
+										<p className="font-semibold text-[color:var(--color-bad)]">
 											{formatMoney(invoice.remainingCents)}
 										</p>
 									</div>
@@ -629,20 +631,20 @@ export default async function Home({ searchParams }: HomeProps) {
 						<div className="grid gap-3">
 							{pendingImports.slice(0, 6).map((batch) => (
 								<Link
-									className="rounded-2xl border border-slate-800 bg-slate-950/50 p-4 transition hover:border-slate-600"
+									className="rounded-2xl border border-[color:var(--color-border-subtle)] bg-[color:var(--color-surface-muted)] p-4 transition hover:border-[color:var(--color-border)]"
 									href={`/import?batchId=${batch.id}`}
 									key={batch.id}
 								>
 									<div className="flex items-start justify-between gap-4">
 										<div>
 											<p className="font-medium">{batch.originalFileName}</p>
-											<p className="text-slate-500 text-xs">
+											<p className="text-[color:var(--color-text-subtle)] text-xs">
 												{accountById.get(batch.accountId)?.name ??
 													"Conta removida"}{" "}
 												· {batch.rowCount} linha(s)
 											</p>
 										</div>
-										<span className="rounded-full border border-amber-800 px-3 py-1 text-amber-200 text-xs">
+										<span className="rounded-full border border-[color:var(--color-warn-border)] px-3 py-1 text-[color:var(--color-warn)] text-xs">
 											{batch.status === "draft" ? "rascunho" : "em revisão"}
 										</span>
 									</div>
@@ -660,29 +662,29 @@ export default async function Home({ searchParams }: HomeProps) {
 
 function PublicHome() {
 	return (
-		<main className="min-h-screen bg-slate-950 px-6 py-10 text-slate-100">
+		<main className="min-h-screen bg-[color:var(--color-bg)] px-6 py-10 text-[color:var(--color-text)]">
 			<div className="mx-auto flex w-full max-w-7xl flex-col gap-10">
-				<header className="border-slate-800 border-b pb-8">
-					<p className="font-medium text-emerald-300 text-sm uppercase tracking-[0.3em]">
+				<header className="border-[color:var(--color-border-subtle)] border-b pb-8">
+					<p className="font-medium text-[color:var(--color-accent)] text-sm uppercase tracking-[0.3em]">
 						Finanças pessoais
 					</p>
 					<h1 className="mt-3 font-semibold text-4xl tracking-tight">
 						Finance App
 					</h1>
-					<p className="mt-3 max-w-2xl text-slate-300">
+					<p className="mt-3 max-w-2xl text-[color:var(--color-text-muted)]">
 						Controle contas, categorias, transações e faturas em BRL.
 					</p>
 				</header>
 				<section className="grid gap-8 md:grid-cols-[1fr_420px] md:items-start">
-					<div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-8">
+					<div className="rounded-3xl border border-[color:var(--color-border-subtle)] bg-[color:var(--color-surface)] p-8">
 						<h2 className="font-semibold text-2xl">
 							Base simples para controle financeiro
 						</h2>
-						<p className="mt-4 text-slate-300">
+						<p className="mt-4 text-[color:var(--color-text-muted)]">
 							Entre com email e senha para acessar seu painel financeiro isolado
 							por usuário.
 						</p>
-						<div className="mt-6 grid gap-3 text-slate-300 text-sm">
+						<div className="mt-6 grid gap-3 text-[color:var(--color-text-muted)] text-sm">
 							<p>• Compras no cartão são despesas.</p>
 							<p>• Pagamento de fatura é transferência para o cartão.</p>
 							<p>• Transações arquivadas não entram nos saldos padrão.</p>
@@ -708,21 +710,23 @@ function Ranking({
 		<div className="grid gap-3">
 			{rows.map((row) => (
 				<div
-					className="rounded-2xl border border-slate-800 bg-slate-950/50 p-4"
+					className="rounded-2xl border border-[color:var(--color-border-subtle)] bg-[color:var(--color-surface-muted)] p-4"
 					key={row.label}
 				>
 					<div className="flex items-start justify-between gap-4 text-sm">
 						<div>
-							<p className="font-medium text-slate-100">{row.label}</p>
-							<p className="text-slate-500 text-xs">
+							<p className="font-medium text-[color:var(--color-text)]">
+								{row.label}
+							</p>
+							<p className="text-[color:var(--color-text-subtle)] text-xs">
 								{row.count} transação(ões)
 							</p>
 						</div>
 						<p className="font-semibold">{formatMoney(row.amountCents)}</p>
 					</div>
-					<div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-800">
+					<div className="mt-3 h-2 overflow-hidden rounded-full bg-[color:var(--color-surface-muted)]">
 						<div
-							className="h-full rounded-full bg-emerald-400"
+							className="h-full rounded-full bg-[color:var(--color-accent)]"
 							style={{
 								width: `${max ? Math.max(4, (row.amountCents / max) * 100) : 0}%`,
 							}}
@@ -736,9 +740,11 @@ function Ranking({
 
 function AlertItem({ alert }: { alert: DashboardAlert }) {
 	const className = {
-		danger: "border-rose-900/80 bg-rose-950/30 text-rose-100",
-		info: "border-sky-900/80 bg-sky-950/30 text-sky-100",
-		warning: "border-amber-900/80 bg-amber-950/30 text-amber-100",
+		danger:
+			"border-[color:var(--color-bad-border)] bg-[color:var(--color-bad-bg)] text-[color:var(--color-bad)]",
+		info: "border-[color:var(--color-info-border)] bg-[color:var(--color-info-bg)] text-[color:var(--color-info)]",
+		warning:
+			"border-[color:var(--color-warn-border)] bg-[color:var(--color-warn-bg)] text-[color:var(--color-warn)]",
 	}[alert.kind];
 
 	return (
@@ -751,7 +757,7 @@ function AlertItem({ alert }: { alert: DashboardAlert }) {
 
 function EmptyState({ text }: { text: string }) {
 	return (
-		<p className="rounded-2xl border border-slate-800 bg-slate-950/50 p-4 text-slate-400 text-sm">
+		<p className="rounded-2xl border border-[color:var(--color-border-subtle)] bg-[color:var(--color-surface-muted)] p-4 text-[color:var(--color-text-muted)] text-sm">
 			{text}
 		</p>
 	);

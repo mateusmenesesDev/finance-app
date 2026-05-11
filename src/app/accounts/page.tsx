@@ -65,17 +65,19 @@ export default async function AccountsPage() {
 			title="Contas e cartões"
 		>
 			<section className="grid gap-4 md:grid-cols-2">
-				<div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
-					<p className="text-slate-400 text-sm">
+				<div className="rounded-2xl border border-[color:var(--color-border-subtle)] bg-[color:var(--color-surface)] p-4">
+					<p className="text-[color:var(--color-text-muted)] text-sm">
 						Saldo consolidado sem cartões
 					</p>
 					<p className="mt-2 font-semibold text-2xl">
 						{formatMoney(normalConsolidated)}
 					</p>
 				</div>
-				<div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
-					<p className="text-slate-400 text-sm">Dívida aberta em cartões</p>
-					<p className="mt-2 font-semibold text-2xl text-rose-300">
+				<div className="rounded-2xl border border-[color:var(--color-border-subtle)] bg-[color:var(--color-surface)] p-4">
+					<p className="text-[color:var(--color-text-muted)] text-sm">
+						Dívida aberta em cartões
+					</p>
+					<p className="mt-2 font-semibold text-2xl text-[color:var(--color-bad)]">
 						{formatMoney(cardDebt)}
 					</p>
 				</div>
@@ -84,7 +86,7 @@ export default async function AccountsPage() {
 			<Panel title="Nova conta">
 				<form
 					action={createAccount}
-					className="grid gap-3 rounded-2xl border border-slate-800 p-4 md:grid-cols-3"
+					className="grid gap-3 rounded-2xl border border-[color:var(--color-border-subtle)] p-4 md:grid-cols-3"
 				>
 					<TextInput name="name" placeholder="Nome" />
 					<TextInput name="institution" placeholder="Instituição" />
@@ -105,7 +107,7 @@ export default async function AccountsPage() {
 					{activeAccounts.map((account) => (
 						<form
 							action={updateAccount}
-							className="grid gap-2 rounded-2xl border border-slate-800 p-4 md:grid-cols-6"
+							className="grid gap-2 rounded-2xl border border-[color:var(--color-border-subtle)] p-4 md:grid-cols-6"
 							key={account.id}
 						>
 							<input name="id" type="hidden" value={account.id} />
@@ -141,7 +143,7 @@ export default async function AccountsPage() {
 								/>{" "}
 								Ativa
 							</label>
-							<p className="text-slate-300 text-sm md:col-span-2">
+							<p className="text-[color:var(--color-text-muted)] text-sm md:col-span-2">
 								Saldo:{" "}
 								{formatMoney(balances.get(account.id)?.normalBalanceCents ?? 0)}{" "}
 								· Cartão:{" "}
@@ -149,7 +151,7 @@ export default async function AccountsPage() {
 							</p>
 							<SubmitButton>Salvar</SubmitButton>
 							<button
-								className="rounded-xl border border-rose-900 px-3 py-2 text-rose-200 text-sm"
+								className="rounded-xl border border-[color:var(--color-bad-border)] px-3 py-2 text-[color:var(--color-bad)] text-sm"
 								formAction={archiveAccount}
 								type="submit"
 							>
@@ -158,7 +160,7 @@ export default async function AccountsPage() {
 						</form>
 					))}
 					{activeAccounts.length === 0 ? (
-						<p className="rounded-2xl border border-slate-800 p-4 text-slate-400 text-sm">
+						<p className="rounded-2xl border border-[color:var(--color-border-subtle)] p-4 text-[color:var(--color-text-muted)] text-sm">
 							Nenhuma conta cadastrada.
 						</p>
 					) : null}
@@ -196,11 +198,11 @@ export default async function AccountsPage() {
 							}
 							return (
 								<div
-									className="rounded-2xl border border-slate-800 p-4"
+									className="rounded-2xl border border-[color:var(--color-border-subtle)] p-4"
 									key={card.id}
 								>
 									<h3 className="font-medium">{card.name}</h3>
-									<p className="text-slate-400 text-sm">
+									<p className="text-[color:var(--color-text-muted)] text-sm">
 										Dívida aberta:{" "}
 										{formatMoney(balances.get(card.id)?.cardDebtCents ?? 0)}
 									</p>

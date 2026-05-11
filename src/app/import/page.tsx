@@ -13,6 +13,7 @@ import {
 	revertImportBatch,
 	updateImportTemplate,
 } from "~/app/_actions/finance-actions";
+import { FinanceShell } from "~/app/_components/finance-ui";
 import {
 	defaultTemplateConfig,
 	normalizeImportTemplateConfig,
@@ -34,7 +35,7 @@ type ImportPageProps = {
 };
 
 const inputClass =
-	"rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100";
+	"rounded-xl border border-[color:var(--color-border)] bg-[color:var(--color-bg)] px-3 py-2 text-sm text-[color:var(--color-text)]";
 
 const statusLabels = {
 	draft: "rascunho",
@@ -121,63 +122,41 @@ export default async function ImportPage({ searchParams }: ImportPageProps) {
 	);
 
 	return (
-		<main className="min-h-screen bg-slate-950 px-6 py-10 text-slate-100">
-			<div className="mx-auto grid w-full max-w-7xl gap-8">
-				<header className="flex items-start justify-between gap-4 border-slate-800 border-b pb-6">
-					<div>
-						<p className="font-medium text-emerald-300 text-sm uppercase tracking-[0.3em]">
-							Importação
-						</p>
-						<h1 className="mt-2 font-semibold text-3xl">
-							Centro de importação CSV
-						</h1>
-						<p className="mt-2 max-w-3xl text-slate-300">
-							MVP seguro: CSV pequeno/médio, uma conta por lote, modelos
-							reutilizáveis, revisão manual e sem armazenar arquivo bruto.
-						</p>
-					</div>
-					<div className="flex flex-wrap gap-2">
-						<Link
-							className="rounded-full border border-slate-700 px-4 py-2 text-sm"
-							href="/import/help"
-						>
-							Ajuda CSV
-						</Link>
-						<Link
-							className="rounded-full border border-slate-700 px-4 py-2 text-sm"
-							href="/"
-						>
-							Voltar
-						</Link>
-					</div>
-				</header>
+		<FinanceShell
+			description="CSV pequeno/médio, uma conta por lote, modelos reutilizáveis, revisão manual e sem armazenar arquivo bruto."
+			eyebrow="Importação"
+			title="Centro de importação CSV"
+		>
+			<Panel title="Ajuda CSV">
+				<ul className="list-disc space-y-1 pl-5 text-[color:var(--color-text-muted)] text-sm">
+					<li>
+						Use uma linha de cabeçalho e colunas estáveis para data, descrição e
+						valor.
+					</li>
+					<li>
+						Valores podem vir em coluna única com sinal ou em colunas separadas
+						de entrada e saída.
+					</li>
+					<li>
+						Revise linhas inválidas ou duplicadas antes de confirmar; o arquivo
+						bruto não é armazenado.
+					</li>
+				</ul>
+				<Link
+					className="mt-3 inline-block text-[color:var(--color-accent)] text-sm hover:underline"
+					href="/import/help"
+				>
+					Abrir guia completo de exportação CSV
+				</Link>
+			</Panel>
 
-				<Panel title="Ajuda CSV">
-					<ul className="list-disc space-y-1 pl-5 text-slate-300 text-sm">
-						<li>
-							Use uma linha de cabeçalho e colunas estáveis para data, descrição
-							e valor.
-						</li>
-						<li>
-							Valores podem vir em coluna única com sinal ou em colunas
-							separadas de entrada e saída.
-						</li>
-						<li>
-							Revise linhas inválidas ou duplicadas antes de confirmar; o
-							arquivo bruto não é armazenado.
-						</li>
-					</ul>
-					<Link
-						className="mt-3 inline-block text-emerald-300 text-sm hover:underline"
-						href="/import/help"
-					>
-						Abrir guia completo de exportação CSV
-					</Link>
-				</Panel>
-
-				<section className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
-					<Panel title="Novo modelo reutilizável">
-						<form action={createImportTemplate} className="grid gap-3">
+			<section className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
+				<Panel title="Novo modelo reutilizável">
+					<details>
+						<summary className="cursor-pointer rounded-2xl border border-[color:var(--color-border)] px-4 py-3 font-medium text-sm hover:bg-[color:var(--color-surface-muted)]">
+							Abrir configuração de modelo
+						</summary>
+						<form action={createImportTemplate} className="mt-4 grid gap-3">
 							<div className="grid gap-3 md:grid-cols-3">
 								<TextInput name="name" placeholder="Nome do modelo" required />
 								<TextInput name="sourceLabel" placeholder="Banco/cartão" />
@@ -269,145 +248,149 @@ export default async function ImportPage({ searchParams }: ImportPageProps) {
 									placeholder="Tokens de despesa"
 								/>
 							</div>
-							<label className="flex items-center gap-2 text-slate-300 text-sm">
+							<label className="flex items-center gap-2 text-[color:var(--color-text-muted)] text-sm">
 								<input name="invertSign" type="checkbox" /> Inverter sinal do
 								valor
 							</label>
 							<button
-								className="rounded-xl bg-emerald-400 px-4 py-2 font-semibold text-slate-950"
+								className="rounded-xl bg-[color:var(--color-accent)] px-4 py-2 font-semibold text-[color:var(--color-accent-text)]"
 								type="submit"
 							>
 								Salvar modelo
 							</button>
 						</form>
-					</Panel>
+					</details>
+				</Panel>
 
-					<Panel title="Novo lote">
-						<form action={createImportBatch} className="grid gap-3">
-							<div className="grid gap-3 md:grid-cols-3">
-								<select className={inputClass} name="accountId" required>
-									<option value="">Conta fixa do lote</option>
-									{usableAccounts.map((account) => (
-										<option key={account.id} value={account.id}>
-											{account.name}
-										</option>
-									))}
-								</select>
-								<select className={inputClass} name="templateId" required>
-									<option value="">Modelo salvo</option>
-									{activeTemplates.map((template) => (
-										<option key={template.id} value={template.id}>
-											{template.name}
-										</option>
-									))}
-								</select>
-								<input
-									accept=".csv,text/csv"
-									className={inputClass}
-									name="csvFile"
-									required
-									type="file"
-								/>
-							</div>
-							<label className="flex items-center gap-2 text-slate-400 text-sm">
-								<input disabled name="rawFileStored" type="checkbox" />{" "}
-								Armazenar arquivo bruto (desativado nesta versão)
-							</label>
-							<p className="text-slate-400 text-sm">
-								Controle explícito: o arquivo bruto não é salvo. Apenas linhas
-								parseadas e mascaradas ficam no lote para revisão.
-							</p>
-							<button
-								className="rounded-xl bg-emerald-400 px-4 py-2 font-semibold text-slate-950"
-								type="submit"
-							>
-								Enviar para revisão
-							</button>
-						</form>
-
-						<div className="mt-6 grid gap-2">
-							<h3 className="font-medium">Modelos salvos</h3>
-							{activeTemplates.map((template) => (
-								<TemplateCard key={template.id} template={template} />
-							))}
-							{activeTemplates.length === 0 && (
-								<p className="text-slate-400 text-sm">
-									Crie um modelo antes de enviar CSV.
-								</p>
-							)}
-						</div>
-					</Panel>
-				</section>
-
-				<ImportRulePanel
-					accountById={accountById}
-					categoryById={categoryById}
-					ruleAccounts={usableAccounts}
-					ruleCategories={usableCategories}
-					rules={rules}
-				/>
-
-				<section className="grid gap-6 xl:grid-cols-[0.35fr_0.65fr]">
-					<Panel title="Histórico de lotes">
-						<div className="grid gap-2">
-							{batches.map((batch) => (
-								<Link
-									className={`rounded-2xl border p-4 text-sm ${selectedBatch?.id === batch.id ? "border-emerald-400 bg-emerald-400/10" : "border-slate-800"}`}
-									href={`/import?batchId=${batch.id}`}
-									key={batch.id}
-								>
-									<p className="font-medium">
-										#{batch.id} {batch.originalFileName}
-									</p>
-									<p className="text-slate-400">
-										{formatDateTime(batch.createdAt)} ·{" "}
-										{statusLabels[batch.status]} · {batch.rowCount} linhas
-									</p>
-									<p className="text-slate-400">
-										Conta: {accountById.get(batch.accountId)?.name ?? "conta"} ·{" "}
-										Usuário:{" "}
-										{session.user.email ?? session.user.name ?? session.user.id}
-									</p>
-									<p className="text-slate-500">
-										Arquivo bruto:{" "}
-										{batch.rawFileStored ? "armazenado" : "não armazenado"} ·
-										Modelo:{" "}
-										{batch.importTemplateId
-											? (templateById.get(batch.importTemplateId)?.name ??
-												"arquivado")
-											: "—"}
-									</p>
-								</Link>
-							))}
-							{batches.length === 0 && (
-								<p className="text-slate-400">Nenhum lote ainda.</p>
-							)}
-						</div>
-					</Panel>
-
-					<Panel
-						title={
-							selectedBatch ? `Revisão do lote #${selectedBatch.id}` : "Revisão"
-						}
-					>
-						{selectedBatch ? (
-							<BatchReview
-								reviewAccounts={usableAccounts}
-								reviewCategories={usableCategories}
-								reviewRecurrences={suggestedRecurrences.filter((recurrence) =>
-									suggestedRecurrenceIds.includes(recurrence.id),
-								)}
-								reviewRules={rules}
-								rows={rows}
-								selectedBatch={selectedBatch}
+				<Panel title="Novo lote">
+					<form action={createImportBatch} className="grid gap-3">
+						<div className="grid gap-3 md:grid-cols-3">
+							<select className={inputClass} name="accountId" required>
+								<option value="">Conta fixa do lote</option>
+								{usableAccounts.map((account) => (
+									<option key={account.id} value={account.id}>
+										{account.name}
+									</option>
+								))}
+							</select>
+							<select className={inputClass} name="templateId" required>
+								<option value="">Modelo salvo</option>
+								{activeTemplates.map((template) => (
+									<option key={template.id} value={template.id}>
+										{template.name}
+									</option>
+								))}
+							</select>
+							<input
+								accept=".csv,text/csv"
+								className={inputClass}
+								name="csvFile"
+								required
+								type="file"
 							/>
-						) : (
-							<p className="text-slate-400">Selecione ou crie um lote.</p>
+						</div>
+						<label className="flex items-center gap-2 text-[color:var(--color-text-muted)] text-sm">
+							<input disabled name="rawFileStored" type="checkbox" /> Armazenar
+							arquivo bruto (desativado nesta versão)
+						</label>
+						<p className="text-[color:var(--color-text-muted)] text-sm">
+							Controle explícito: o arquivo bruto não é salvo. Apenas linhas
+							parseadas e mascaradas ficam no lote para revisão.
+						</p>
+						<button
+							className="rounded-xl bg-[color:var(--color-accent)] px-4 py-2 font-semibold text-[color:var(--color-accent-text)]"
+							type="submit"
+						>
+							Enviar para revisão
+						</button>
+					</form>
+
+					<div className="mt-6 grid gap-2">
+						<h3 className="font-medium">Modelos salvos</h3>
+						{activeTemplates.map((template) => (
+							<TemplateCard key={template.id} template={template} />
+						))}
+						{activeTemplates.length === 0 && (
+							<p className="text-[color:var(--color-text-muted)] text-sm">
+								Crie um modelo antes de enviar CSV.
+							</p>
 						)}
-					</Panel>
-				</section>
-			</div>
-		</main>
+					</div>
+				</Panel>
+			</section>
+
+			<ImportRulePanel
+				accountById={accountById}
+				categoryById={categoryById}
+				ruleAccounts={usableAccounts}
+				ruleCategories={usableCategories}
+				rules={rules}
+			/>
+
+			<section className="grid gap-6 xl:grid-cols-[0.35fr_0.65fr]">
+				<Panel title="Histórico de lotes">
+					<div className="grid gap-2">
+						{batches.map((batch) => (
+							<Link
+								className={`rounded-2xl border p-4 text-sm ${selectedBatch?.id === batch.id ? "border-[color:var(--color-good-border)] bg-[color:var(--color-good-bg)]" : "border-[color:var(--color-border-subtle)]"}`}
+								href={`/import?batchId=${batch.id}`}
+								key={batch.id}
+							>
+								<p className="font-medium">
+									#{batch.id} {batch.originalFileName}
+								</p>
+								<p className="text-[color:var(--color-text-muted)]">
+									{formatDateTime(batch.createdAt)} ·{" "}
+									{statusLabels[batch.status]} · {batch.rowCount} linhas
+								</p>
+								<p className="text-[color:var(--color-text-muted)]">
+									Conta: {accountById.get(batch.accountId)?.name ?? "conta"} ·{" "}
+									Usuário:{" "}
+									{session.user.email ?? session.user.name ?? session.user.id}
+								</p>
+								<p className="text-[color:var(--color-text-subtle)]">
+									Arquivo bruto:{" "}
+									{batch.rawFileStored ? "armazenado" : "não armazenado"} ·
+									Modelo:{" "}
+									{batch.importTemplateId
+										? (templateById.get(batch.importTemplateId)?.name ??
+											"arquivado")
+										: "—"}
+								</p>
+							</Link>
+						))}
+						{batches.length === 0 && (
+							<p className="text-[color:var(--color-text-muted)]">
+								Nenhum lote ainda.
+							</p>
+						)}
+					</div>
+				</Panel>
+
+				<Panel
+					title={
+						selectedBatch ? `Revisão do lote #${selectedBatch.id}` : "Revisão"
+					}
+				>
+					{selectedBatch ? (
+						<BatchReview
+							reviewAccounts={usableAccounts}
+							reviewCategories={usableCategories}
+							reviewRecurrences={suggestedRecurrences.filter((recurrence) =>
+								suggestedRecurrenceIds.includes(recurrence.id),
+							)}
+							reviewRules={rules}
+							rows={rows}
+							selectedBatch={selectedBatch}
+						/>
+					) : (
+						<p className="text-[color:var(--color-text-muted)]">
+							Selecione ou crie um lote.
+						</p>
+					)}
+				</Panel>
+			</section>
+		</FinanceShell>
 	);
 }
 
@@ -418,15 +401,15 @@ function TemplateCard({
 }) {
 	const config = normalizeImportTemplateConfig(template.config);
 	return (
-		<div className="rounded-2xl border border-slate-800 p-3 text-sm">
+		<div className="rounded-2xl border border-[color:var(--color-border-subtle)] p-3 text-sm">
 			<details>
 				<summary className="cursor-pointer list-none">
 					<span className="font-medium">{template.name}</span>
-					<span className="ml-2 text-slate-400">
+					<span className="ml-2 text-[color:var(--color-text-muted)]">
 						{template.sourceLabel ?? "sem origem"} ·{" "}
 						{config.amountMode === "signed" ? "valor único" : "entrada/saída"}
 					</span>
-					<span className="block text-slate-500">
+					<span className="block text-[color:var(--color-text-subtle)]">
 						{config.dateColumn}, {config.descriptionColumn},{" "}
 						{config.amountColumn ??
 							`${config.incomeAmountColumn}/${config.expenseAmountColumn}`}
@@ -524,7 +507,7 @@ function TemplateCard({
 							name="expenseTokens"
 						/>
 					</div>
-					<label className="flex items-center gap-2 text-slate-300">
+					<label className="flex items-center gap-2 text-[color:var(--color-text-muted)]">
 						<input
 							defaultChecked={config.invertSign}
 							name="invertSign"
@@ -534,7 +517,7 @@ function TemplateCard({
 					</label>
 					<div className="flex gap-2">
 						<button
-							className="rounded-xl bg-emerald-400 px-3 py-2 font-semibold text-slate-950"
+							className="rounded-xl bg-[color:var(--color-accent)] px-3 py-2 font-semibold text-[color:var(--color-accent-text)]"
 							type="submit"
 						>
 							Salvar alterações
@@ -544,7 +527,7 @@ function TemplateCard({
 				<form action={archiveImportTemplate} className="mt-2">
 					<input name="id" type="hidden" value={template.id} />
 					<button
-						className="rounded-xl border border-rose-900 px-3 py-2 text-rose-200"
+						className="rounded-xl border border-[color:var(--color-bad-border)] px-3 py-2 text-[color:var(--color-bad)]"
 						type="submit"
 					>
 						Arquivar
@@ -616,7 +599,7 @@ function ImportRulePanel({
 					))}
 				</select>
 				<button
-					className="rounded-xl bg-emerald-400 px-4 py-2 font-semibold text-slate-950 md:col-span-2"
+					className="rounded-xl bg-[color:var(--color-accent)] px-4 py-2 font-semibold text-[color:var(--color-accent-text)] md:col-span-2"
 					type="submit"
 				>
 					Criar regra
@@ -630,7 +613,7 @@ function ImportRulePanel({
 						: null;
 					return (
 						<div
-							className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-800 p-3 text-sm"
+							className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[color:var(--color-border-subtle)] p-3 text-sm"
 							key={rule.id}
 						>
 							<p>
@@ -646,7 +629,7 @@ function ImportRulePanel({
 							<form action={archiveImportCategoryRule}>
 								<input name="id" type="hidden" value={rule.id} />
 								<button
-									className="rounded-xl border border-rose-900 px-3 py-2 text-rose-200"
+									className="rounded-xl border border-[color:var(--color-bad-border)] px-3 py-2 text-[color:var(--color-bad)]"
 									type="submit"
 								>
 									Arquivar
@@ -656,7 +639,9 @@ function ImportRulePanel({
 					);
 				})}
 				{activeRules.length === 0 && (
-					<p className="text-slate-400 text-sm">Sem regras ativas.</p>
+					<p className="text-[color:var(--color-text-muted)] text-sm">
+						Sem regras ativas.
+					</p>
 				)}
 			</div>
 		</Panel>
@@ -708,11 +693,11 @@ function BatchReview({
 		<>
 			<div className="flex items-start justify-between gap-4">
 				<div>
-					<p className="text-slate-400 text-sm">
+					<p className="text-[color:var(--color-text-muted)] text-sm">
 						{selectedBatch.originalFileName} · arquivo bruto armazenado:{" "}
 						{selectedBatch.rawFileStored ? "sim" : "não"}
 					</p>
-					<p className="mt-2 text-slate-300 text-sm">
+					<p className="mt-2 text-[color:var(--color-text-muted)] text-sm">
 						Prévia normalizada: Receitas {formatMoney(totals.income)} · Despesas{" "}
 						{formatMoney(totals.expense)} · Transferências{" "}
 						{formatMoney(totals.transfer)} · Ignoradas {totals.ignored} ·
@@ -727,7 +712,7 @@ function BatchReview({
 					<form action={cancelImportBatch}>
 						<input name="batchId" type="hidden" value={selectedBatch.id} />
 						<button
-							className="rounded-xl border border-rose-900 px-3 py-2 text-rose-200 text-sm"
+							className="rounded-xl border border-[color:var(--color-bad-border)] px-3 py-2 text-[color:var(--color-bad)] text-sm"
 							type="submit"
 						>
 							Cancelar lote
@@ -738,7 +723,7 @@ function BatchReview({
 					<form action={revertImportBatch}>
 						<input name="batchId" type="hidden" value={selectedBatch.id} />
 						<button
-							className="rounded-xl border border-red-400 px-3 py-2 text-red-200 text-sm"
+							className="rounded-xl border border-[color:var(--color-bad-border)] px-3 py-2 text-[color:var(--color-bad)] text-sm"
 							type="submit"
 						>
 							Reverter transações
@@ -750,8 +735,8 @@ function BatchReview({
 			{selectedBatch.status === "reviewing" ? (
 				<form action={confirmImportBatch} className="mt-5 grid gap-3">
 					<input name="batchId" type="hidden" value={selectedBatch.id} />
-					<div className="rounded-2xl border border-slate-800 p-4">
-						<label className="grid gap-2 text-slate-300 text-sm md:grid-cols-[220px_1fr] md:items-center">
+					<div className="rounded-2xl border border-[color:var(--color-border-subtle)] p-4">
+						<label className="grid gap-2 text-[color:var(--color-text-muted)] text-sm md:grid-cols-[220px_1fr] md:items-center">
 							Aplicar categoria em lote
 							<select className={inputClass} name="bulkCategoryId">
 								<option value="">Não aplicar</option>
@@ -763,37 +748,39 @@ function BatchReview({
 								))}
 							</select>
 						</label>
-						<p className="mt-2 text-slate-500 text-xs">
+						<p className="mt-2 text-[color:var(--color-text-subtle)] text-xs">
 							Usada apenas em linhas importadas sem categoria individual.
 						</p>
 					</div>
 					{rows.map((row) => (
 						<div
-							className="grid gap-2 rounded-2xl border border-slate-800 p-4"
+							className="grid gap-2 rounded-2xl border border-[color:var(--color-border-subtle)] p-4"
 							key={row.id}
 						>
 							<div className="flex flex-wrap gap-3 text-sm">
-								<span className="text-slate-400">Linha {row.rowNumber}</span>
+								<span className="text-[color:var(--color-text-muted)]">
+									Linha {row.rowNumber}
+								</span>
 								<span>{row.occurredOn ?? "sem data"}</span>
 								<span>{formatMoney(row.amountCents ?? 0)}</span>
 								<span>{row.movementType ?? "tipo?"}</span>
 								<span className={rowStatusClass(row.status)}>{row.status}</span>
 							</div>
-							<p className="text-slate-200 text-sm">
+							<p className="text-[color:var(--color-text)] text-sm">
 								{row.originalDescription}
 							</p>
 							{row.bankCategory && (
-								<p className="text-slate-400 text-sm">
+								<p className="text-[color:var(--color-text-muted)] text-sm">
 									Categoria do banco: {row.bankCategory}
 								</p>
 							)}
 							{rowHadSensitiveData(row.parsedData) && (
-								<p className="text-amber-300 text-sm">
+								<p className="text-[color:var(--color-warn)] text-sm">
 									Dados sensíveis detectados e mascarados antes de salvar.
 								</p>
 							)}
 							{row.suggestedCategoryId && (
-								<p className="text-emerald-300 text-sm">
+								<p className="text-[color:var(--color-accent)] text-sm">
 									Sugestão:{" "}
 									{reviewCategories.find(
 										(category) => category.id === row.suggestedCategoryId,
@@ -806,7 +793,7 @@ function BatchReview({
 							)}
 							{row.suggestedRecurrenceId &&
 								row.suggestedRecurrenceOccurrenceOn && (
-									<p className="text-cyan-300 text-sm">
+									<p className="text-[color:var(--color-info)] text-sm">
 										Sugestão: recorrência{" "}
 										{recurrenceById.get(row.suggestedRecurrenceId)?.name ??
 											`#${row.suggestedRecurrenceId}`}{" "}
@@ -814,11 +801,11 @@ function BatchReview({
 									</p>
 								)}
 							{row.validationError && (
-								<div className="rounded-xl border border-red-900/70 bg-red-950/30 p-3 text-sm">
-									<p className="font-medium text-red-200">
+								<div className="rounded-xl border border-[color:var(--color-bad-border)] bg-[color:var(--color-bad-bg)] p-3 text-sm">
+									<p className="font-medium text-[color:var(--color-bad)]">
 										Erro da linha: {row.validationError}
 									</p>
-									<p className="mt-1 text-red-100/80">
+									<p className="mt-1 text-[color:var(--color-bad)]">
 										{actionableImportError(row.validationError)}
 									</p>
 								</div>
@@ -888,7 +875,7 @@ function BatchReview({
 								/>
 							</div>
 							{row.suggestedRecurrenceId && (
-								<label className="flex items-center gap-2 text-cyan-200 text-sm">
+								<label className="flex items-center gap-2 text-[color:var(--color-info)] text-sm">
 									<input
 										defaultChecked
 										name={`row-${row.id}-acceptRecurrence`}
@@ -897,14 +884,14 @@ function BatchReview({
 									Vincular recorrência sugerida ao importar
 								</label>
 							)}
-							<label className="flex items-center gap-2 text-slate-400 text-sm">
+							<label className="flex items-center gap-2 text-[color:var(--color-text-muted)] text-sm">
 								<input name={`row-${row.id}-createRule`} type="checkbox" />{" "}
 								Criar regra a partir desta correção
 							</label>
 						</div>
 					))}
 					<button
-						className="rounded-xl bg-emerald-400 px-4 py-3 font-semibold text-slate-950"
+						className="rounded-xl bg-[color:var(--color-accent)] px-4 py-3 font-semibold text-[color:var(--color-accent-text)]"
 						type="submit"
 					>
 						Confirmar decisões do lote
@@ -913,7 +900,10 @@ function BatchReview({
 			) : (
 				<div className="mt-5 grid gap-2 text-sm">
 					{rows.map((row) => (
-						<p className="rounded-xl border border-slate-800 p-3" key={row.id}>
+						<p
+							className="rounded-xl border border-[color:var(--color-border-subtle)] p-3"
+							key={row.id}
+						>
 							Linha {row.rowNumber}: {row.status} · {row.originalDescription}
 						</p>
 					))}
@@ -931,7 +921,7 @@ function Panel({
 	children: React.ReactNode;
 }) {
 	return (
-		<section className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6">
+		<section className="rounded-3xl border border-[color:var(--color-border-subtle)] bg-[color:var(--color-surface)] p-6">
 			<h2 className="mb-4 font-semibold text-xl">{title}</h2>
 			{children}
 		</section>
@@ -963,10 +953,10 @@ function TextInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
 }
 
 function rowStatusClass(status: string) {
-	if (status === "duplicate") return "text-amber-300";
-	if (status === "invalid") return "text-red-300";
-	if (status === "imported") return "text-emerald-300";
-	return "text-slate-300";
+	if (status === "duplicate") return "text-[color:var(--color-warn)]";
+	if (status === "invalid") return "text-[color:var(--color-bad)]";
+	if (status === "imported") return "text-[color:var(--color-accent)]";
+	return "text-[color:var(--color-text-muted)]";
 }
 
 function actionableImportError(error: string) {

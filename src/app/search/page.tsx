@@ -151,7 +151,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
 							placeholder="Digite ao menos 2 caracteres"
 						/>
 						<button
-							className="rounded-xl bg-emerald-500 px-4 py-2 font-medium text-slate-950 text-sm"
+							className="rounded-xl bg-[color:var(--color-accent-strong)] px-4 py-2 font-medium text-[color:var(--color-accent-text)] text-sm"
 							type="submit"
 						>
 							Buscar
@@ -162,7 +162,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
 
 			{q.length < 2 ? (
 				<Panel title="Resultados">
-					<p className="text-slate-400 text-sm">
+					<p className="text-[color:var(--color-text-muted)] text-sm">
 						Digite ao menos 2 caracteres.
 					</p>
 				</Panel>
@@ -171,12 +171,12 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
 					<ResultPanel count={matchedTransactions.length} title="Transações">
 						{matchedTransactions.map((transaction) => (
 							<Link
-								className="block rounded-2xl border border-slate-800 p-4 text-sm hover:border-slate-600"
+								className="block rounded-2xl border border-[color:var(--color-border-subtle)] p-4 text-sm hover:border-[color:var(--color-border)]"
 								href={`/transactions?q=${encodeURIComponent(q)}`}
 								key={transaction.id}
 							>
 								<span className="font-medium">{transaction.description}</span>
-								<span className="mt-1 block text-slate-400">
+								<span className="mt-1 block text-[color:var(--color-text-muted)]">
 									{formatDate(transaction.occurredOn)} ·{" "}
 									{formatMoney(transaction.amountCents)}
 								</span>
@@ -186,7 +186,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
 					<ResultPanel count={matchedAccounts.length} title="Contas">
 						{matchedAccounts.map((account) => (
 							<Link
-								className="block rounded-2xl border border-slate-800 p-4 text-sm hover:border-slate-600"
+								className="block rounded-2xl border border-[color:var(--color-border-subtle)] p-4 text-sm hover:border-[color:var(--color-border)]"
 								href="/accounts"
 								key={account.id}
 							>
@@ -197,7 +197,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
 					<ResultPanel count={matchedCategories.length} title="Categorias">
 						{matchedCategories.map((category) => (
 							<Link
-								className="block rounded-2xl border border-slate-800 p-4 text-sm hover:border-slate-600"
+								className="block rounded-2xl border border-[color:var(--color-border-subtle)] p-4 text-sm hover:border-[color:var(--color-border)]"
 								href="/categories"
 								key={category.id}
 							>
@@ -208,7 +208,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
 					<ResultPanel count={matchedRecurrences.length} title="Recorrências">
 						{matchedRecurrences.map((recurrence) => (
 							<Link
-								className="block rounded-2xl border border-slate-800 p-4 text-sm hover:border-slate-600"
+								className="block rounded-2xl border border-[color:var(--color-border-subtle)] p-4 text-sm hover:border-[color:var(--color-border)]"
 								href="/recurrences"
 								key={recurrence.id}
 							>
@@ -219,7 +219,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
 					<ResultPanel count={matchedBatches.length} title="Importações">
 						{matchedBatches.map((batch) => (
 							<Link
-								className="block rounded-2xl border border-slate-800 p-4 text-sm hover:border-slate-600"
+								className="block rounded-2xl border border-[color:var(--color-border-subtle)] p-4 text-sm hover:border-[color:var(--color-border)]"
 								href={`/import?batchId=${batch.id}`}
 								key={batch.id}
 							>
@@ -230,7 +230,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
 					<ResultPanel count={matchedTemplates.length} title="Modelos CSV">
 						{matchedTemplates.map((template) => (
 							<Link
-								className="block rounded-2xl border border-slate-800 p-4 text-sm hover:border-slate-600"
+								className="block rounded-2xl border border-[color:var(--color-border-subtle)] p-4 text-sm hover:border-[color:var(--color-border)]"
 								href="/import"
 								key={template.id}
 							>
@@ -241,7 +241,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
 					<ResultPanel count={matchedRules.length} title="Regras de importação">
 						{matchedRules.map((rule) => (
 							<Link
-								className="block rounded-2xl border border-slate-800 p-4 text-sm hover:border-slate-600"
+								className="block rounded-2xl border border-[color:var(--color-border-subtle)] p-4 text-sm hover:border-[color:var(--color-border)]"
 								href="/import"
 								key={rule.id}
 							>
@@ -289,7 +289,9 @@ function ResultPanel({
 				{count > 0 ? (
 					children
 				) : (
-					<p className="text-slate-500 text-sm">Nada encontrado.</p>
+					<p className="text-[color:var(--color-text-subtle)] text-sm">
+						Nada encontrado.
+					</p>
 				)}
 			</div>
 		</Panel>

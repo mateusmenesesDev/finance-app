@@ -275,7 +275,7 @@ export default async function AnalysisPage({
 			>
 				<form className="mb-4 flex flex-wrap items-end gap-3">
 					<label
-						className="flex flex-col gap-1 text-slate-400 text-sm"
+						className="flex flex-col gap-1 text-[color:var(--color-text-muted)] text-sm"
 						htmlFor="analysis-month"
 					>
 						Mês
@@ -293,7 +293,7 @@ export default async function AnalysisPage({
 						))}
 					</datalist>
 					<button
-						className="rounded-xl bg-emerald-500 px-4 py-2 font-medium text-slate-950 text-sm"
+						className="rounded-xl bg-[color:var(--color-accent-strong)] px-4 py-2 font-medium text-[color:var(--color-accent-text)] text-sm"
 						type="submit"
 					>
 						Aplicar
@@ -369,18 +369,18 @@ export default async function AnalysisPage({
 						<div className="space-y-3">
 							{largestExpenses.map((row) => (
 								<div
-									className="rounded-2xl bg-slate-950/60 p-3"
+									className="rounded-2xl bg-[color:var(--color-surface-muted)] p-3"
 									key={`${row.date}-${row.description}-${row.amountCents}`}
 								>
 									<div className="flex justify-between gap-3">
 										<div>
 											<p className="font-medium">{row.description}</p>
-											<p className="text-slate-400 text-xs">
+											<p className="text-[color:var(--color-text-muted)] text-xs">
 												{formatDate(row.date)} · {row.accountName} ·{" "}
 												{row.categoryName}
 											</p>
 										</div>
-										<p className="font-semibold text-rose-300">
+										<p className="font-semibold text-[color:var(--color-bad)]">
 											{formatMoney(row.amountCents)}
 										</p>
 									</div>
@@ -396,7 +396,7 @@ export default async function AnalysisPage({
 				title="Tendências"
 			>
 				{availableTrendMonths < 6 ? (
-					<p className="mb-4 text-amber-300 text-sm">
+					<p className="mb-4 text-[color:var(--color-warn)] text-sm">
 						Análises de tendência usam {availableTrendMonths} de 6 meses
 						disponíveis.
 					</p>
@@ -421,7 +421,7 @@ export default async function AnalysisPage({
 				title="Insights"
 			>
 				{availableTrendMonths < 6 ? (
-					<p className="mb-4 text-amber-300 text-sm">
+					<p className="mb-4 text-[color:var(--color-warn)] text-sm">
 						Análises de tendência usam {availableTrendMonths} de 6 meses
 						disponíveis.
 					</p>
@@ -452,12 +452,12 @@ export default async function AnalysisPage({
 						title="Anomalias"
 					/>
 					<Panel title="Concentração">
-						<p className="text-slate-300 text-sm">
+						<p className="text-[color:var(--color-text-muted)] text-sm">
 							Maior grupo: {safePercent(concentration.topGroupShare)} · Top 3:{" "}
 							{safePercent(concentration.topThreeShare)}.
 						</p>
 						<p
-							className={`mt-2 text-sm ${concentration.isConcentrated ? "text-amber-300" : "text-emerald-300"}`}
+							className={`mt-2 text-sm ${concentration.isConcentrated ? "text-[color:var(--color-warn)]" : "text-[color:var(--color-accent)]"}`}
 						>
 							{concentration.isConcentrated
 								? "Gastos concentrados: vale revisar dependência dos maiores grupos."
@@ -481,14 +481,14 @@ export default async function AnalysisPage({
 						title="Oportunidades de economia"
 					/>
 				</div>
-				<div className="mt-4 rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
+				<div className="mt-4 rounded-2xl border border-[color:var(--color-border-subtle)] bg-[color:var(--color-surface-muted)] p-4">
 					<p className="font-medium">Despesas sem categoria</p>
-					<p className="mt-1 text-slate-300 text-sm">
+					<p className="mt-1 text-[color:var(--color-text-muted)] text-sm">
 						{uncategorized.count} transações ·{" "}
 						{formatMoney(uncategorized.amountCents)}
 					</p>
 					<Link
-						className="mt-2 inline-block text-emerald-300 text-sm hover:underline"
+						className="mt-2 inline-block text-[color:var(--color-accent)] text-sm hover:underline"
 						href={`/transactions?month=${period.key}`}
 					>
 						Revisar transações

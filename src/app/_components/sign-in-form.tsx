@@ -17,7 +17,7 @@ export function SignInForm() {
 
 	return (
 		<form
-			className="rounded-3xl border border-slate-800 bg-slate-900 p-6 shadow-2xl shadow-black/20"
+			className="rounded-3xl border border-[color:var(--color-border-subtle)] bg-[color:var(--color-surface)] p-6 shadow-2xl shadow-black/10"
 			onSubmit={async (event) => {
 				event.preventDefault();
 				setError(null);
@@ -57,7 +57,7 @@ export function SignInForm() {
 			}}
 		>
 			<div>
-				<p className="font-medium text-emerald-300 text-sm">
+				<p className="font-medium text-[color:var(--color-accent)] text-sm">
 					{isSignUp ? "Criar acesso" : "Entrar"}
 				</p>
 				<h2 className="mt-2 font-semibold text-2xl">
@@ -67,11 +67,11 @@ export function SignInForm() {
 
 			<div className="mt-6 flex flex-col gap-4">
 				{isSignUp && (
-					<label className="flex flex-col gap-2 text-slate-200 text-sm">
+					<label className="flex flex-col gap-2 text-[color:var(--color-text-muted)] text-sm">
 						Nome
 						<input
 							autoComplete="name"
-							className="rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-slate-100 outline-none transition focus:border-emerald-400"
+							className="rounded-xl border border-[color:var(--color-border)] bg-[color:var(--color-surface-muted)] px-4 py-3 text-[color:var(--color-text)] outline-none transition focus:border-[color:var(--color-accent)]"
 							name="name"
 							required
 							type="text"
@@ -79,22 +79,22 @@ export function SignInForm() {
 					</label>
 				)}
 
-				<label className="flex flex-col gap-2 text-slate-200 text-sm">
+				<label className="flex flex-col gap-2 text-[color:var(--color-text-muted)] text-sm">
 					Email
 					<input
 						autoComplete="email"
-						className="rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-slate-100 outline-none transition focus:border-emerald-400"
+						className="rounded-xl border border-[color:var(--color-border)] bg-[color:var(--color-surface-muted)] px-4 py-3 text-[color:var(--color-text)] outline-none transition focus:border-[color:var(--color-accent)]"
 						name="email"
 						required
 						type="email"
 					/>
 				</label>
 
-				<label className="flex flex-col gap-2 text-slate-200 text-sm">
+				<label className="flex flex-col gap-2 text-[color:var(--color-text-muted)] text-sm">
 					Senha
 					<input
 						autoComplete={isSignUp ? "new-password" : "current-password"}
-						className="rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-slate-100 outline-none transition focus:border-emerald-400"
+						className="rounded-xl border border-[color:var(--color-border)] bg-[color:var(--color-surface-muted)] px-4 py-3 text-[color:var(--color-text)] outline-none transition focus:border-[color:var(--color-accent)]"
 						minLength={8}
 						name="password"
 						required
@@ -103,10 +103,12 @@ export function SignInForm() {
 				</label>
 			</div>
 
-			{error && <p className="mt-4 text-red-300 text-sm">{error}</p>}
+			{error && (
+				<p className="mt-4 text-[color:var(--color-bad)] text-sm">{error}</p>
+			)}
 
 			<button
-				className="mt-6 w-full rounded-full bg-emerald-400 px-6 py-3 font-semibold text-slate-950 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-60"
+				className="mt-6 w-full rounded-full bg-[color:var(--color-accent-strong)] px-6 py-3 font-semibold text-[color:var(--color-accent-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
 				disabled={isSubmitting}
 				type="submit"
 			>
@@ -114,7 +116,7 @@ export function SignInForm() {
 			</button>
 
 			<button
-				className="mt-4 w-full text-slate-300 text-sm underline-offset-4 hover:text-slate-100 hover:underline"
+				className="mt-4 w-full text-[color:var(--color-text-muted)] text-sm underline-offset-4 hover:text-[color:var(--color-text)] hover:underline"
 				onClick={() => {
 					setError(null);
 					setMode(isSignUp ? "sign-in" : "sign-up");

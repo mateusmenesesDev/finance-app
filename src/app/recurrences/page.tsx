@@ -233,12 +233,12 @@ export default async function RecurrencesPage() {
 					<div className="grid gap-2">
 						{archivedRecurrences.map((recurrence) => (
 							<form
-								className="flex items-center justify-between gap-3 rounded-2xl border border-slate-800 bg-slate-950/50 p-4"
+								className="flex items-center justify-between gap-3 rounded-2xl border border-[color:var(--color-border-subtle)] bg-[color:var(--color-surface-muted)] p-4"
 								key={recurrence.id}
 							>
 								<div>
 									<p className="font-medium">{recurrence.name}</p>
-									<p className="text-slate-500 text-xs">
+									<p className="text-[color:var(--color-text-subtle)] text-xs">
 										{formatMoney(recurrence.amountCents)} ·{" "}
 										{humanFrequency(recurrence)}
 									</p>
@@ -246,7 +246,7 @@ export default async function RecurrencesPage() {
 								<input name="id" type="hidden" value={recurrence.id} />
 								<input name="isArchived" type="hidden" value="false" />
 								<button
-									className="rounded-xl border border-slate-700 px-3 py-2 text-sm"
+									className="rounded-xl border border-[color:var(--color-border)] px-3 py-2 text-sm"
 									formAction={archiveRecurrence}
 									type="submit"
 								>
@@ -284,11 +284,11 @@ function OccurrenceRow({
 	return (
 		<form
 			action={confirmRecurrenceOccurrence}
-			className="grid gap-3 rounded-2xl border border-slate-800 bg-slate-950/50 p-4 md:grid-cols-[1fr_auto] md:items-end"
+			className="grid gap-3 rounded-2xl border border-[color:var(--color-border-subtle)] bg-[color:var(--color-surface-muted)] p-4 md:grid-cols-[1fr_auto] md:items-end"
 		>
 			<div>
 				<p className="font-medium">{recurrence.name}</p>
-				<p className="text-slate-500 text-xs">
+				<p className="text-[color:var(--color-text-subtle)] text-xs">
 					{formatDate(occurrenceOn)} · {formatMoney(recurrence.amountCents)}
 				</p>
 				<input name="recurrenceId" type="hidden" value={recurrence.id} />
@@ -335,7 +335,7 @@ function RecurrenceCard({
 	review: boolean;
 }) {
 	return (
-		<div className="rounded-2xl border border-slate-800 bg-slate-950/50 p-4">
+		<div className="rounded-2xl border border-[color:var(--color-border-subtle)] bg-[color:var(--color-surface-muted)] p-4">
 			<div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
 				<div>
 					<div className="flex flex-wrap items-center gap-2">
@@ -347,18 +347,18 @@ function RecurrenceCard({
 						{recurrence.isSubscription ? <Chip>Assinatura</Chip> : null}
 						{review ? <Chip tone="warn">Revisar</Chip> : null}
 					</div>
-					<p className="mt-2 text-slate-500 text-sm">
+					<p className="mt-2 text-[color:var(--color-text-subtle)] text-sm">
 						{account?.name ?? "Conta removida"} ·{" "}
 						{category?.name ?? "Sem categoria"} · {humanFrequency(recurrence)}
 					</p>
-					<p className="mt-1 text-slate-500 text-xs">
+					<p className="mt-1 text-[color:var(--color-text-subtle)] text-xs">
 						Próxima: {nextOn ? formatDate(nextOn) : "sem ocorrência futura"}
 					</p>
 				</div>
 				<p className="font-semibold">{formatMoney(recurrence.amountCents)}</p>
 			</div>
 			<details className="mt-4">
-				<summary className="cursor-pointer text-slate-300 text-sm">
+				<summary className="cursor-pointer text-[color:var(--color-text-muted)] text-sm">
 					Editar / arquivar
 				</summary>
 				<div className="mt-4 grid gap-4">
@@ -371,7 +371,7 @@ function RecurrenceCard({
 						<input name="id" type="hidden" value={recurrence.id} />
 						<input name="isArchived" type="hidden" value="true" />
 						<button
-							className="rounded-xl border border-rose-900 px-3 py-2 text-rose-200 text-sm"
+							className="rounded-xl border border-[color:var(--color-bad-border)] px-3 py-2 text-[color:var(--color-bad)] text-sm"
 							formAction={archiveRecurrence}
 							type="submit"
 						>
@@ -492,7 +492,7 @@ function RecurrenceForm({
 					name="description"
 				/>
 			</Label>
-			<label className="flex items-center gap-2 text-slate-300 text-sm">
+			<label className="flex items-center gap-2 text-[color:var(--color-text-muted)] text-sm">
 				<input
 					defaultChecked={recurrence?.isBill ?? false}
 					name="isBill"
@@ -500,7 +500,7 @@ function RecurrenceForm({
 				/>{" "}
 				Conta a pagar/receber
 			</label>
-			<label className="flex items-center gap-2 text-slate-300 text-sm">
+			<label className="flex items-center gap-2 text-[color:var(--color-text-muted)] text-sm">
 				<input
 					defaultChecked={recurrence?.isSubscription ?? false}
 					name="isSubscription"
@@ -520,7 +520,7 @@ function Label({
 	children: React.ReactNode;
 }) {
 	return (
-		<div className="grid gap-1 text-slate-300 text-sm">
+		<div className="grid gap-1 text-[color:var(--color-text-muted)] text-sm">
 			<span>{text}</span>
 			{children}
 		</div>
@@ -537,8 +537,8 @@ function Chip({
 		<span
 			className={
 				tone === "warn"
-					? "rounded-full bg-amber-400/15 px-2 py-1 text-amber-200 text-xs"
-					: "rounded-full bg-slate-800 px-2 py-1 text-slate-300 text-xs"
+					? "rounded-full bg-[color:var(--color-warn-bg)] px-2 py-1 text-[color:var(--color-warn)] text-xs"
+					: "rounded-full bg-[color:var(--color-surface-muted)] px-2 py-1 text-[color:var(--color-text-muted)] text-xs"
 			}
 		>
 			{children}
@@ -547,7 +547,7 @@ function Chip({
 }
 function Empty({ text }: { text: string }) {
 	return (
-		<p className="rounded-2xl border border-slate-800 bg-slate-950/50 p-4 text-slate-400 text-sm">
+		<p className="rounded-2xl border border-[color:var(--color-border-subtle)] bg-[color:var(--color-surface-muted)] p-4 text-[color:var(--color-text-muted)] text-sm">
 			{text}
 		</p>
 	);

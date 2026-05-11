@@ -200,7 +200,7 @@ export default async function CashFlowPage({
 			<Panel title="Filtros do fluxo">
 				<form className="grid gap-4 md:grid-cols-5 md:items-end">
 					<label
-						className="grid gap-1 text-slate-300 text-sm"
+						className="grid gap-1 text-[color:var(--color-text-muted)] text-sm"
 						htmlFor="granularity"
 					>
 						Granularidade
@@ -212,7 +212,7 @@ export default async function CashFlowPage({
 						/>
 					</label>
 					<label
-						className="grid gap-1 text-slate-300 text-sm"
+						className="grid gap-1 text-[color:var(--color-text-muted)] text-sm"
 						htmlFor="windowPreset"
 					>
 						Janela
@@ -224,7 +224,7 @@ export default async function CashFlowPage({
 						/>
 					</label>
 					<label
-						className="grid gap-1 text-slate-300 text-sm"
+						className="grid gap-1 text-[color:var(--color-text-muted)] text-sm"
 						htmlFor="windowStart"
 					>
 						Início livre
@@ -236,7 +236,7 @@ export default async function CashFlowPage({
 						/>
 					</label>
 					<label
-						className="grid gap-1 text-slate-300 text-sm"
+						className="grid gap-1 text-[color:var(--color-text-muted)] text-sm"
 						htmlFor="accountId"
 					>
 						Conta
@@ -250,7 +250,7 @@ export default async function CashFlowPage({
 					<input name="windowEnd" type="hidden" value={window.end} />
 					<SubmitButton>Atualizar</SubmitButton>
 				</form>
-				<p className="mt-4 text-slate-500 text-xs">
+				<p className="mt-4 text-[color:var(--color-text-subtle)] text-xs">
 					Período: {formatDate(window.start)} – {formatDate(window.end)}.
 				</p>
 			</Panel>
@@ -292,13 +292,13 @@ export default async function CashFlowPage({
 					<div className="grid gap-3">
 						{accountProjections.map((projection) => (
 							<div
-								className="rounded-2xl border border-slate-800 bg-slate-950/50 p-4"
+								className="rounded-2xl border border-[color:var(--color-border-subtle)] bg-[color:var(--color-surface-muted)] p-4"
 								key={projection.accountId}
 							>
 								<div className="flex items-start justify-between gap-4">
 									<div>
 										<p className="font-medium">{projection.accountName}</p>
-										<p className="text-slate-500 text-xs">
+										<p className="text-[color:var(--color-text-subtle)] text-xs">
 											Mínimo {formatMoney(projection.minCents)} em{" "}
 											{formatDate(projection.minDate)}
 										</p>
@@ -327,7 +327,7 @@ export default async function CashFlowPage({
 				{timeline.length > 0 ? (
 					<div className="overflow-x-auto">
 						<table className="w-full text-left text-sm">
-							<thead className="text-slate-400">
+							<thead className="text-[color:var(--color-text-muted)]">
 								<tr>
 									<th className="py-2 pr-4">Período</th>
 									<th className="py-2 pr-4">Realizado</th>
@@ -341,7 +341,7 @@ export default async function CashFlowPage({
 									const bucket = aggregate.buckets[index];
 									return (
 										<tr
-											className="border-slate-800 border-t"
+											className="border-[color:var(--color-border-subtle)] border-t"
 											key={row.bucketKey}
 										>
 											<td className="py-3 pr-4">
@@ -377,17 +377,17 @@ export default async function CashFlowPage({
 						<div className="grid gap-3">
 							{invoices.map((invoice) => (
 								<div
-									className="flex items-start justify-between gap-4 rounded-2xl border border-slate-800 bg-slate-950/50 p-4"
+									className="flex items-start justify-between gap-4 rounded-2xl border border-[color:var(--color-border-subtle)] bg-[color:var(--color-surface-muted)] p-4"
 									key={`${invoice.accountId}-${invoice.key}`}
 								>
 									<div>
 										<p className="font-medium">{invoice.accountName}</p>
-										<p className="text-slate-500 text-xs">
+										<p className="text-[color:var(--color-text-subtle)] text-xs">
 											Vence {formatDate(invoice.dueDate)} · pago{" "}
 											{formatMoney(invoice.paidCents)}
 										</p>
 									</div>
-									<p className="font-semibold text-rose-300">
+									<p className="font-semibold text-[color:var(--color-bad)]">
 										{formatMoney(invoice.remainingCents)}
 									</p>
 								</div>
@@ -403,7 +403,7 @@ export default async function CashFlowPage({
 						<div className="grid gap-3">
 							{alerts.map((alert) => (
 								<div
-									className="rounded-2xl border border-rose-900/80 bg-rose-950/30 p-4 text-rose-100"
+									className="rounded-2xl border border-[color:var(--color-bad-border)] bg-[color:var(--color-bad-bg)] p-4 text-[color:var(--color-bad)]"
 									key={alert.accountId}
 								>
 									<p className="font-medium">{alert.accountName}</p>
@@ -441,7 +441,7 @@ export default async function CashFlowPage({
 						<div className="grid gap-3 text-sm">
 							{pending.transactions.slice(0, 6).map((transaction) => (
 								<div
-									className="rounded-2xl border border-slate-800 bg-slate-950/50 p-4"
+									className="rounded-2xl border border-[color:var(--color-border-subtle)] bg-[color:var(--color-surface-muted)] p-4"
 									key={`tx-${transaction.id}`}
 								>
 									<p className="font-medium">
@@ -449,7 +449,7 @@ export default async function CashFlowPage({
 											transaction.originalDescription ??
 											"Transação pendente"}
 									</p>
-									<p className="text-slate-500 text-xs">
+									<p className="text-[color:var(--color-text-subtle)] text-xs">
 										{formatDate(transaction.occurredOn)} ·{" "}
 										{formatMoney(transaction.amountCents)}
 									</p>
@@ -459,14 +459,14 @@ export default async function CashFlowPage({
 								const batch = batchById.get(row.batchId);
 								return (
 									<Link
-										className="rounded-2xl border border-slate-800 bg-slate-950/50 p-4 transition hover:border-slate-600"
+										className="rounded-2xl border border-[color:var(--color-border-subtle)] bg-[color:var(--color-surface-muted)] p-4 transition hover:border-[color:var(--color-border)]"
 										href={`/import?batchId=${row.batchId}`}
 										key={`row-${row.id}`}
 									>
 										<p className="font-medium">
 											{row.originalDescription ?? `Linha ${row.rowNumber}`}
 										</p>
-										<p className="text-slate-500 text-xs">
+										<p className="text-[color:var(--color-text-subtle)] text-xs">
 											{batch?.originalFileName ?? "Importação"} · linha{" "}
 											{row.rowNumber}
 										</p>
@@ -486,10 +486,10 @@ function Sparkline({ values }: { values: number[] }) {
 	const max = Math.max(...values, 0);
 	const span = Math.max(1, max - min);
 	return (
-		<div className="mt-3 flex h-8 items-end gap-1 rounded-xl bg-slate-900 p-1">
+		<div className="mt-3 flex h-8 items-end gap-1 rounded-xl bg-[color:var(--color-surface)] p-1">
 			{values.slice(0, 60).map((value) => (
 				<div
-					className="min-w-1 flex-1 rounded bg-emerald-400"
+					className="min-w-1 flex-1 rounded bg-[color:var(--color-accent)]"
 					key={value}
 					style={{ height: `${10 + ((value - min) / span) * 90}%` }}
 				/>
@@ -509,7 +509,7 @@ function SimpleTable({
 	return (
 		<div className="overflow-x-auto">
 			<table className="w-full text-left text-sm">
-				<thead className="text-slate-400">
+				<thead className="text-[color:var(--color-text-muted)]">
 					<tr>
 						{headers.map((header) => (
 							<th className="py-2 pr-4" key={header}>
@@ -520,7 +520,10 @@ function SimpleTable({
 				</thead>
 				<tbody>
 					{rows.map((row) => (
-						<tr className="border-slate-800 border-t" key={row.join(":")}>
+						<tr
+							className="border-[color:var(--color-border-subtle)] border-t"
+							key={row.join(":")}
+						>
 							{headers.map((header, index) => (
 								<td className="py-3 pr-4" key={header}>
 									{row[index]}
@@ -536,7 +539,7 @@ function SimpleTable({
 
 function EmptyState({ text }: { text: string }) {
 	return (
-		<p className="rounded-2xl border border-slate-800 bg-slate-950/50 p-4 text-slate-400 text-sm">
+		<p className="rounded-2xl border border-[color:var(--color-border-subtle)] bg-[color:var(--color-surface-muted)] p-4 text-[color:var(--color-text-muted)] text-sm">
 			{text}
 		</p>
 	);

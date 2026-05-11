@@ -2,19 +2,23 @@ import { headers } from "next/headers";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { ThemeToggle } from "~/app/_components/theme-toggle";
 import { auth } from "~/server/better-auth";
 
-const navigation = [
+const primaryNavigation = [
 	{ href: "/", label: "Dashboard" },
 	{ href: "/transactions", label: "Transações" },
 	{ href: "/accounts", label: "Contas" },
+	{ href: "/import", label: "Importações" },
 	{ href: "/categories", label: "Categorias" },
+	{ href: "/reports", label: "Relatórios" },
+];
+
+const secondaryNavigation = [
 	{ href: "/budgets", label: "Orçamento" },
 	{ href: "/recurrences", label: "Recorrências" },
 	{ href: "/cash-flow", label: "Fluxo de caixa" },
 	{ href: "/analysis", label: "Análise" },
-	{ href: "/reports", label: "Relatórios" },
-	{ href: "/import", label: "Importações" },
 	{ href: "/assistente", label: "Assistente" },
 	{ href: "/configuracoes", label: "Configurações" },
 ];
@@ -31,71 +35,138 @@ export function FinanceShell({
 	children: React.ReactNode;
 }) {
 	return (
-		<main className="min-h-screen bg-slate-950 px-6 py-10 text-slate-100">
+		<main className="min-h-screen bg-[color:var(--color-bg)] px-4 py-6 text-[color:var(--color-text)] sm:px-6 lg:py-10">
 			<div className="mx-auto flex w-full max-w-7xl flex-col gap-8">
-				<header className="flex flex-col gap-5 border-slate-800 border-b pb-6 lg:flex-row lg:items-start lg:justify-between">
-					<div>
-						<p className="font-medium text-emerald-300 text-sm uppercase tracking-[0.3em]">
-							{eyebrow}
-						</p>
-						<h1 className="mt-3 font-semibold text-4xl tracking-tight">
-							{title}
-						</h1>
-						<p className="mt-3 max-w-3xl text-slate-300">{description}</p>
+				<header className="rounded-3xl border border-[color:var(--color-border-subtle)] bg-[color:var(--color-surface)] p-4 shadow-sm sm:p-6">
+					<div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+						<div className="min-w-0">
+							<p className="font-medium text-[color:var(--color-accent)] text-sm uppercase tracking-[0.3em]">
+								{eyebrow}
+							</p>
+							<h1 className="mt-3 font-semibold text-3xl tracking-tight sm:text-4xl">
+								{title}
+							</h1>
+							<p className="mt-3 max-w-3xl text-[color:var(--color-text-muted)]">
+								{description}
+							</p>
+						</div>
+
+						<div className="flex flex-col gap-3 lg:w-[30rem] lg:items-end">
+							<div className="flex w-full flex-wrap items-center justify-end gap-2">
+								<search className="min-w-0 flex-1 sm:min-w-80">
+									<form action="/search" className="flex gap-2">
+										<label className="sr-only" htmlFor="global-search">
+											Buscar
+										</label>
+										<input
+											className="min-w-0 flex-1 rounded-full border border-[color:var(--color-border)] bg-[color:var(--color-bg)] px-4 py-2 text-[color:var(--color-text)] text-sm"
+											id="global-search"
+											name="q"
+											placeholder="Buscar transações, contas..."
+										/>
+										<button
+											className="rounded-full border border-[color:var(--color-border)] px-4 py-2 font-medium text-sm hover:bg-[color:var(--color-surface-muted)]"
+											type="submit"
+										>
+											Buscar
+										</button>
+									</form>
+								</search>
+								<ThemeToggle />
+								<form>
+									<button
+										className="rounded-full border border-[color:var(--color-border)] px-5 py-2 font-medium text-sm transition hover:bg-[color:var(--color-surface-muted)]"
+										formAction={async () => {
+											"use server";
+											await auth.api.signOut({ headers: await headers() });
+											redirect("/");
+										}}
+										type="submit"
+									>
+										Sair
+									</button>
+								</form>
+							</div>
+
+							<details className="w-full md:hidden">
+								<summary className="cursor-pointer list-none rounded-2xl border border-[color:var(--color-border)] px-4 py-3 text-center font-medium text-sm transition hover:bg-[color:var(--color-surface-muted)]">
+									Menu
+								</summary>
+								<nav
+									aria-label="Navegação principal móvel"
+									className="mt-3 grid gap-2 rounded-2xl border border-[color:var(--color-border-subtle)] bg-[color:var(--color-bg)] p-2"
+								>
+									{primaryNavigation.map((item) => (
+										<NavLink href={item.href} key={item.href}>
+											{item.label}
+										</NavLink>
+									))}
+									<div className="my-1 h-px bg-[color:var(--color-border-subtle)]" />
+									{secondaryNavigation.map((item) => (
+										<NavLink href={item.href} key={item.href} tone="muted">
+											{item.label}
+										</NavLink>
+									))}
+								</nav>
+							</details>
+						</div>
 					</div>
 
-					<div className="flex flex-col gap-3 lg:items-end">
-						<search className="w-full max-w-md">
-							<form action="/search" className="flex gap-2">
-								<label className="sr-only" htmlFor="global-search">
-									Buscar
-								</label>
-								<input
-									className="min-w-0 flex-1 rounded-full border border-slate-700 bg-slate-950 px-4 py-2 text-slate-100 text-sm"
-									id="global-search"
-									name="q"
-									placeholder="Buscar transações, contas, categorias..."
-								/>
-								<button
-									className="rounded-full border border-slate-700 px-4 py-2 font-medium text-sm"
-									type="submit"
-								>
-									Buscar
-								</button>
-							</form>
-						</search>
-						<nav
-							aria-label="Navegação principal"
-							className="flex flex-wrap gap-2"
-						>
-							{navigation.map((item) => (
-								<Link
-									className="rounded-full border border-slate-700 px-4 py-2 font-medium text-sm transition hover:border-slate-500 hover:bg-slate-900"
-									href={item.href}
-									key={item.href}
-								>
+					<nav
+						aria-label="Navegação principal"
+						className="mt-6 hidden items-center gap-2 border-[color:var(--color-border-subtle)] border-t pt-4 md:flex"
+					>
+						<div className="flex flex-1 flex-wrap gap-2">
+							{primaryNavigation.map((item) => (
+								<NavLink href={item.href} key={item.href}>
 									{item.label}
-								</Link>
+								</NavLink>
 							))}
-						</nav>
-						<form>
-							<button
-								className="rounded-full border border-slate-700 px-5 py-2 font-medium text-sm transition hover:border-slate-500 hover:bg-slate-900"
-								formAction={async () => {
-									"use server";
-									await auth.api.signOut({ headers: await headers() });
-									redirect("/");
-								}}
-								type="submit"
-							>
-								Sair
-							</button>
-						</form>
-					</div>
+						</div>
+						<details className="relative">
+							<summary className="cursor-pointer list-none rounded-full border border-[color:var(--color-border)] px-4 py-2 font-medium text-sm transition hover:bg-[color:var(--color-surface-muted)]">
+								Mais
+							</summary>
+							<div className="absolute right-0 z-10 mt-2 grid min-w-48 gap-1 rounded-2xl border border-[color:var(--color-border)] bg-[color:var(--color-surface)] p-2 shadow-lg">
+								{secondaryNavigation.map((item) => (
+									<Link
+										className="rounded-xl px-3 py-2 text-sm hover:bg-[color:var(--color-surface-muted)]"
+										href={item.href}
+										key={item.href}
+									>
+										{item.label}
+									</Link>
+								))}
+							</div>
+						</details>
+					</nav>
 				</header>
 				{children}
 			</div>
 		</main>
+	);
+}
+
+function NavLink({
+	href,
+	children,
+	tone = "default",
+}: {
+	href: string;
+	children: React.ReactNode;
+	tone?: "default" | "muted";
+}) {
+	const className = [
+		"rounded-full border px-4 py-2 font-medium text-sm transition hover:bg-[color:var(--color-surface-muted)]",
+		tone === "muted"
+			? "border-transparent text-[color:var(--color-text-muted)]"
+			: "border-[color:var(--color-border)]",
+	].join(" ");
+
+	return (
+		<Link className={className} href={href}>
+			{children}
+		</Link>
 	);
 }
 
@@ -109,11 +180,13 @@ export function Panel({
 	children: React.ReactNode;
 }) {
 	return (
-		<section className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6">
+		<section className="rounded-3xl border border-[color:var(--color-border-subtle)] bg-[color:var(--color-surface)] p-6">
 			<div className="mb-4">
 				<h2 className="font-semibold text-xl">{title}</h2>
 				{description ? (
-					<p className="mt-1 text-slate-400 text-sm">{description}</p>
+					<p className="mt-1 text-[color:var(--color-text-subtle)] text-sm">
+						{description}
+					</p>
 				) : null}
 			</div>
 			{children}
@@ -133,28 +206,38 @@ export function SummaryCard({
 	variant?: "default" | "good" | "bad" | "warn";
 }) {
 	const valueClass = {
-		default: "text-slate-100",
-		good: "text-emerald-300",
-		bad: "text-rose-300",
-		warn: "text-amber-300",
+		default: "text-[color:var(--color-text)]",
+		good: "text-[color:var(--color-good)]",
+		bad: "text-[color:var(--color-bad)]",
+		warn: "text-[color:var(--color-warn)]",
 	}[variant];
 
 	return (
-		<div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
-			<p className="text-slate-400 text-sm">{label}</p>
+		<div className="rounded-2xl border border-[color:var(--color-border-subtle)] bg-[color:var(--color-surface-muted)] p-4">
+			<p className="text-[color:var(--color-text-subtle)] text-sm">{label}</p>
 			<p className={`mt-2 font-semibold text-2xl ${valueClass}`}>{value}</p>
 			{description ? (
-				<p className="mt-2 text-slate-500 text-xs">{description}</p>
+				<p className="mt-2 text-[color:var(--color-text-subtle)] text-xs">
+					{description}
+				</p>
 			) : null}
 		</div>
 	);
 }
 
 export const inputClass =
-	"rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100";
+	"rounded-xl border border-[color:var(--color-border)] bg-[color:var(--color-surface)] px-3 py-2 text-[color:var(--color-text)] text-sm";
 
-export function TextInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
-	return <input className={inputClass} {...props} />;
+export function TextInput({
+	className,
+	...props
+}: React.InputHTMLAttributes<HTMLInputElement>) {
+	return (
+		<input
+			className={[inputClass, className].filter(Boolean).join(" ")}
+			{...props}
+		/>
+	);
 }
 
 export function Select({
@@ -163,8 +246,10 @@ export function Select({
 }: React.SelectHTMLAttributes<HTMLSelectElement> & {
 	options: Record<string, string>;
 }) {
+	const className = [inputClass, props.className].filter(Boolean).join(" ");
+
 	return (
-		<select className={inputClass} {...props}>
+		<select {...props} className={className}>
 			{Object.entries(options).map(([value, label]) => (
 				<option key={value} value={value}>
 					{label}
@@ -177,7 +262,7 @@ export function Select({
 export function SubmitButton({ children }: { children: React.ReactNode }) {
 	return (
 		<button
-			className="rounded-xl bg-emerald-500 px-4 py-2 font-medium text-slate-950 text-sm"
+			className="rounded-xl bg-[color:var(--color-accent-strong)] px-4 py-2 font-medium text-[color:var(--color-accent-text)] text-sm hover:opacity-90"
 			type="submit"
 		>
 			{children}
@@ -187,9 +272,9 @@ export function SubmitButton({ children }: { children: React.ReactNode }) {
 
 export function BudgetProgress({ percent }: { percent: number }) {
 	return (
-		<div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-800">
+		<div className="mt-2 h-2 overflow-hidden rounded-full bg-[color:var(--color-border-subtle)]">
 			<div
-				className="h-full rounded-full bg-emerald-400"
+				className="h-full rounded-full bg-[color:var(--color-accent)]"
 				style={{ width: `${Math.min(100, Math.max(0, percent * 100))}%` }}
 			/>
 		</div>

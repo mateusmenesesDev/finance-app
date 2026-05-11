@@ -45,7 +45,7 @@ export default async function DadosPage() {
 				title="Exportar meus dados"
 			>
 				<a
-					className="inline-flex items-center rounded-xl bg-emerald-500 px-4 py-2 font-medium text-slate-950 text-sm"
+					className="inline-flex items-center rounded-xl bg-[color:var(--color-accent-strong)] px-4 py-2 font-medium text-[color:var(--color-accent-text)] text-sm"
 					download
 					href="/api/configuracoes/export"
 					rel="noopener"
@@ -53,7 +53,7 @@ export default async function DadosPage() {
 				>
 					Baixar JSON
 				</a>
-				<p className="mt-3 text-slate-500 text-xs">
+				<p className="mt-3 text-[color:var(--color-text-subtle)] text-xs">
 					CPFs, números de cartão e identificadores longos vêm ofuscados pela
 					política de mascaramento. Senhas, tokens e credenciais bancárias não
 					são exportados porque o app não os armazena.
@@ -65,7 +65,7 @@ export default async function DadosPage() {
 				title="Apagar uma conta arquivada"
 			>
 				{archivedAccounts.length === 0 ? (
-					<p className="text-slate-400 text-sm">
+					<p className="text-[color:var(--color-text-muted)] text-sm">
 						Nenhuma conta arquivada. Arquive uma conta antes de apagá-la
 						permanentemente.
 					</p>
@@ -73,28 +73,28 @@ export default async function DadosPage() {
 					<ul className="flex flex-col gap-3">
 						{archivedAccounts.map((account) => (
 							<li
-								className="rounded-2xl border border-slate-800 bg-slate-950/60 p-4"
+								className="rounded-2xl border border-[color:var(--color-border-subtle)] bg-[color:var(--color-surface-muted)] p-4"
 								key={account.id}
 							>
 								<div className="flex items-center justify-between gap-3">
 									<div>
-										<p className="font-medium text-slate-100 text-sm">
+										<p className="font-medium text-[color:var(--color-text)] text-sm">
 											{account.name}
 										</p>
-										<p className="text-slate-500 text-xs">
+										<p className="text-[color:var(--color-text-subtle)] text-xs">
 											{accountTypeLabels[account.type] ?? account.type}
 										</p>
 									</div>
 								</div>
 								<form
 									action={deleteAccountForever}
-									className="mt-3 flex flex-col gap-2 text-slate-300 text-xs"
+									className="mt-3 flex flex-col gap-2 text-[color:var(--color-text-muted)] text-xs"
 								>
 									<input name="accountId" type="hidden" value={account.id} />
 									<label className="flex flex-col gap-1">
 										Confirme digitando seu e-mail ({userEmail})
 										<input
-											className="rounded-xl border border-rose-700/60 bg-slate-950 px-3 py-2 font-mono text-slate-100 text-sm"
+											className="rounded-xl border border-[color:var(--color-bad-border)] bg-[color:var(--color-surface)] px-3 py-2 font-mono text-[color:var(--color-text)] text-sm"
 											name="confirmEmail"
 											required
 											type="email"
@@ -106,7 +106,7 @@ export default async function DadosPage() {
 										transações, importações e recorrências desta conta.
 									</label>
 									<button
-										className="self-start rounded-xl bg-rose-500 px-4 py-2 font-medium text-slate-950 text-sm"
+										className="self-start rounded-xl bg-[color:var(--color-bad)] px-4 py-2 font-medium text-[color:var(--color-bg)] text-sm"
 										type="submit"
 									>
 										Apagar permanentemente
@@ -124,12 +124,12 @@ export default async function DadosPage() {
 			>
 				<form
 					action={purgeAllFinancialData}
-					className="flex flex-col gap-3 text-slate-300 text-sm"
+					className="flex flex-col gap-3 text-[color:var(--color-text-muted)] text-sm"
 				>
 					<label className="flex flex-col gap-1 text-xs">
 						Confirme digitando seu e-mail ({userEmail})
 						<input
-							className="rounded-xl border border-rose-700/60 bg-slate-950 px-3 py-2 font-mono text-slate-100 text-sm"
+							className="rounded-xl border border-[color:var(--color-bad-border)] bg-[color:var(--color-surface)] px-3 py-2 font-mono text-[color:var(--color-text)] text-sm"
 							name="confirmEmail"
 							required
 							type="email"
@@ -137,12 +137,12 @@ export default async function DadosPage() {
 					</label>
 					<label className="flex flex-col gap-1 text-xs">
 						Digite{" "}
-						<code className="rounded bg-slate-800 px-1 py-0.5 font-mono text-rose-300">
+						<code className="rounded bg-[color:var(--color-surface-muted)] px-1 py-0.5 font-mono text-[color:var(--color-bad)]">
 							APAGAR TUDO
 						</code>{" "}
 						para confirmar
 						<input
-							className="rounded-xl border border-rose-700/60 bg-slate-950 px-3 py-2 font-mono text-slate-100 text-sm"
+							className="rounded-xl border border-[color:var(--color-bad-border)] bg-[color:var(--color-surface)] px-3 py-2 font-mono text-[color:var(--color-text)] text-sm"
 							name="confirmText"
 							required
 						/>
@@ -153,7 +153,7 @@ export default async function DadosPage() {
 						financeiros.
 					</label>
 					<button
-						className="self-start rounded-xl bg-rose-500 px-4 py-2 font-medium text-slate-950 text-sm"
+						className="self-start rounded-xl bg-[color:var(--color-bad)] px-4 py-2 font-medium text-[color:var(--color-bg)] text-sm"
 						type="submit"
 					>
 						Apagar todos os dados financeiros

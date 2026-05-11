@@ -158,14 +158,16 @@ export default async function BudgetsPage({ searchParams }: BudgetsPageProps) {
 			<Panel title="Mês analisado">
 				<div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
 					<div>
-						<p className="text-slate-400 text-sm">{period.key}</p>
-						<p className="mt-1 text-slate-500 text-sm capitalize">
+						<p className="text-[color:var(--color-text-muted)] text-sm">
+							{period.key}
+						</p>
+						<p className="mt-1 text-[color:var(--color-text-subtle)] text-sm capitalize">
 							{formatMonthLabel(period)}
 						</p>
 					</div>
 					<form className="flex flex-wrap items-end gap-3">
 						<label
-							className="grid gap-1 text-slate-300 text-sm"
+							className="grid gap-1 text-[color:var(--color-text-muted)] text-sm"
 							htmlFor="budget-month"
 						>
 							Mês
@@ -206,10 +208,10 @@ export default async function BudgetsPage({ searchParams }: BudgetsPageProps) {
 
 			{coherenceWarnings.length > 0 ? (
 				<Panel title="Avisos de coerência">
-					<ul className="grid gap-2 text-amber-100 text-sm">
+					<ul className="grid gap-2 text-[color:var(--color-warn)] text-sm">
 						{coherenceWarnings.map((warning) => (
 							<li
-								className="rounded-2xl border border-amber-900/80 bg-amber-950/30 p-4"
+								className="rounded-2xl border border-[color:var(--color-warn-border)] bg-[color:var(--color-warn-bg)] p-4"
 								key={warning}
 							>
 								{warning}
@@ -225,7 +227,7 @@ export default async function BudgetsPage({ searchParams }: BudgetsPageProps) {
 			>
 				<form
 					action={createOrUpdateBudget}
-					className="grid gap-3 rounded-2xl border border-slate-800 p-4 md:grid-cols-5"
+					className="grid gap-3 rounded-2xl border border-[color:var(--color-border-subtle)] p-4 md:grid-cols-5"
 				>
 					<input name="monthKey" type="hidden" value={period.key} />
 					{editingBudget ? (
@@ -269,7 +271,7 @@ export default async function BudgetsPage({ searchParams }: BudgetsPageProps) {
 					/>
 					<SubmitButton>{editingBudget ? "Salvar" : "Cadastrar"}</SubmitButton>
 				</form>
-				<p className="mt-3 text-slate-500 text-xs">
+				<p className="mt-3 text-[color:var(--color-text-subtle)] text-xs">
 					Para mês geral, deixe grupo e categoria vazios. Para grupo, selecione
 					só grupo. Para categoria, selecione só categoria.
 				</p>
@@ -294,7 +296,7 @@ export default async function BudgetsPage({ searchParams }: BudgetsPageProps) {
 			<Panel title="Copiar de outro mês">
 				<form
 					action={copyBudgetMonth}
-					className="grid gap-3 rounded-2xl border border-slate-800 p-4 md:grid-cols-[1fr_180px]"
+					className="grid gap-3 rounded-2xl border border-[color:var(--color-border-subtle)] p-4 md:grid-cols-[1fr_180px]"
 				>
 					<input name="targetMonthKey" type="hidden" value={period.key} />
 					<select className={inputClass} name="sourceMonthKey">
@@ -337,8 +339,8 @@ export default async function BudgetsPage({ searchParams }: BudgetsPageProps) {
 				</div>
 				<div className="overflow-x-auto">
 					<table className="w-full min-w-[720px] text-left text-sm">
-						<thead className="text-slate-400">
-							<tr className="border-slate-800 border-b">
+						<thead className="text-[color:var(--color-text-muted)]">
+							<tr className="border-[color:var(--color-border-subtle)] border-b">
 								<th className="py-2 pr-4">Mês</th>
 								<th className="py-2 pr-4">Previsto</th>
 								<th className="py-2 pr-4">Realizado</th>
@@ -349,7 +351,10 @@ export default async function BudgetsPage({ searchParams }: BudgetsPageProps) {
 						</thead>
 						<tbody>
 							{historyRows.map((row) => (
-								<tr className="border-slate-900 border-b" key={row.monthKey}>
+								<tr
+									className="border-[color:var(--color-border-subtle)] border-b"
+									key={row.monthKey}
+								>
 									<td className="py-3 pr-4">{row.monthKey}</td>
 									<td className="py-3 pr-4">{moneyOrDash(row.plannedCents)}</td>
 									<td className="py-3 pr-4">{moneyOrDash(row.spentCents)}</td>
@@ -386,14 +391,14 @@ function BudgetTable({
 	return (
 		<Panel title={title}>
 			{rows.length === 0 ? (
-				<p className="rounded-2xl border border-slate-800 bg-slate-950/50 p-4 text-slate-400 text-sm">
+				<p className="rounded-2xl border border-[color:var(--color-border-subtle)] bg-[color:var(--color-surface-muted)] p-4 text-[color:var(--color-text-muted)] text-sm">
 					Nenhum orçamento cadastrado.
 				</p>
 			) : (
 				<div className="overflow-x-auto">
 					<table className="w-full min-w-[820px] text-left text-sm">
-						<thead className="text-slate-400">
-							<tr className="border-slate-800 border-b">
+						<thead className="text-[color:var(--color-text-muted)]">
+							<tr className="border-[color:var(--color-border-subtle)] border-b">
 								<th className="py-2 pr-4">Nome</th>
 								<th className="py-2 pr-4">Previsto</th>
 								<th className="py-2 pr-4">Realizado</th>
@@ -404,7 +409,10 @@ function BudgetTable({
 						</thead>
 						<tbody>
 							{rows.map((row) => (
-								<tr className="border-slate-900 border-b" key={row.budgetId}>
+								<tr
+									className="border-[color:var(--color-border-subtle)] border-b"
+									key={row.budgetId}
+								>
 									<td className="py-3 pr-4">{row.name}</td>
 									<td className="py-3 pr-4">{formatMoney(row.plannedCents)}</td>
 									<td className="py-3 pr-4">{formatMoney(row.spentCents)}</td>
@@ -417,7 +425,7 @@ function BudgetTable({
 									</td>
 									<td className="flex gap-2 py-3 pr-4">
 										<Link
-											className="rounded-xl border border-slate-700 px-3 py-2 text-slate-200 text-xs"
+											className="rounded-xl border border-[color:var(--color-border)] px-3 py-2 text-[color:var(--color-text)] text-xs"
 											href={`/budgets?month=${monthKey}&edit=${row.budgetId}`}
 										>
 											Editar
@@ -425,7 +433,7 @@ function BudgetTable({
 										<form action={deleteBudget}>
 											<input name="id" type="hidden" value={row.budgetId} />
 											<button
-												className="rounded-xl border border-rose-900 px-3 py-2 text-rose-200 text-xs"
+												className="rounded-xl border border-[color:var(--color-bad-border)] px-3 py-2 text-[color:var(--color-bad)] text-xs"
 												type="submit"
 											>
 												Excluir
@@ -444,9 +452,9 @@ function BudgetTable({
 
 function StatusBadge({ status }: { status: UsageRow["status"] }) {
 	const className = {
-		near: "border-amber-800 text-amber-200",
-		ok: "border-emerald-800 text-emerald-200",
-		over: "border-rose-800 text-rose-200",
+		near: "border-[color:var(--color-warn-border)] text-[color:var(--color-warn)]",
+		ok: "border-[color:var(--color-good-border)] text-[color:var(--color-good)]",
+		over: "border-[color:var(--color-bad-border)] text-[color:var(--color-bad)]",
 	}[status];
 	return (
 		<span className={`rounded-full border px-3 py-1 text-xs ${className}`}>
@@ -466,7 +474,7 @@ function HistoryLink({
 }) {
 	return (
 		<Link
-			className={`rounded-full border px-3 py-1 text-xs ${active ? "border-emerald-600 text-emerald-200" : "border-slate-700 text-slate-300"}`}
+			className={`rounded-full border px-3 py-1 text-xs ${active ? "border-[color:var(--color-good-border)] text-[color:var(--color-good)]" : "border-[color:var(--color-border)] text-[color:var(--color-text-muted)]"}`}
 			href={href}
 		>
 			{label}

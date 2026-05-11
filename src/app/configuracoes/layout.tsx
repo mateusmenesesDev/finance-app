@@ -20,10 +20,10 @@ export default function ConfiguracoesLayout({
 			eyebrow="Configurações"
 			title="Privacidade, auditoria e dados"
 		>
-			<nav className="flex flex-wrap gap-2 border-slate-800 border-b pb-4">
+			<nav className="flex flex-wrap gap-2 border-[color:var(--color-border-subtle)] border-b pb-4">
 				{tabs.map((tab) => (
 					<Link
-						className="rounded-full border border-slate-700 px-4 py-2 font-medium text-slate-200 text-sm transition hover:border-slate-500 hover:bg-slate-900"
+						className="rounded-full border border-[color:var(--color-border)] px-4 py-2 font-medium text-[color:var(--color-text)] text-sm transition hover:border-[color:var(--color-border)] hover:bg-[color:var(--color-surface)]"
 						href={tab.href}
 						key={tab.href}
 					>

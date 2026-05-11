@@ -149,240 +149,270 @@ export default async function TransactionsPage({
 			eyebrow="Transações"
 			title="Transações"
 		>
-			<Panel title="Nova transação">
-				<form
-					action={createTransaction}
-					className="grid gap-3 rounded-2xl border border-slate-800 p-4 md:grid-cols-4"
-				>
-					<TextInput
-						defaultValue={period.start}
-						name="occurredOn"
-						type="date"
-					/>
-					<TextInput name="description" placeholder="Descrição" />
-					<TextInput
-						name="originalDescription"
-						placeholder="Descrição original"
-					/>
-					<TextInput name="amount" placeholder="Valor" />
-					<select className={inputClass} name="accountId">
-						{usableAccounts.map((account) => (
-							<option key={account.id} value={account.id}>
-								{account.name}
-							</option>
-						))}
-					</select>
-					<select className={inputClass} name="destinationAccountId">
-						<option value="">Conta destino</option>
-						{usableAccounts.map((account) => (
-							<option key={account.id} value={account.id}>
-								{account.name}
-							</option>
-						))}
-					</select>
-					<select className={inputClass} name="categoryId">
-						<option value="">Categoria</option>
-						{activeCategories.map((category) => (
-							<option key={category.id} value={category.id}>
-								{category.name}
-							</option>
-						))}
-					</select>
-					<Select name="movementType" options={movementLabels} />
-					<Select
-						defaultValue="confirmed"
-						name="status"
-						options={statusLabels}
-					/>
-					<TextInput name="notes" placeholder="Notas" />
-					<SubmitButton>Lançar transação</SubmitButton>
-				</form>
+			<Panel
+				description="Use quando precisar lançar algo manualmente. A lista e a revisão ficam em destaque abaixo."
+				title="Nova transação"
+			>
+				<details>
+					<summary className="cursor-pointer rounded-2xl border border-[color:var(--color-border)] px-4 py-3 font-medium text-sm hover:bg-[color:var(--color-surface-muted)]">
+						Abrir formulário de lançamento
+					</summary>
+					<form
+						action={createTransaction}
+						className="mt-4 grid gap-3 rounded-2xl border border-[color:var(--color-border-subtle)] p-4 md:grid-cols-4"
+					>
+						<TextInput
+							defaultValue={period.start}
+							name="occurredOn"
+							type="date"
+						/>
+						<TextInput name="description" placeholder="Descrição" />
+						<TextInput
+							name="originalDescription"
+							placeholder="Descrição original"
+						/>
+						<TextInput name="amount" placeholder="Valor" />
+						<select className={inputClass} name="accountId">
+							{usableAccounts.map((account) => (
+								<option key={account.id} value={account.id}>
+									{account.name}
+								</option>
+							))}
+						</select>
+						<select className={inputClass} name="destinationAccountId">
+							<option value="">Conta destino</option>
+							{usableAccounts.map((account) => (
+								<option key={account.id} value={account.id}>
+									{account.name}
+								</option>
+							))}
+						</select>
+						<select className={inputClass} name="categoryId">
+							<option value="">Categoria</option>
+							{activeCategories.map((category) => (
+								<option key={category.id} value={category.id}>
+									{category.name}
+								</option>
+							))}
+						</select>
+						<Select name="movementType" options={movementLabels} />
+						<Select
+							defaultValue="confirmed"
+							name="status"
+							options={statusLabels}
+						/>
+						<TextInput name="notes" placeholder="Notas" />
+						<SubmitButton>Lançar transação</SubmitButton>
+					</form>
+				</details>
 			</Panel>
 
 			<Panel
-				description="Filtros salvos guardam somente esta tela; onboarding é inferido dos dados, sem flags manuais."
+				description="Período e busca ficam sempre visíveis; conta, categoria, tipo e filtros salvos ficam recolhidos."
 				title="Filtros"
 			>
-				<form className="grid gap-3 rounded-2xl border border-slate-800 p-4 md:grid-cols-7">
+				<form className="grid gap-3 rounded-2xl border border-[color:var(--color-border-subtle)] p-4 md:grid-cols-[160px_160px_1fr_auto]">
 					<TextInput defaultValue={filters.start} name="start" type="date" />
 					<TextInput defaultValue={filters.end} name="end" type="date" />
-					<select
-						className={inputClass}
-						defaultValue={filters.accountId}
-						name="accountId"
-					>
-						<option value="">Conta</option>
-						{activeAccounts.map((account) => (
-							<option key={account.id} value={account.id}>
-								{account.name}
-							</option>
-						))}
-					</select>
-					<select
-						className={inputClass}
-						defaultValue={filters.categoryId}
-						name="categoryId"
-					>
-						<option value="">Categoria</option>
-						{activeCategories.map((category) => (
-							<option key={category.id} value={category.id}>
-								{category.name}
-							</option>
-						))}
-					</select>
-					<select
-						className={inputClass}
-						defaultValue={filters.movementType}
-						name="movementType"
-					>
-						<option value="">Tipo</option>
-						{Object.entries(movementLabels).map(([value, label]) => (
-							<option key={value} value={value}>
-								{label}
-							</option>
-						))}
-					</select>
 					<TextInput
 						defaultValue={filters.q ?? ""}
 						name="q"
-						placeholder="Texto"
+						placeholder="Buscar por descrição"
 					/>
-					<select
-						className={inputClass}
-						defaultValue={filters.sort}
-						name="sort"
-					>
-						<option value="date">Data</option>
-						<option value="value">Valor</option>
-						<option value="category">Categoria</option>
-					</select>
 					<SubmitButton>Filtrar</SubmitButton>
+					<details className="md:col-span-4">
+						<summary className="mt-2 cursor-pointer text-[color:var(--color-text-muted)] text-sm hover:text-[color:var(--color-text)]">
+							Filtros avançados
+						</summary>
+						<div className="mt-3 grid gap-3 md:grid-cols-4">
+							<select
+								className={inputClass}
+								defaultValue={filters.accountId}
+								name="accountId"
+							>
+								<option value="">Conta</option>
+								{activeAccounts.map((account) => (
+									<option key={account.id} value={account.id}>
+										{account.name}
+									</option>
+								))}
+							</select>
+							<select
+								className={inputClass}
+								defaultValue={filters.categoryId}
+								name="categoryId"
+							>
+								<option value="">Categoria</option>
+								{activeCategories.map((category) => (
+									<option key={category.id} value={category.id}>
+										{category.name}
+									</option>
+								))}
+							</select>
+							<select
+								className={inputClass}
+								defaultValue={filters.movementType}
+								name="movementType"
+							>
+								<option value="">Tipo</option>
+								{Object.entries(movementLabels).map(([value, label]) => (
+									<option key={value} value={value}>
+										{label}
+									</option>
+								))}
+							</select>
+							<select
+								className={inputClass}
+								defaultValue={filters.sort}
+								name="sort"
+							>
+								<option value="date">Data</option>
+								<option value="value">Valor</option>
+								<option value="category">Categoria</option>
+							</select>
+						</div>
+					</details>
 				</form>
-				<div className="mt-4 grid gap-3 rounded-2xl border border-slate-800 p-4 lg:grid-cols-[1fr_1.4fr]">
-					<form
-						action={saveTransactionFilter}
-						className="grid gap-3 md:grid-cols-2"
-					>
-						<input name="start" type="hidden" value={filters.start} />
-						<input name="end" type="hidden" value={filters.end} />
-						<input
-							name="accountId"
-							type="hidden"
-							value={filters.accountId ?? ""}
-						/>
-						<input
-							name="categoryId"
-							type="hidden"
-							value={filters.categoryId ?? ""}
-						/>
-						<input
-							name="movementType"
-							type="hidden"
-							value={filters.movementType ?? ""}
-						/>
-						<input name="q" type="hidden" value={filters.q ?? ""} />
-						<input name="sort" type="hidden" value={filters.sort ?? "date"} />
-						<TextInput
-							name="name"
-							placeholder="Nome do filtro atual"
-							required
-						/>
-						<SubmitButton>Salvar filtro</SubmitButton>
-					</form>
-					<div className="flex flex-wrap gap-2">
-						{savedFilters.map((filter) => {
-							const href = `/transactions?${new URLSearchParams({
-								accountId: filter.accountId?.toString() ?? "",
-								categoryId: filter.categoryId?.toString() ?? "",
-								end: filter.end,
-								movementType: filter.movementType ?? "",
-								q: filter.query ?? "",
-								sort: filter.sort,
-								start: filter.start,
-							}).toString()}`;
-							return (
-								<span
-									className="inline-flex items-center gap-2 rounded-full border border-slate-700 px-3 py-1 text-sm"
-									key={filter.id}
-								>
-									<Link className="hover:text-emerald-300" href={href}>
-										{filter.name}
-									</Link>
-									<form action={deleteTransactionFilter}>
-										<input name="id" type="hidden" value={filter.id} />
-										<button
-											className="text-slate-500 hover:text-rose-300"
-											type="submit"
+				<details className="mt-4 rounded-2xl border border-[color:var(--color-border-subtle)] p-4">
+					<summary className="cursor-pointer font-medium text-sm">
+						Filtros salvos
+					</summary>
+					<div className="mt-4 grid gap-3 lg:grid-cols-[1fr_1.4fr]">
+						<form
+							action={saveTransactionFilter}
+							className="grid gap-3 md:grid-cols-2"
+						>
+							<input name="start" type="hidden" value={filters.start} />
+							<input name="end" type="hidden" value={filters.end} />
+							<input
+								name="accountId"
+								type="hidden"
+								value={filters.accountId ?? ""}
+							/>
+							<input
+								name="categoryId"
+								type="hidden"
+								value={filters.categoryId ?? ""}
+							/>
+							<input
+								name="movementType"
+								type="hidden"
+								value={filters.movementType ?? ""}
+							/>
+							<input name="q" type="hidden" value={filters.q ?? ""} />
+							<input name="sort" type="hidden" value={filters.sort ?? "date"} />
+							<TextInput
+								name="name"
+								placeholder="Nome do filtro atual"
+								required
+							/>
+							<SubmitButton>Salvar filtro</SubmitButton>
+						</form>
+						<div className="flex flex-wrap gap-2">
+							{savedFilters.map((filter) => {
+								const href = `/transactions?${new URLSearchParams({
+									accountId: filter.accountId?.toString() ?? "",
+									categoryId: filter.categoryId?.toString() ?? "",
+									end: filter.end,
+									movementType: filter.movementType ?? "",
+									q: filter.query ?? "",
+									sort: filter.sort,
+									start: filter.start,
+								}).toString()}`;
+								return (
+									<span
+										className="inline-flex items-center gap-2 rounded-full border border-[color:var(--color-border)] px-3 py-1 text-sm"
+										key={filter.id}
+									>
+										<Link
+											className="hover:text-[color:var(--color-accent)]"
+											href={href}
 										>
-											×
-										</button>
-									</form>
-								</span>
-							);
-						})}
-						{savedFilters.length === 0 ? (
-							<p className="text-slate-500 text-sm">Nenhum filtro salvo.</p>
-						) : null}
+											{filter.name}
+										</Link>
+										<form action={deleteTransactionFilter}>
+											<input name="id" type="hidden" value={filter.id} />
+											<button
+												className="text-[color:var(--color-text-subtle)] hover:text-[color:var(--color-bad)]"
+												type="submit"
+											>
+												×
+											</button>
+										</form>
+									</span>
+								);
+							})}
+							{savedFilters.length === 0 ? (
+								<p className="text-[color:var(--color-text-subtle)] text-sm">
+									Nenhum filtro salvo.
+								</p>
+							) : null}
+						</div>
 					</div>
-				</div>
+				</details>
 			</Panel>
 
 			<Panel
 				description="Selecione linhas visíveis e aplique mudanças seguras. Limite: 100 transações por envio."
 				title="Lista de transações"
 			>
-				<form
-					action={bulkUpdateTransactions}
-					className="mb-4 grid gap-3 rounded-2xl border border-slate-800 p-4 lg:grid-cols-6"
-					id="bulk-edit-transactions"
-				>
-					<label className="flex items-center gap-2 text-slate-300 text-sm">
-						<input name="changeCategory" type="checkbox" /> Categoria
-					</label>
-					<select className={inputClass} name="bulkCategoryId">
-						<option value="">Sem categoria</option>
-						{activeCategories.map((category) => (
-							<option key={category.id} value={category.id}>
-								{category.name}
-							</option>
-						))}
-					</select>
-					<label className="flex items-center gap-2 text-slate-300 text-sm">
-						<input name="changeStatus" type="checkbox" /> Status
-					</label>
-					<Select name="bulkStatus" options={statusLabels} />
-					<label className="flex items-center gap-2 text-slate-300 text-sm">
-						<input name="changeAccount" type="checkbox" /> Conta
-					</label>
-					<select className={inputClass} name="bulkAccountId">
-						{usableAccounts.map((account) => (
-							<option key={account.id} value={account.id}>
-								{account.name}
-							</option>
-						))}
-					</select>
-					<label className="flex items-center gap-2 text-slate-300 text-sm">
-						<input name="changeNotes" type="checkbox" /> Notas
-					</label>
-					<TextInput name="bulkNotes" placeholder="Substituir notas" />
-					<label className="flex items-center gap-2 text-slate-300 text-sm">
-						<input name="changeArchive" type="checkbox" /> Arquivo
-					</label>
-					<select className={inputClass} name="bulkArchive">
-						<option value="false">Restaurar</option>
-						<option value="true">Arquivar</option>
-					</select>
-					<button
-						className="rounded-xl bg-amber-400 px-4 py-2 font-medium text-slate-950 text-sm"
-						type="submit"
+				<details className="mb-4 rounded-2xl border border-[color:var(--color-border-subtle)] p-4">
+					<summary className="cursor-pointer font-medium text-sm">
+						Edição em lote
+					</summary>
+					<form
+						action={bulkUpdateTransactions}
+						className="mt-4 grid gap-3 rounded-2xl border border-[color:var(--color-border-subtle)] p-4 lg:grid-cols-6"
+						id="bulk-edit-transactions"
 					>
-						Aplicar nas selecionadas
-					</button>
-				</form>
-				<div className="overflow-hidden rounded-2xl border border-slate-800">
+						<label className="flex items-center gap-2 text-[color:var(--color-text-muted)] text-sm">
+							<input name="changeCategory" type="checkbox" /> Categoria
+						</label>
+						<select className={inputClass} name="bulkCategoryId">
+							<option value="">Sem categoria</option>
+							{activeCategories.map((category) => (
+								<option key={category.id} value={category.id}>
+									{category.name}
+								</option>
+							))}
+						</select>
+						<label className="flex items-center gap-2 text-[color:var(--color-text-muted)] text-sm">
+							<input name="changeStatus" type="checkbox" /> Status
+						</label>
+						<Select name="bulkStatus" options={statusLabels} />
+						<label className="flex items-center gap-2 text-[color:var(--color-text-muted)] text-sm">
+							<input name="changeAccount" type="checkbox" /> Conta
+						</label>
+						<select className={inputClass} name="bulkAccountId">
+							{usableAccounts.map((account) => (
+								<option key={account.id} value={account.id}>
+									{account.name}
+								</option>
+							))}
+						</select>
+						<label className="flex items-center gap-2 text-[color:var(--color-text-muted)] text-sm">
+							<input name="changeNotes" type="checkbox" /> Notas
+						</label>
+						<TextInput name="bulkNotes" placeholder="Substituir notas" />
+						<label className="flex items-center gap-2 text-[color:var(--color-text-muted)] text-sm">
+							<input name="changeArchive" type="checkbox" /> Arquivo
+						</label>
+						<select className={inputClass} name="bulkArchive">
+							<option value="false">Restaurar</option>
+							<option value="true">Arquivar</option>
+						</select>
+						<button
+							className="rounded-xl bg-[color:var(--color-warn)] px-4 py-2 font-medium text-[color:var(--color-bg)] text-sm"
+							type="submit"
+						>
+							Aplicar nas selecionadas
+						</button>
+					</form>
+				</details>
+				<div className="overflow-hidden rounded-2xl border border-[color:var(--color-border-subtle)]">
 					{visibleTransactions.map((transaction) => (
 						<details
-							className="border-slate-800 border-b p-4 text-sm"
+							className="border-[color:var(--color-border-subtle)] border-b p-4 text-sm"
 							key={transaction.id}
 						>
 							<summary className="grid cursor-pointer gap-2 md:grid-cols-[32px_110px_1fr_160px_160px_120px]">
@@ -396,7 +426,7 @@ export default async function TransactionsPage({
 								<span>{formatDate(transaction.occurredOn)}</span>
 								<span>
 									{transaction.description}
-									<small className="block text-slate-400">
+									<small className="block text-[color:var(--color-text-muted)]">
 										{transaction.originalDescription}
 									</small>
 								</span>
@@ -424,7 +454,7 @@ export default async function TransactionsPage({
 							) : null}
 							<form
 								action={updateTransaction}
-								className="mt-4 grid gap-3 rounded-xl border border-slate-800 p-4 md:grid-cols-4"
+								className="mt-4 grid gap-3 rounded-xl border border-[color:var(--color-border-subtle)] p-4 md:grid-cols-4"
 							>
 								<input name="id" type="hidden" value={transaction.id} />
 								<TextInput
@@ -497,7 +527,7 @@ export default async function TransactionsPage({
 								/>
 								<SubmitButton>Salvar transação</SubmitButton>
 								<button
-									className="rounded-xl border border-rose-900 px-3 py-2 text-rose-200 text-sm"
+									className="rounded-xl border border-[color:var(--color-bad-border)] px-3 py-2 text-[color:var(--color-bad)] text-sm"
 									formAction={archiveTransaction}
 									type="submit"
 								>
@@ -507,7 +537,7 @@ export default async function TransactionsPage({
 						</details>
 					))}
 					{visibleTransactions.length === 0 ? (
-						<p className="p-6 text-slate-400">
+						<p className="p-6 text-[color:var(--color-text-muted)]">
 							Nenhuma transação no filtro atual.
 						</p>
 					) : null}

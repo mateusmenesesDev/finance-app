@@ -337,7 +337,7 @@ export default async function AssistantPage() {
 				/>
 				<form action={regenerateAssistantSuggestions} className="self-end">
 					<button
-						className="w-full rounded-2xl border border-emerald-500 bg-emerald-500/10 px-4 py-3 font-medium text-emerald-200 text-sm hover:bg-emerald-500/20"
+						className="w-full rounded-2xl border border-[color:var(--color-good-border)] bg-[color:var(--color-good-bg)] px-4 py-3 font-medium text-[color:var(--color-good)] text-sm hover:bg-[color:var(--color-good-bg)]"
 						type="submit"
 					>
 						Atualizar sugestões
@@ -361,7 +361,7 @@ export default async function AssistantPage() {
 				title="Sugestões pendentes"
 			>
 				{totalPending === 0 ? (
-					<p className="text-slate-400 text-sm">
+					<p className="text-[color:var(--color-text-muted)] text-sm">
 						Nenhuma sugestão pendente. Use “Atualizar sugestões” após importar
 						ou corrigir transações.
 					</p>
@@ -372,7 +372,7 @@ export default async function AssistantPage() {
 							if (items.length === 0) return null;
 							return (
 								<section className="space-y-3" key={kind}>
-									<h3 className="font-semibold text-slate-200 text-sm uppercase tracking-wider">
+									<h3 className="font-semibold text-[color:var(--color-text)] text-sm uppercase tracking-wider">
 										{kindLabels[kind]} · {items.length}
 									</h3>
 									<div className="grid gap-3">
@@ -398,34 +398,36 @@ export default async function AssistantPage() {
 				title="Histórico recente"
 			>
 				{decided.length === 0 ? (
-					<p className="text-slate-400 text-sm">
+					<p className="text-[color:var(--color-text-muted)] text-sm">
 						Sem decisões registradas até o momento.
 					</p>
 				) : (
 					<div className="space-y-2">
 						{decided.map((row) => (
 							<div
-								className="flex items-start justify-between gap-3 rounded-2xl border border-slate-800 bg-slate-950/50 p-3 text-sm"
+								className="flex items-start justify-between gap-3 rounded-2xl border border-[color:var(--color-border-subtle)] bg-[color:var(--color-surface-muted)] p-3 text-sm"
 								key={row.id}
 							>
 								<div>
-									<p className="font-medium text-slate-200">
+									<p className="font-medium text-[color:var(--color-text)]">
 										{kindLabels[row.kind as Suggestion["kind"]]}
 									</p>
-									<p className="text-slate-400 text-xs">{row.reason}</p>
+									<p className="text-[color:var(--color-text-muted)] text-xs">
+										{row.reason}
+									</p>
 								</div>
 								<div className="text-right text-xs">
 									<p
 										className={
 											row.status === "accepted"
-												? "text-emerald-300"
-												: "text-rose-300"
+												? "text-[color:var(--color-accent)]"
+												: "text-[color:var(--color-bad)]"
 										}
 									>
 										{row.status === "accepted" ? "Aceita" : "Rejeitada"}
 									</p>
 									{row.decidedAt ? (
-										<p className="text-slate-500">
+										<p className="text-[color:var(--color-text-subtle)]">
 											{row.decidedAt.toLocaleString("pt-BR")}
 										</p>
 									) : null}
@@ -441,9 +443,11 @@ export default async function AssistantPage() {
 
 function SummaryBlock({ summary }: { summary: AssistantSummary }) {
 	return (
-		<div className="rounded-2xl border border-slate-800 bg-slate-950/40 p-4">
-			<p className="font-medium text-slate-200">{summary.title}</p>
-			<ul className="mt-2 list-disc space-y-1 pl-4 text-slate-300 text-sm">
+		<div className="rounded-2xl border border-[color:var(--color-border-subtle)] bg-[color:var(--color-surface-muted)] p-4">
+			<p className="font-medium text-[color:var(--color-text)]">
+				{summary.title}
+			</p>
+			<ul className="mt-2 list-disc space-y-1 pl-4 text-[color:var(--color-text-muted)] text-sm">
 				{summary.bullets.map((line) => (
 					<li key={`${summary.theme}-${line}`}>{line}</li>
 				))}
@@ -478,10 +482,10 @@ function SuggestionRow({
 	>;
 }) {
 	return (
-		<article className="rounded-2xl border border-slate-800 bg-slate-950/50 p-4">
+		<article className="rounded-2xl border border-[color:var(--color-border-subtle)] bg-[color:var(--color-surface-muted)] p-4">
 			<div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
 				<div className="space-y-2">
-					<p className="font-medium text-slate-100 text-sm">
+					<p className="font-medium text-[color:var(--color-text)] text-sm">
 						{suggestion.reason}
 					</p>
 					<SuggestionDetails
@@ -495,7 +499,7 @@ function SuggestionRow({
 					<form action={acceptAssistantSuggestion}>
 						<input name="id" type="hidden" value={suggestion.id} />
 						<button
-							className="rounded-xl bg-emerald-500 px-3 py-2 font-medium text-slate-950 text-xs hover:bg-emerald-400"
+							className="rounded-xl bg-[color:var(--color-accent-strong)] px-3 py-2 font-medium text-[color:var(--color-accent-text)] text-xs hover:opacity-90"
 							type="submit"
 						>
 							Aceitar
@@ -504,7 +508,7 @@ function SuggestionRow({
 					<form action={rejectAssistantSuggestion}>
 						<input name="id" type="hidden" value={suggestion.id} />
 						<button
-							className="rounded-xl border border-slate-700 px-3 py-2 font-medium text-slate-200 text-xs hover:border-slate-500"
+							className="rounded-xl border border-[color:var(--color-border)] px-3 py-2 font-medium text-[color:var(--color-text)] text-xs hover:border-[color:var(--color-border)]"
 							type="submit"
 						>
 							Rejeitar
@@ -538,10 +542,12 @@ function SuggestionDetails({
 		};
 		const tx = transactionsById.get(payload.transactionId);
 		return (
-			<div className="space-y-1 text-slate-400 text-xs">
+			<div className="space-y-1 text-[color:var(--color-text-muted)] text-xs">
 				<p>
 					Categoria sugerida:{" "}
-					<span className="text-slate-200">{payload.categoryName}</span>
+					<span className="text-[color:var(--color-text)]">
+						{payload.categoryName}
+					</span>
 				</p>
 				{tx ? (
 					<p>
@@ -556,7 +562,10 @@ function SuggestionDetails({
 						? "Origem: regra existente."
 						: "Origem: histórico do usuário."}
 				</p>
-				<Link className="text-emerald-300 hover:underline" href="/transactions">
+				<Link
+					className="text-[color:var(--color-accent)] hover:underline"
+					href="/transactions"
+				>
 					Ver transações
 				</Link>
 			</div>
@@ -571,11 +580,13 @@ function SuggestionDetails({
 			occurrenceCount: number;
 		};
 		return (
-			<div className="space-y-1 text-slate-400 text-xs">
+			<div className="space-y-1 text-[color:var(--color-text-muted)] text-xs">
 				<p>
 					Regra: contém “{payload.normalizedDescription}” → categoria{" "}
-					<span className="text-slate-200">{payload.categoryName}</span> (
-					{payload.movementType === "income" ? "receita" : "despesa"}).
+					<span className="text-[color:var(--color-text)]">
+						{payload.categoryName}
+					</span>{" "}
+					({payload.movementType === "income" ? "receita" : "despesa"}).
 				</p>
 				<p>
 					Exemplo: {payload.exampleDescription} · observada{" "}
@@ -594,7 +605,7 @@ function SuggestionDetails({
 			thresholdCents: number;
 		};
 		return (
-			<div className="space-y-1 text-slate-400 text-xs">
+			<div className="space-y-1 text-[color:var(--color-text-muted)] text-xs">
 				<p>
 					{payload.categoryName} · {payload.groupName} ·{" "}
 					{formatMoney(payload.currentCents)} no mês.
@@ -613,7 +624,7 @@ function SuggestionDetails({
 		sources: ("subscription" | "grower" | "small_recurring")[];
 	};
 	return (
-		<div className="space-y-1 text-slate-400 text-xs">
+		<div className="space-y-1 text-[color:var(--color-text-muted)] text-xs">
 			<p>
 				{payload.label} · {formatMoney(payload.amountCents)}
 			</p>

@@ -128,13 +128,13 @@ export default async function SugestoesPage({
 						options={periodOptions}
 					/>
 					<button
-						className="rounded-xl border border-slate-700 px-4 py-2 font-medium text-slate-100 text-sm hover:border-slate-500"
+						className="rounded-xl border border-[color:var(--color-border)] px-4 py-2 font-medium text-[color:var(--color-text)] text-sm hover:border-[color:var(--color-border)]"
 						type="submit"
 					>
 						Filtrar
 					</button>
 					<Link
-						className="rounded-xl border border-slate-800 px-4 py-2 font-medium text-slate-300 text-sm hover:border-slate-600"
+						className="rounded-xl border border-[color:var(--color-border-subtle)] px-4 py-2 font-medium text-[color:var(--color-text-muted)] text-sm hover:border-[color:var(--color-border)]"
 						href="/configuracoes/sugestoes"
 					>
 						Limpar
@@ -142,17 +142,17 @@ export default async function SugestoesPage({
 				</form>
 
 				{suggestions.length === 0 ? (
-					<p className="text-slate-400 text-sm">
+					<p className="text-[color:var(--color-text-muted)] text-sm">
 						Nenhuma sugestão encontrada para os filtros aplicados.
 					</p>
 				) : (
 					<ul className="flex flex-col gap-3">
 						{suggestions.map((suggestion) => (
 							<li
-								className="rounded-2xl border border-slate-800 bg-slate-950/60 p-4"
+								className="rounded-2xl border border-[color:var(--color-border-subtle)] bg-[color:var(--color-surface-muted)] p-4"
 								key={suggestion.id}
 							>
-								<div className="flex flex-wrap items-center justify-between gap-2 text-slate-400 text-xs">
+								<div className="flex flex-wrap items-center justify-between gap-2 text-[color:var(--color-text-muted)] text-xs">
 									<span>
 										{kindLabels[suggestion.kind] ?? suggestion.kind} ·{" "}
 										<span className={statusColor(suggestion.status)}>
@@ -166,14 +166,14 @@ export default async function SugestoesPage({
 											: ""}
 									</span>
 								</div>
-								<p className="mt-2 text-slate-100 text-sm">
+								<p className="mt-2 text-[color:var(--color-text)] text-sm">
 									{suggestion.reason}
 								</p>
 								<details className="mt-2">
-									<summary className="cursor-pointer text-emerald-300 text-xs">
+									<summary className="cursor-pointer text-[color:var(--color-accent)] text-xs">
 										Ver payload
 									</summary>
-									<pre className="mt-2 overflow-x-auto rounded-xl bg-black/40 p-3 font-mono text-slate-200 text-xs">
+									<pre className="mt-2 overflow-x-auto rounded-xl bg-black/40 p-3 font-mono text-[color:var(--color-text)] text-xs">
 										{JSON.stringify(suggestion.payload, null, 2)}
 									</pre>
 								</details>
@@ -198,10 +198,10 @@ function FilterSelect({
 	defaultValue: string;
 }) {
 	return (
-		<label className="flex flex-col gap-1 text-slate-300 text-xs">
+		<label className="flex flex-col gap-1 text-[color:var(--color-text-muted)] text-xs">
 			{label}
 			<select
-				className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 text-sm"
+				className="rounded-xl border border-[color:var(--color-border)] bg-[color:var(--color-bg)] px-3 py-2 text-[color:var(--color-text)] text-sm"
 				defaultValue={defaultValue}
 				name={name}
 			>
@@ -218,13 +218,13 @@ function FilterSelect({
 function statusColor(status: string) {
 	switch (status) {
 		case "accepted":
-			return "text-emerald-300";
+			return "text-[color:var(--color-accent)]";
 		case "rejected":
-			return "text-rose-300";
+			return "text-[color:var(--color-bad)]";
 		case "superseded":
-			return "text-slate-400";
+			return "text-[color:var(--color-text-muted)]";
 		default:
-			return "text-amber-300";
+			return "text-[color:var(--color-warn)]";
 	}
 }
 

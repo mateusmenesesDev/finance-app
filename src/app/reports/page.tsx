@@ -253,7 +253,7 @@ function ReportPanel({
 			<Panel title={titles[id]}>
 				<div className="mb-4">
 					<a
-						className="rounded-xl border border-slate-700 px-3 py-2 text-sm hover:bg-slate-800"
+						className="rounded-xl border border-[color:var(--color-border)] px-3 py-2 text-sm hover:bg-[color:var(--color-surface-muted)]"
 						download
 						href={href}
 					>

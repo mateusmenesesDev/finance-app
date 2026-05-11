@@ -113,10 +113,10 @@ export default async function AuditoriaPage({ searchParams }: AuditPageProps) {
 					action="/configuracoes/auditoria"
 					className="mb-6 flex flex-wrap items-end gap-3"
 				>
-					<label className="flex flex-col gap-1 text-slate-300 text-xs">
+					<label className="flex flex-col gap-1 text-[color:var(--color-text-muted)] text-xs">
 						Entidade
 						<select
-							className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 text-sm"
+							className="rounded-xl border border-[color:var(--color-border)] bg-[color:var(--color-bg)] px-3 py-2 text-[color:var(--color-text)] text-sm"
 							defaultValue={entityTypeFilter ?? ""}
 							name="entityType"
 						>
@@ -127,10 +127,10 @@ export default async function AuditoriaPage({ searchParams }: AuditPageProps) {
 							))}
 						</select>
 					</label>
-					<label className="flex flex-col gap-1 text-slate-300 text-xs">
+					<label className="flex flex-col gap-1 text-[color:var(--color-text-muted)] text-xs">
 						Ação
 						<select
-							className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 text-sm"
+							className="rounded-xl border border-[color:var(--color-border)] bg-[color:var(--color-bg)] px-3 py-2 text-[color:var(--color-text)] text-sm"
 							defaultValue={actionFilter ?? ""}
 							name="action"
 						>
@@ -141,10 +141,10 @@ export default async function AuditoriaPage({ searchParams }: AuditPageProps) {
 							))}
 						</select>
 					</label>
-					<label className="flex flex-col gap-1 text-slate-300 text-xs">
+					<label className="flex flex-col gap-1 text-[color:var(--color-text-muted)] text-xs">
 						ID da entidade
 						<input
-							className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 text-sm"
+							className="rounded-xl border border-[color:var(--color-border)] bg-[color:var(--color-bg)] px-3 py-2 text-[color:var(--color-text)] text-sm"
 							defaultValue={params.entityId ?? ""}
 							inputMode="numeric"
 							name="entityId"
@@ -152,13 +152,13 @@ export default async function AuditoriaPage({ searchParams }: AuditPageProps) {
 						/>
 					</label>
 					<button
-						className="rounded-xl border border-slate-700 px-4 py-2 font-medium text-slate-100 text-sm hover:border-slate-500"
+						className="rounded-xl border border-[color:var(--color-border)] px-4 py-2 font-medium text-[color:var(--color-text)] text-sm hover:border-[color:var(--color-border)]"
 						type="submit"
 					>
 						Filtrar
 					</button>
 					<Link
-						className="rounded-xl border border-slate-800 px-4 py-2 font-medium text-slate-300 text-sm hover:border-slate-600"
+						className="rounded-xl border border-[color:var(--color-border-subtle)] px-4 py-2 font-medium text-[color:var(--color-text-muted)] text-sm hover:border-[color:var(--color-border)]"
 						href="/configuracoes/auditoria"
 					>
 						Limpar
@@ -166,33 +166,37 @@ export default async function AuditoriaPage({ searchParams }: AuditPageProps) {
 				</form>
 
 				{events.length === 0 ? (
-					<p className="text-slate-400 text-sm">
+					<p className="text-[color:var(--color-text-muted)] text-sm">
 						Nenhum evento encontrado para os filtros aplicados.
 					</p>
 				) : (
 					<ul className="flex flex-col gap-3">
 						{events.map((event) => (
 							<li
-								className="rounded-2xl border border-slate-800 bg-slate-950/60 p-4"
+								className="rounded-2xl border border-[color:var(--color-border-subtle)] bg-[color:var(--color-surface-muted)] p-4"
 								key={event.id}
 							>
-								<div className="flex flex-wrap items-center justify-between gap-2 text-slate-400 text-xs">
+								<div className="flex flex-wrap items-center justify-between gap-2 text-[color:var(--color-text-muted)] text-xs">
 									<span>
 										{entityTypeLabels[event.entityType] ?? event.entityType} ·{" "}
 										{actionLabels[event.action] ?? event.action}
 									</span>
 									<span>{formatDateTime(event.createdAt)}</span>
 								</div>
-								<p className="mt-2 text-slate-100 text-sm">{event.summary}</p>
+								<p className="mt-2 text-[color:var(--color-text)] text-sm">
+									{event.summary}
+								</p>
 								{event.entityId !== null ? (
-									<p className="text-slate-500 text-xs">ID #{event.entityId}</p>
+									<p className="text-[color:var(--color-text-subtle)] text-xs">
+										ID #{event.entityId}
+									</p>
 								) : null}
 								{event.diff ? (
 									<details className="mt-2">
-										<summary className="cursor-pointer text-emerald-300 text-xs">
+										<summary className="cursor-pointer text-[color:var(--color-accent)] text-xs">
 											Ver detalhes
 										</summary>
-										<pre className="mt-2 overflow-x-auto rounded-xl bg-black/40 p-3 font-mono text-slate-200 text-xs">
+										<pre className="mt-2 overflow-x-auto rounded-xl bg-black/40 p-3 font-mono text-[color:var(--color-text)] text-xs">
 											{JSON.stringify(event.diff, null, 2)}
 										</pre>
 									</details>

@@ -5,7 +5,7 @@ import { useRef } from "react";
 import { quickCategorizeTransaction } from "~/app/_actions/finance-actions";
 
 const inputClass =
-	"rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100";
+	"rounded-xl border border-[color:var(--color-border)] bg-[color:var(--color-bg)] px-3 py-2 text-sm text-[color:var(--color-text)]";
 
 type QuickCategory = {
 	id: number;
@@ -28,7 +28,7 @@ export function QuickCategorizeForm({
 
 	if (categories.length === 0) {
 		return (
-			<p className="mt-3 text-slate-500 text-sm">
+			<p className="mt-3 text-[color:var(--color-text-subtle)] text-sm">
 				Crie uma categoria compatível antes de categorizar rapidamente.
 			</p>
 		);
@@ -65,13 +65,16 @@ export function QuickCategorizeForm({
 			</select>
 			<button
 				aria-keyshortcuts="Control+Enter"
-				className="rounded-xl border border-slate-700 px-3 py-2 text-sm"
+				className="rounded-xl border border-[color:var(--color-border)] px-3 py-2 text-sm"
 				title="Atalho neste controle: Ctrl+Enter"
 				type="submit"
 			>
 				Categorizar
 			</button>
-			<span className="text-slate-500 text-xs" id={hintId}>
+			<span
+				className="text-[color:var(--color-text-subtle)] text-xs"
+				id={hintId}
+			>
 				Atalho com foco neste controle: Ctrl+Enter.
 			</span>
 		</form>
