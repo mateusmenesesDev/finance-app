@@ -454,52 +454,52 @@ Objetivo: reduzir sobrecarga cognitiva nos fluxos já construídos, deixando a U
 
 ### Diagnóstico e princípios de UX
 
-- [ ] Mapear telas com excesso de informação, começando por dashboard, transações, contas, importação e revisão de CSV.
-- [ ] Definir a tarefa principal de cada tela e esconder ou rebaixar dados que não ajudam nessa tarefa.
-- [ ] Criar hierarquia visual consistente para título, resumo, ação primária, filtros, listas, detalhes e alertas.
-- [ ] Usar divulgação progressiva: mostrar resumo primeiro e detalhes somente quando o usuário expandir, filtrar ou entrar no item.
-- [ ] Separar estados de atenção: informação normal, pendência, alerta, erro e ação destrutiva.
-- [ ] Reduzir cards, badges, cores e métricas concorrendo pela atenção na mesma área.
-- [ ] Padronizar textos curtos, vazios úteis, erros e confirmações em português claro.
+- [x] Mapear telas com excesso de informação, começando por dashboard, transações, contas, importação e revisão de CSV.
+- [x] Definir a tarefa principal de cada tela e esconder ou rebaixar dados que não ajudam nessa tarefa.
+- [x] Criar hierarquia visual consistente para título, resumo, ação primária, filtros, listas, detalhes e alertas.
+- [x] Usar divulgação progressiva: mostrar resumo primeiro e detalhes somente quando o usuário expandir, filtrar ou entrar no item.
+- [x] Separar estados de atenção: informação normal, pendência, alerta, erro e ação destrutiva.
+- [x] Reduzir cards, badges, cores e métricas concorrendo pela atenção na mesma área.
+- [x] Padronizar textos curtos, vazios úteis, erros e confirmações em português claro.
 
 ### Layout e navegação
 
-- [ ] Revisar navegação principal para destacar os fluxos centrais: Dashboard, Transações, Contas, Importações, Categorias e Relatórios.
-- [ ] Criar visão resumida para listas densas, com opção de abrir detalhe lateral ou página de detalhe.
-- [ ] Agrupar filtros avançados em uma área recolhível.
-- [ ] Definir estados vazios orientados à próxima ação, não apenas mensagens genéricas.
-- [ ] Melhorar legibilidade de tabelas/listas: espaçamento, alinhamento monetário, datas, descrição e categoria.
-- [ ] Garantir ações primárias claras e poucas ações secundárias visíveis por vez.
-- [ ] Revisar experiência mobile/responsiva para não empilhar informação demais.
+- [x] Revisar navegação principal para destacar os fluxos centrais: Dashboard, Transações, Contas, Importações, Categorias e Relatórios.
+- [x] Criar visão resumida para listas densas, com opção de abrir detalhe lateral ou página de detalhe.
+- [x] Agrupar filtros avançados em uma área recolhível.
+- [x] Definir estados vazios orientados à próxima ação, não apenas mensagens genéricas.
+- [x] Melhorar legibilidade de tabelas/listas: espaçamento, alinhamento monetário, datas, descrição e categoria.
+- [x] Garantir ações primárias claras e poucas ações secundárias visíveis por vez.
+- [x] Revisar experiência mobile/responsiva para não empilhar informação demais.
 
 ### Tema visual
 
-- [ ] Definir tokens de design mínimos: cores, fundo, superfície, borda, texto, texto secundário, sucesso, alerta, erro e foco.
-- [ ] Substituir cores soltas por tokens sem criar abstração desnecessária.
-- [ ] Criar tema claro como padrão inicial.
-- [ ] Criar tema escuro com contraste suficiente para uso contínuo.
-- [ ] Permitir escolher entre claro, escuro e preferência do sistema.
-- [ ] Persistir preferência de tema por usuário ou localmente quando o usuário não estiver autenticado.
-- [ ] Evitar usar apenas cor para indicar estado; combinar cor com texto, ícone ou posição.
-- [ ] Validar contraste de textos, botões, inputs, gráficos e badges nos dois temas.
+- [x] Definir tokens de design mínimos: cores, fundo, superfície, borda, texto, texto secundário, sucesso, alerta, erro e foco.
+- [x] Substituir cores soltas por tokens sem criar abstração desnecessária.
+- [x] Criar tema claro como padrão inicial.
+- [x] Criar tema escuro com contraste suficiente para uso contínuo.
+- [x] Permitir escolher entre claro, escuro e preferência do sistema.
+- [x] Persistir preferência de tema por usuário ou localmente quando o usuário não estiver autenticado.
+- [x] Evitar usar apenas cor para indicar estado; combinar cor com texto, ícone ou posição.
+- [x] Validar contraste de textos, botões, inputs, gráficos e badges nos dois temas.
 
 ### Componentes e consistência
 
-- [ ] Revisar botões, inputs, selects, dialogs, dropdowns, cards, tabelas e badges para consistência visual.
-- [ ] Padronizar formatação de moeda, datas, percentuais e valores negativos/positivos.
-- [ ] Padronizar loading, skeleton, erro, vazio e sucesso nos fluxos principais.
-- [ ] Melhorar feedback de ações: salvar, importar, desfazer, aplicar filtros, editar em lote e excluir/arquivar.
-- [ ] Garantir foco visível, navegação por teclado e labels acessíveis nos controles principais.
-- [ ] Criar exemplos visuais com dados do seed para validar telas densas sem dados reais.
+- [x] Revisar botões, inputs, selects, dialogs, dropdowns, cards, tabelas e badges para consistência visual.
+- [x] Padronizar formatação de moeda, datas, percentuais e valores negativos/positivos.
+- [x] Padronizar loading, skeleton, erro, vazio e sucesso nos fluxos principais.
+- [x] Melhorar feedback de ações: salvar, importar, desfazer, aplicar filtros, editar em lote e excluir/arquivar.
+- [x] Garantir foco visível, navegação por teclado e labels acessíveis nos controles principais.
+- [x] Criar exemplos visuais com dados do seed para validar telas densas sem dados reais.
 
 ### Critérios de aceite
 
-- [ ] Uma tela inicial não deve exibir mais métricas do que o necessário para responder “como está meu mês?”.
-- [ ] Listas densas devem permitir varrer informação rapidamente sem abrir todos os detalhes.
-- [ ] O usuário deve conseguir alternar claro/escuro/sistema sem recarregar o app.
-- [ ] A preferência de tema deve permanecer após fechar e abrir o app.
-- [ ] Telas principais devem funcionar bem com dados vazios, poucos dados e muitos dados.
-- [ ] A UI deve ser validada com a massa realista da Fase 3.5.
+- [x] Uma tela inicial não deve exibir mais métricas do que o necessário para responder “como está meu mês?”.
+- [x] Listas densas devem permitir varrer informação rapidamente sem abrir todos os detalhes.
+- [x] O usuário deve conseguir alternar claro/escuro/sistema sem recarregar o app.
+- [x] A preferência de tema deve permanecer após fechar e abrir o app.
+- [x] Telas principais devem funcionar bem com dados vazios, poucos dados e muitos dados.
+- [x] A UI deve ser validada com a massa realista da Fase 3.5.
 
 ---
 
