@@ -383,6 +383,47 @@ export async function archiveAccount(formData: FormData) {
 	revalidatePath("/");
 }
 
+async function ensureDefaultCategoryGroup(
+	userId: string,
+	group: (typeof defaultGroups)[number],
+) {
+	const [inserted] = await db
+		.insert(categoryGroups)
+		.values({ userId, name: group.name, kind: group.kind })
+		.onConflictDoNothing({
+			target: [categoryGroups.userId, categoryGroups.kind, categoryGroups.name],
+		})
+		.returning();
+	if (inserted) return inserted;
+
+	const [existing] = await db
+		.select()
+		.from(categoryGroups)
+		.where(
+			and(
+				eq(categoryGroups.userId, userId),
+				eq(categoryGroups.kind, group.kind),
+				eq(categoryGroups.name, group.name),
+			),
+		);
+	if (!existing) throw new Error("Não foi possível criar grupo padrão");
+	return existing;
+}
+
+async function ensureDefaultCategory(
+	userId: string,
+	groupId: number,
+	kind: CategoryKind,
+	name: string,
+) {
+	await db
+		.insert(categories)
+		.values({ userId, groupId, kind, name })
+		.onConflictDoNothing({
+			target: [categories.userId, categories.groupId, categories.name],
+		});
+}
+
 export async function createDefaultCategories(
 	_state: CategoryActionState,
 	_formData: FormData,
@@ -390,42 +431,14 @@ export async function createDefaultCategories(
 	try {
 		const userId = await requireUserId();
 		for (const group of defaultGroups) {
-			let [savedGroup] = await db
-				.select()
-				.from(categoryGroups)
-				.where(
-					and(
-						eq(categoryGroups.userId, userId),
-						eq(categoryGroups.kind, group.kind),
-						eq(categoryGroups.name, group.name),
-					),
-				);
-			if (!savedGroup) {
-				[savedGroup] = await db
-					.insert(categoryGroups)
-					.values({ userId, name: group.name, kind: group.kind })
-					.returning();
-			}
-			if (!savedGroup) throw new Error("Não foi possível criar grupo padrão");
+			const savedGroup = await ensureDefaultCategoryGroup(userId, group);
 			for (const categoryName of group.categories) {
-				const [existing] = await db
-					.select({ id: categories.id })
-					.from(categories)
-					.where(
-						and(
-							eq(categories.userId, userId),
-							eq(categories.groupId, savedGroup.id),
-							eq(categories.name, categoryName),
-						),
-					);
-				if (!existing) {
-					await db.insert(categories).values({
-						userId,
-						groupId: savedGroup.id,
-						kind: group.kind,
-						name: categoryName,
-					});
-				}
+				await ensureDefaultCategory(
+					userId,
+					savedGroup.id,
+					group.kind,
+					categoryName,
+				);
 			}
 		}
 		revalidatePath("/");
@@ -435,28 +448,44 @@ export async function createDefaultCategories(
 	}
 }
 
-export async function createCategoryGroup(formData: FormData) {
-	const userId = await requireUserId();
-	await db.insert(categoryGroups).values({
-		userId,
-		name: requiredString(formData, "name"),
-		kind: enumField(formData, "kind", categoryKinds),
-	});
-	revalidatePath("/");
+export async function createCategoryGroup(
+	_state: CategoryActionState,
+	formData: FormData,
+): Promise<CategoryActionState> {
+	try {
+		const userId = await requireUserId();
+		await db.insert(categoryGroups).values({
+			userId,
+			name: requiredString(formData, "name"),
+			kind: enumField(formData, "kind", categoryKinds),
+		});
+		revalidatePath("/");
+		return { error: null };
+	} catch (error) {
+		return handleCategoryActionError(error);
+	}
 }
 
-export async function updateCategoryGroup(formData: FormData) {
-	const userId = await requireUserId();
-	await db
-		.update(categoryGroups)
-		.set({ name: requiredString(formData, "name") })
-		.where(
-			and(
-				eq(categoryGroups.id, intField(formData, "id")),
-				eq(categoryGroups.userId, userId),
-			),
-		);
-	revalidatePath("/");
+export async function updateCategoryGroup(
+	_state: CategoryActionState,
+	formData: FormData,
+): Promise<CategoryActionState> {
+	try {
+		const userId = await requireUserId();
+		await db
+			.update(categoryGroups)
+			.set({ name: requiredString(formData, "name") })
+			.where(
+				and(
+					eq(categoryGroups.id, intField(formData, "id")),
+					eq(categoryGroups.userId, userId),
+				),
+			);
+		revalidatePath("/");
+		return { error: null };
+	} catch (error) {
+		return handleCategoryActionError(error);
+	}
 }
 
 export async function archiveCategoryGroup(formData: FormData) {

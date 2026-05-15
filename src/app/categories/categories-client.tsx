@@ -97,6 +97,14 @@ export function CategoriesClient({
 		createDefaultCategories,
 		initialState,
 	);
+	const [createGroupState, createGroupAction] = useActionState(
+		createCategoryGroup,
+		initialState,
+	);
+	const [updateGroupState, updateGroupAction] = useActionState(
+		updateCategoryGroup,
+		initialState,
+	);
 	const [createState, createAction] = useActionState(
 		createCategory,
 		initialState,
@@ -160,6 +168,12 @@ export function CategoriesClient({
 		if (defaultState.error) setVisibleError(defaultState.error);
 	}, [defaultState]);
 	useEffect(() => {
+		if (createGroupState.error) setVisibleError(createGroupState.error);
+	}, [createGroupState]);
+	useEffect(() => {
+		if (updateGroupState.error) setVisibleError(updateGroupState.error);
+	}, [updateGroupState]);
+	useEffect(() => {
 		if (createState.error) setVisibleError(createState.error);
 	}, [createState]);
 	useEffect(() => {
@@ -192,8 +206,9 @@ export function CategoriesClient({
 					</SubmitButton>
 				</form>
 				<form
-					action={createCategoryGroup}
+					action={createGroupAction}
 					className="grid gap-3 rounded-2xl border border-[color:var(--color-border-subtle)] p-4 md:grid-cols-3"
+					onSubmit={() => setVisibleError(null)}
 				>
 					<TextInput name="name" placeholder="Grupo" />
 					<Select
@@ -228,9 +243,10 @@ export function CategoriesClient({
 					<div className="grid gap-2">
 						{visibleGroups.map((group) => (
 							<form
-								action={updateCategoryGroup}
+								action={updateGroupAction}
 								className="grid gap-2 rounded-xl border border-[color:var(--color-border-subtle)] p-3 md:grid-cols-[1fr_110px_120px_90px]"
 								key={group.id}
+								onSubmit={() => setVisibleError(null)}
 							>
 								<input name="id" type="hidden" value={group.id} />
 								<TextInput defaultValue={group.name} name="name" />
