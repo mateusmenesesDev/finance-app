@@ -315,7 +315,13 @@ export default async function Home({ searchParams }: HomeProps) {
 								Crie exemplos de renda, moradia, alimentação, transporte e
 								outros grupos para acelerar a organização.
 							</p>
-							<form action={createDefaultCategories} className="mt-4">
+							<form
+								action={async (formData) => {
+									"use server";
+									await createDefaultCategories({ error: null }, formData);
+								}}
+								className="mt-4"
+							>
 								<button
 									className="rounded-full border border-[color:var(--color-border)] px-4 py-2 text-sm"
 									type="submit"

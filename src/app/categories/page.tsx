@@ -1,25 +1,9 @@
 import { asc, desc, eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
 
-import {
-	archiveCategory,
-	archiveCategoryGroup,
-	createCategory,
-	createCategoryGroup,
-	createDefaultCategories,
-	updateCategory,
-	updateCategoryGroup,
-} from "~/app/_actions/finance-actions";
-import {
-	FinanceShell,
-	inputClass,
-	Panel,
-	Select,
-	SubmitButton,
-	TextInput,
-} from "~/app/_components/finance-ui";
+import { FinanceShell } from "~/app/_components/finance-ui";
+import { CategoriesClient } from "~/app/categories/categories-client";
 import { getCurrentMonthPeriod } from "~/lib/finance-rules";
-import { formatMoney } from "~/lib/formatters";
 import { getSession } from "~/server/better-auth/server";
 import { db } from "~/server/db";
 import { categories, categoryGroups, transactions } from "~/server/db/schema";
@@ -86,109 +70,12 @@ export default async function CategoriesPage() {
 			eyebrow="Categorias"
 			title="Grupos e categorias"
 		>
-			<Panel title="Criar categorias">
-				<form action={createDefaultCategories} className="mb-4">
-					<SubmitButton>Criar categorias iniciais</SubmitButton>
-				</form>
-				<form
-					action={createCategoryGroup}
-					className="grid gap-3 rounded-2xl border border-[color:var(--color-border-subtle)] p-4 md:grid-cols-3"
-				>
-					<TextInput name="name" placeholder="Grupo" />
-					<Select
-						name="kind"
-						options={{ income: "Receita", expense: "Despesa" }}
-					/>
-					<SubmitButton>Cadastrar grupo</SubmitButton>
-				</form>
-				<form
-					action={createCategory}
-					className="mt-3 grid gap-3 rounded-2xl border border-[color:var(--color-border-subtle)] p-4 md:grid-cols-3"
-				>
-					<TextInput name="name" placeholder="Categoria" />
-					<select className={inputClass} name="groupId">
-						{activeGroups.map((group) => (
-							<option key={group.id} value={group.id}>
-								{group.name} ({group.kind === "income" ? "receita" : "despesa"})
-							</option>
-						))}
-					</select>
-					<SubmitButton>Cadastrar categoria</SubmitButton>
-				</form>
-			</Panel>
-
-			<section className="grid gap-6 xl:grid-cols-2">
-				<Panel title="Grupos">
-					<div className="grid gap-2">
-						{activeGroups.map((group) => (
-							<form
-								action={updateCategoryGroup}
-								className="grid gap-2 rounded-xl border border-[color:var(--color-border-subtle)] p-3 md:grid-cols-[1fr_110px_120px_90px]"
-								key={group.id}
-							>
-								<input name="id" type="hidden" value={group.id} />
-								<TextInput defaultValue={group.name} name="name" />
-								<p className="text-[color:var(--color-text-muted)] text-sm">
-									{group.kind === "income" ? "Receita" : "Despesa"}
-									<br />
-									{formatMoney(groupTotals.get(group.id) ?? 0)}
-								</p>
-								<SubmitButton>Salvar</SubmitButton>
-								<button
-									className="rounded-xl border border-[color:var(--color-bad-border)] px-3 py-2 text-[color:var(--color-bad)] text-sm"
-									formAction={archiveCategoryGroup}
-									type="submit"
-								>
-									Arquivar
-								</button>
-							</form>
-						))}
-					</div>
-				</Panel>
-
-				<Panel title="Categorias">
-					<div className="grid gap-2">
-						{activeCategories.map((category) => (
-							<form
-								action={updateCategory}
-								className="grid gap-2 rounded-xl border border-[color:var(--color-border-subtle)] p-3 md:grid-cols-[1fr_1fr_120px_90px]"
-								key={category.id}
-							>
-								<input name="id" type="hidden" value={category.id} />
-								<TextInput defaultValue={category.name} name="name" />
-								<select
-									className={inputClass}
-									defaultValue={category.groupId}
-									name="groupId"
-								>
-									{activeGroups
-										.filter((group) => group.kind === category.kind)
-										.map((group) => (
-											<option key={group.id} value={group.id}>
-												{group.name}
-											</option>
-										))}
-								</select>
-								<p className="text-[color:var(--color-text-muted)] text-sm">
-									{category.kind === "income" ? "Receita" : "Despesa"}
-									<br />
-									{categoryTotals.has(category.id)
-										? formatMoney(categoryTotals.get(category.id) ?? 0)
-										: "sem gasto"}
-								</p>
-								<SubmitButton>Salvar</SubmitButton>
-								<button
-									className="rounded-xl border border-[color:var(--color-bad-border)] px-3 py-2 text-[color:var(--color-bad)] text-sm md:col-start-4"
-									formAction={archiveCategory}
-									type="submit"
-								>
-									Arquivar
-								</button>
-							</form>
-						))}
-					</div>
-				</Panel>
-			</section>
+			<CategoriesClient
+				activeCategories={activeCategories}
+				activeGroups={activeGroups}
+				categoryTotals={Object.fromEntries(categoryTotals)}
+				groupTotals={Object.fromEntries(groupTotals)}
+			/>
 		</FinanceShell>
 	);
 }
