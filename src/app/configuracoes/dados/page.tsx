@@ -1,6 +1,6 @@
 import { and, asc, eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
-import { Panel } from "~/app/_components/finance-ui";
+import { Panel, SubmitButton } from "~/app/_components/finance-ui";
 import {
 	deleteAccountForever,
 	purgeAllFinancialData,
@@ -105,12 +105,13 @@ export default async function DadosPage() {
 										Entendo que esta ação é permanente e apaga todas as
 										transações, importações e recorrências desta conta.
 									</label>
-									<button
-										className="self-start rounded-xl bg-[color:var(--color-bad)] px-4 py-2 font-medium text-[color:var(--color-bg)] text-sm"
-										type="submit"
+									<SubmitButton
+										className="self-start bg-[color:var(--color-bad)] text-[color:var(--color-bg)]"
+										pendingLabel="Apagando..."
+										variant="danger"
 									>
 										Apagar permanentemente
-									</button>
+									</SubmitButton>
 								</form>
 							</li>
 						))}
@@ -152,12 +153,13 @@ export default async function DadosPage() {
 						Entendo que esta ação é permanente e remove todos os meus dados
 						financeiros.
 					</label>
-					<button
-						className="self-start rounded-xl bg-[color:var(--color-bad)] px-4 py-2 font-medium text-[color:var(--color-bg)] text-sm"
-						type="submit"
+					<SubmitButton
+						className="self-start bg-[color:var(--color-bad)] text-[color:var(--color-bg)]"
+						pendingLabel="Apagando..."
+						variant="danger"
 					>
 						Apagar todos os dados financeiros
-					</button>
+					</SubmitButton>
 				</form>
 			</Panel>
 		</div>

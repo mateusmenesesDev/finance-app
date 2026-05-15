@@ -5,6 +5,7 @@ import { createDefaultCategories } from "~/app/_actions/finance-actions";
 import {
 	FinanceShell,
 	Panel,
+	SubmitButton,
 	SummaryCard,
 	TextInput,
 } from "~/app/_components/finance-ui";
@@ -322,12 +323,13 @@ export default async function Home({ searchParams }: HomeProps) {
 								}}
 								className="mt-4"
 							>
-								<button
-									className="rounded-full border border-[color:var(--color-border)] px-4 py-2 text-sm"
-									type="submit"
+								<SubmitButton
+									className="rounded-full"
+									pendingLabel="Criando..."
+									variant="secondary"
 								>
 									Criar categorias iniciais
-								</button>
+								</SubmitButton>
 							</form>
 						</div>
 					) : null}
@@ -360,12 +362,7 @@ export default async function Home({ searchParams }: HomeProps) {
 								type="month"
 							/>
 						</label>
-						<button
-							className="rounded-xl bg-[color:var(--color-accent-strong)] px-4 py-2 font-medium text-[color:var(--color-accent-text)] text-sm"
-							type="submit"
-						>
-							Atualizar
-						</button>
+						<SubmitButton pendingLabel="Atualizando...">Atualizar</SubmitButton>
 					</form>
 				</div>
 

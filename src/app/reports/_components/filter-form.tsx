@@ -136,7 +136,7 @@ export function ReportFilterForm({
 				</div>
 			</details>
 			<div className="mt-4 flex items-center gap-3">
-				<SubmitButton>Aplicar</SubmitButton>
+				<SubmitButton pendingLabel="Aplicando...">Aplicar</SubmitButton>
 				<Link
 					className="text-[color:var(--color-text-muted)] text-sm hover:text-[color:var(--color-text)]"
 					href="/reports"

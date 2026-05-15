@@ -91,7 +91,9 @@ export default async function PrivacidadePage() {
 					</p>
 				)}
 				<form action={runSanitizeHistory}>
-					<SubmitButton>Re-sanitizar histórico agora</SubmitButton>
+					<SubmitButton pendingLabel="Re-sanitizando...">
+						Re-sanitizar histórico agora
+					</SubmitButton>
 				</form>
 			</Panel>
 

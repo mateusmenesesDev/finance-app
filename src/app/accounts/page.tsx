@@ -1,11 +1,7 @@
 import { asc, desc, eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
 
-import {
-	archiveAccount,
-	createAccount,
-	updateAccount,
-} from "~/app/_actions/finance-actions";
+import { createAccount } from "~/app/_actions/finance-actions";
 import {
 	FinanceShell,
 	Panel,
@@ -13,11 +9,12 @@ import {
 	SubmitButton,
 	TextInput,
 } from "~/app/_components/finance-ui";
+import { AccountsList } from "~/app/accounts/accounts-client";
 import {
 	calculateAccountBalances,
 	getInvoiceForDate,
 } from "~/lib/finance-rules";
-import { formatDate, formatMoney, formatMoneyInput } from "~/lib/formatters";
+import { formatDate, formatMoney } from "~/lib/formatters";
 import { getSession } from "~/server/better-auth/server";
 import { db } from "~/server/db";
 import { financialAccounts, transactions } from "~/server/db/schema";
@@ -98,73 +95,17 @@ export default async function AccountsPage() {
 					/>
 					<TextInput name="closingDay" placeholder="Fechamento (cartão)" />
 					<TextInput name="dueDay" placeholder="Vencimento (cartão)" />
-					<SubmitButton>Cadastrar conta</SubmitButton>
+					<SubmitButton pendingLabel="Cadastrando...">
+						Cadastrar conta
+					</SubmitButton>
 				</form>
 			</Panel>
 
 			<Panel title="Contas cadastradas">
-				<div className="grid gap-3">
-					{activeAccounts.map((account) => (
-						<form
-							action={updateAccount}
-							className="grid gap-2 rounded-2xl border border-[color:var(--color-border-subtle)] p-4 md:grid-cols-6"
-							key={account.id}
-						>
-							<input name="id" type="hidden" value={account.id} />
-							<TextInput defaultValue={account.name} name="name" />
-							<TextInput
-								defaultValue={account.institution ?? ""}
-								name="institution"
-							/>
-							<Select
-								defaultValue={account.type}
-								name="type"
-								options={accountTypeLabels}
-							/>
-							<TextInput
-								defaultValue={formatMoneyInput(account.initialBalanceCents)}
-								name="initialBalance"
-							/>
-							<TextInput
-								defaultValue={account.creditCardClosingDay?.toString() ?? ""}
-								name="closingDay"
-								placeholder="Fecha"
-							/>
-							<TextInput
-								defaultValue={account.creditCardDueDay?.toString() ?? ""}
-								name="dueDay"
-								placeholder="Vence"
-							/>
-							<label className="flex items-center gap-2 text-sm">
-								<input
-									defaultChecked={account.isActive}
-									name="isActive"
-									type="checkbox"
-								/>{" "}
-								Ativa
-							</label>
-							<p className="text-[color:var(--color-text-muted)] text-sm md:col-span-2">
-								Saldo:{" "}
-								{formatMoney(balances.get(account.id)?.normalBalanceCents ?? 0)}{" "}
-								· Cartão:{" "}
-								{formatMoney(balances.get(account.id)?.cardDebtCents ?? 0)}
-							</p>
-							<SubmitButton>Salvar</SubmitButton>
-							<button
-								className="rounded-xl border border-[color:var(--color-bad-border)] px-3 py-2 text-[color:var(--color-bad)] text-sm"
-								formAction={archiveAccount}
-								type="submit"
-							>
-								Arquivar
-							</button>
-						</form>
-					))}
-					{activeAccounts.length === 0 ? (
-						<p className="rounded-2xl border border-[color:var(--color-border-subtle)] p-4 text-[color:var(--color-text-muted)] text-sm">
-							Nenhuma conta cadastrada.
-						</p>
-					) : null}
-				</div>
+				<AccountsList
+					accounts={activeAccounts}
+					balances={Object.fromEntries(balances)}
+				/>
 			</Panel>
 
 			<Panel title="Faturas dinâmicas de cartão">

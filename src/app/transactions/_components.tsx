@@ -3,6 +3,7 @@
 import { useRef } from "react";
 
 import { quickCategorizeTransaction } from "~/app/_actions/finance-actions";
+import { SubmitButton } from "~/app/_components/pending-submit-button";
 
 const inputClass =
 	"rounded-xl border border-[color:var(--color-border)] bg-[color:var(--color-bg)] px-3 py-2 text-sm text-[color:var(--color-text)]";
@@ -63,14 +64,15 @@ export function QuickCategorizeForm({
 					</option>
 				))}
 			</select>
-			<button
+			<SubmitButton
 				aria-keyshortcuts="Control+Enter"
-				className="rounded-xl border border-[color:var(--color-border)] px-3 py-2 text-sm"
+				className="px-3"
+				pendingLabel="Categorizando..."
 				title="Atalho neste controle: Ctrl+Enter"
-				type="submit"
+				variant="secondary"
 			>
 				Categorizar
-			</button>
+			</SubmitButton>
 			<span
 				className="text-[color:var(--color-text-subtle)] text-xs"
 				id={hintId}

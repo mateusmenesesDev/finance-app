@@ -11,6 +11,10 @@ import {
 	updateCategory,
 	updateCategoryGroup,
 } from "~/app/_actions/finance-actions";
+import {
+	DangerSubmitButton,
+	SubmitButton,
+} from "~/app/_components/pending-submit-button";
 import type { CategoryActionState } from "~/lib/category-errors";
 import { formatMoney } from "~/lib/formatters";
 
@@ -31,23 +35,6 @@ const initialState: CategoryActionState = { error: null };
 
 const inputClass =
 	"rounded-xl border border-[color:var(--color-border)] bg-[color:var(--color-surface)] px-3 py-2 text-[color:var(--color-text)] text-sm";
-
-function Panel({
-	title,
-	children,
-}: {
-	title: string;
-	children: React.ReactNode;
-}) {
-	return (
-		<section className="rounded-3xl border border-[color:var(--color-border-subtle)] bg-[color:var(--color-surface)] p-6">
-			<div className="mb-4">
-				<h2 className="font-semibold text-xl">{title}</h2>
-			</div>
-			{children}
-		</section>
-	);
-}
 
 function TextInput({
 	className,
@@ -78,14 +65,20 @@ function Select({
 	);
 }
 
-function SubmitButton({ children }: { children: React.ReactNode }) {
+function Panel({
+	title,
+	children,
+}: {
+	title: string;
+	children: React.ReactNode;
+}) {
 	return (
-		<button
-			className="rounded-xl bg-[color:var(--color-accent-strong)] px-4 py-2 font-medium text-[color:var(--color-accent-text)] text-sm hover:opacity-90"
-			type="submit"
-		>
+		<section className="rounded-3xl border border-[color:var(--color-border-subtle)] bg-[color:var(--color-surface)] p-6">
+			<div className="mb-4">
+				<h2 className="font-semibold text-xl">{title}</h2>
+			</div>
 			{children}
-		</button>
+		</section>
 	);
 }
 
@@ -113,6 +106,55 @@ export function CategoriesClient({
 		initialState,
 	);
 	const [visibleError, setVisibleError] = useState<string | null>(null);
+	const [visibleGroups, setVisibleGroups] = useState(activeGroups);
+	const [visibleCategories, setVisibleCategories] = useState(activeCategories);
+	const [status, setStatus] = useState<string | null>(null);
+
+	useEffect(() => {
+		setVisibleGroups(activeGroups);
+	}, [activeGroups]);
+	useEffect(() => {
+		setVisibleCategories(activeCategories);
+	}, [activeCategories]);
+
+	async function archiveGroupWithRollback(formData: FormData) {
+		const id = Number(formData.get("id"));
+		const groupsBefore = visibleGroups;
+		const categoriesBefore = visibleCategories;
+		setVisibleError(null);
+		setStatus("Arquivando grupo...");
+		setVisibleGroups((current) => current.filter((group) => group.id !== id));
+		setVisibleCategories((current) =>
+			current.filter((category) => category.groupId !== id),
+		);
+		try {
+			await archiveCategoryGroup(formData);
+			setStatus("Grupo arquivado.");
+		} catch {
+			setVisibleGroups(groupsBefore);
+			setVisibleCategories(categoriesBefore);
+			setVisibleError("Não foi possível arquivar o grupo.");
+			setStatus(null);
+		}
+	}
+
+	async function archiveCategoryWithRollback(formData: FormData) {
+		const id = Number(formData.get("id"));
+		const before = visibleCategories;
+		setVisibleError(null);
+		setStatus("Arquivando categoria...");
+		setVisibleCategories((current) =>
+			current.filter((category) => category.id !== id),
+		);
+		try {
+			await archiveCategory(formData);
+			setStatus("Categoria arquivada.");
+		} catch {
+			setVisibleCategories(before);
+			setVisibleError("Não foi possível arquivar a categoria.");
+			setStatus(null);
+		}
+	}
 
 	useEffect(() => {
 		if (defaultState.error) setVisibleError(defaultState.error);
@@ -126,6 +168,9 @@ export function CategoriesClient({
 
 	return (
 		<>
+			<p aria-live="polite" className="sr-only" role="status">
+				{status ?? ""}
+			</p>
 			{visibleError ? (
 				<div
 					aria-live="polite"
@@ -142,7 +187,9 @@ export function CategoriesClient({
 					className="mb-4"
 					onSubmit={() => setVisibleError(null)}
 				>
-					<SubmitButton>Criar categorias iniciais</SubmitButton>
+					<SubmitButton pendingLabel="Criando...">
+						Criar categorias iniciais
+					</SubmitButton>
 				</form>
 				<form
 					action={createCategoryGroup}
@@ -153,7 +200,9 @@ export function CategoriesClient({
 						name="kind"
 						options={{ income: "Receita", expense: "Despesa" }}
 					/>
-					<SubmitButton>Cadastrar grupo</SubmitButton>
+					<SubmitButton pendingLabel="Cadastrando...">
+						Cadastrar grupo
+					</SubmitButton>
 				</form>
 				<form
 					action={createAction}
@@ -162,20 +211,22 @@ export function CategoriesClient({
 				>
 					<TextInput name="name" placeholder="Categoria" />
 					<select className={inputClass} name="groupId">
-						{activeGroups.map((group) => (
+						{visibleGroups.map((group) => (
 							<option key={group.id} value={group.id}>
 								{group.name} ({group.kind === "income" ? "receita" : "despesa"})
 							</option>
 						))}
 					</select>
-					<SubmitButton>Cadastrar categoria</SubmitButton>
+					<SubmitButton pendingLabel="Cadastrando...">
+						Cadastrar categoria
+					</SubmitButton>
 				</form>
 			</Panel>
 
 			<section className="grid gap-6 xl:grid-cols-2">
 				<Panel title="Grupos">
 					<div className="grid gap-2">
-						{activeGroups.map((group) => (
+						{visibleGroups.map((group) => (
 							<form
 								action={updateCategoryGroup}
 								className="grid gap-2 rounded-xl border border-[color:var(--color-border-subtle)] p-3 md:grid-cols-[1fr_110px_120px_90px]"
@@ -189,13 +240,9 @@ export function CategoriesClient({
 									{formatMoney(groupTotals[group.id] ?? 0)}
 								</p>
 								<SubmitButton>Salvar</SubmitButton>
-								<button
-									className="rounded-xl border border-[color:var(--color-bad-border)] px-3 py-2 text-[color:var(--color-bad)] text-sm"
-									formAction={archiveCategoryGroup}
-									type="submit"
-								>
+								<DangerSubmitButton formAction={archiveGroupWithRollback}>
 									Arquivar
-								</button>
+								</DangerSubmitButton>
 							</form>
 						))}
 					</div>
@@ -203,7 +250,7 @@ export function CategoriesClient({
 
 				<Panel title="Categorias">
 					<div className="grid gap-2">
-						{activeCategories.map((category) => (
+						{visibleCategories.map((category) => (
 							<form
 								action={updateAction}
 								className="grid gap-2 rounded-xl border border-[color:var(--color-border-subtle)] p-3 md:grid-cols-[1fr_1fr_120px_90px]"
@@ -217,7 +264,7 @@ export function CategoriesClient({
 									defaultValue={category.groupId}
 									name="groupId"
 								>
-									{activeGroups
+									{visibleGroups
 										.filter((group) => group.kind === category.kind)
 										.map((group) => (
 											<option key={group.id} value={group.id}>
@@ -233,13 +280,12 @@ export function CategoriesClient({
 										: "sem gasto"}
 								</p>
 								<SubmitButton>Salvar</SubmitButton>
-								<button
-									className="rounded-xl border border-[color:var(--color-bad-border)] px-3 py-2 text-[color:var(--color-bad)] text-sm md:col-start-4"
-									formAction={archiveCategory}
-									type="submit"
+								<DangerSubmitButton
+									className="md:col-start-4"
+									formAction={archiveCategoryWithRollback}
 								>
 									Arquivar
-								</button>
+								</DangerSubmitButton>
 							</form>
 						))}
 					</div>

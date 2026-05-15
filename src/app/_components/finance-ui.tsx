@@ -2,8 +2,14 @@ import { headers } from "next/headers";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import {
+	DangerSubmitButton,
+	SubmitButton,
+} from "~/app/_components/pending-submit-button";
 import { ThemeToggle } from "~/app/_components/theme-toggle";
 import { auth } from "~/server/better-auth";
+
+export { DangerSubmitButton, SubmitButton };
 
 const primaryNavigation = [
 	{ href: "/", label: "Dashboard" },
@@ -74,17 +80,18 @@ export function FinanceShell({
 								</search>
 								<ThemeToggle />
 								<form>
-									<button
-										className="rounded-full border border-[color:var(--color-border)] px-5 py-2 font-medium text-sm transition hover:bg-[color:var(--color-surface-muted)]"
+									<SubmitButton
+										className="rounded-full px-5"
 										formAction={async () => {
 											"use server";
 											await auth.api.signOut({ headers: await headers() });
 											redirect("/");
 										}}
-										type="submit"
+										pendingLabel="Saindo..."
+										variant="secondary"
 									>
 										Sair
-									</button>
+									</SubmitButton>
 								</form>
 							</div>
 
@@ -256,17 +263,6 @@ export function Select({
 				</option>
 			))}
 		</select>
-	);
-}
-
-export function SubmitButton({ children }: { children: React.ReactNode }) {
-	return (
-		<button
-			className="rounded-xl bg-[color:var(--color-accent-strong)] px-4 py-2 font-medium text-[color:var(--color-accent-text)] text-sm hover:opacity-90"
-			type="submit"
-		>
-			{children}
-		</button>
 	);
 }
 

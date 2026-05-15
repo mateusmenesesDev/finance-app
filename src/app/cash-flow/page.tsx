@@ -248,7 +248,7 @@ export default async function CashFlowPage({
 						/>
 					</label>
 					<input name="windowEnd" type="hidden" value={window.end} />
-					<SubmitButton>Atualizar</SubmitButton>
+					<SubmitButton pendingLabel="Atualizando...">Atualizar</SubmitButton>
 				</form>
 				<p className="mt-4 text-[color:var(--color-text-subtle)] text-xs">
 					Período: {formatDate(window.start)} – {formatDate(window.end)}.

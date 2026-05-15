@@ -13,7 +13,11 @@ import {
 	revertImportBatch,
 	updateImportTemplate,
 } from "~/app/_actions/finance-actions";
-import { FinanceShell } from "~/app/_components/finance-ui";
+import {
+	DangerSubmitButton,
+	FinanceShell,
+	SubmitButton,
+} from "~/app/_components/finance-ui";
 import {
 	defaultTemplateConfig,
 	normalizeImportTemplateConfig,
@@ -130,16 +134,18 @@ export default async function ImportPage({ searchParams }: ImportPageProps) {
 			<Panel title="Ajuda CSV">
 				<ul className="list-disc space-y-1 pl-5 text-[color:var(--color-text-muted)] text-sm">
 					<li>
-						Use uma linha de cabeçalho e colunas estáveis para data, descrição e
-						valor.
+						Os campos do modelo são nomes de colunas do cabeçalho do CSV, não a
+						posição delas. Copie exatamente como aparece no arquivo.
 					</li>
+					<li>Exemplo comum: Data, Valor, Identificador e Descrição.</li>
 					<li>
 						Valores podem vir em coluna única com sinal ou em colunas separadas
 						de entrada e saída.
 					</li>
 					<li>
 						Revise linhas inválidas ou duplicadas antes de confirmar; o arquivo
-						bruto não é armazenado.
+						bruto não é armazenado. A prévia mostra os valores lidos para
+						revelar erros de mapeamento.
 					</li>
 				</ul>
 				<Link
@@ -156,58 +162,96 @@ export default async function ImportPage({ searchParams }: ImportPageProps) {
 						<summary className="cursor-pointer rounded-2xl border border-[color:var(--color-border)] px-4 py-3 font-medium text-sm hover:bg-[color:var(--color-surface-muted)]">
 							Abrir configuração de modelo
 						</summary>
-						<form action={createImportTemplate} className="mt-4 grid gap-3">
-							<div className="grid gap-3 md:grid-cols-3">
-								<TextInput name="name" placeholder="Nome do modelo" required />
-								<TextInput name="sourceLabel" placeholder="Banco/cartão" />
-								<Select
-									defaultValue={defaultTemplateConfig.amountMode}
-									name="amountMode"
-									options={{
-										signed: "Valor único com sinal",
-										separate: "Entrada/saída separadas",
-									}}
-								/>
+						<form action={createImportTemplate} className="mt-4 grid gap-4">
+							<div className="rounded-2xl border border-[color:var(--color-warn-border)] bg-[color:var(--color-warn-bg)] p-3 text-[color:var(--color-warn)] text-sm">
+								Digite nomes de colunas, não números nem ordem. Ex.: se o
+								cabeçalho for “Data;Valor;Identificador;Descrição”, use
+								exatamente esses textos.
 							</div>
-							<div className="grid gap-3 md:grid-cols-4">
-								<TextInput
-									defaultValue={defaultTemplateConfig.dateColumn}
-									name="dateColumn"
-									placeholder="Coluna data"
-									required
+							<div className="grid gap-3 md:grid-cols-3">
+								<LabelledInput label="Nome do modelo" name="name" required />
+								<LabelledInput
+									label="Origem"
+									name="sourceLabel"
+									placeholder="Banco/cartão"
 								/>
-								<TextInput
-									defaultValue={defaultTemplateConfig.descriptionColumn}
-									name="descriptionColumn"
-									placeholder="Coluna descrição"
-									required
-								/>
-								<TextInput
-									defaultValue={defaultTemplateConfig.amountColumn}
-									name="amountColumn"
-									placeholder="Coluna valor único"
-								/>
-								<TextInput
-									name="kindColumn"
-									placeholder="Coluna tipo/sinal opcional"
-								/>
-								<TextInput
-									name="incomeAmountColumn"
-									placeholder="Coluna entrada"
-								/>
-								<TextInput
-									name="expenseAmountColumn"
-									placeholder="Coluna saída"
-								/>
-								<TextInput
-									name="categoryColumn"
-									placeholder="Coluna categoria"
-								/>
-								<TextInput
-									name="externalIdColumn"
-									placeholder="Coluna ID externo"
-								/>
-								<TextInput name="notesColumn" placeholder="Coluna observação" />
+								<div className="grid gap-1 text-[color:var(--color-text-muted)] text-sm">
+									<span>Formato do valor</span>
+									<Select
+										defaultValue={defaultTemplateConfig.amountMode}
+										name="amountMode"
+										options={{
+											signed: "Valor único com sinal",
+											separate: "Entrada/saída separadas",
+										}}
+									/>
+								</div>
+							</div>
+							<div className="grid gap-2">
+								<h3 className="font-medium text-sm">Mapeamento obrigatório</h3>
+								<p className="text-[color:var(--color-text-subtle)] text-xs">
+									Data e descrição são sempre necessárias. Para valor, preencha
+									“valor único” ou use entrada/saída abaixo.
+								</p>
+								<div className="grid gap-3 md:grid-cols-3">
+									<LabelledInput
+										defaultValue={defaultTemplateConfig.dateColumn}
+										label="Coluna de data"
+										name="dateColumn"
+										placeholder="Data"
+										required
+									/>
+									<LabelledInput
+										defaultValue={defaultTemplateConfig.descriptionColumn}
+										label="Coluna de descrição"
+										name="descriptionColumn"
+										placeholder="Descrição"
+										required
+									/>
+									<LabelledInput
+										defaultValue={defaultTemplateConfig.amountColumn}
+										label="Coluna de valor único"
+										name="amountColumn"
+										placeholder="Valor"
+									/>
+								</div>
+							</div>
+							<div className="grid gap-2">
+								<h3 className="font-medium text-sm">Mapeamento opcional</h3>
+								<div className="grid gap-3 md:grid-cols-4">
+									<LabelledInput
+										label="Coluna de tipo/sinal"
+										name="kindColumn"
+										placeholder="Tipo"
+									/>
+									<LabelledInput
+										label="Coluna de entrada"
+										name="incomeAmountColumn"
+										placeholder="Entrada"
+									/>
+									<LabelledInput
+										label="Coluna de saída"
+										name="expenseAmountColumn"
+										placeholder="Saída"
+									/>
+									<LabelledInput
+										label="Coluna de categoria"
+										name="categoryColumn"
+										placeholder="Categoria"
+									/>
+									<LabelledInput
+										label="Coluna de identificador"
+										name="externalIdColumn"
+										placeholder="Identificador"
+									/>
+									<LabelledInput
+										label="Coluna de observação"
+										name="notesColumn"
+										placeholder="Observação"
+									/>
+								</div>
+							</div>
+							<div className="grid gap-3 md:grid-cols-3">
 								<Select
 									defaultValue={defaultTemplateConfig.dateFormat}
 									name="dateFormat"
@@ -252,12 +296,12 @@ export default async function ImportPage({ searchParams }: ImportPageProps) {
 								<input name="invertSign" type="checkbox" /> Inverter sinal do
 								valor
 							</label>
-							<button
-								className="rounded-xl bg-[color:var(--color-accent)] px-4 py-2 font-semibold text-[color:var(--color-accent-text)]"
-								type="submit"
+							<SubmitButton
+								className="bg-[color:var(--color-accent)] font-semibold"
+								pendingLabel="Salvando..."
 							>
 								Salvar modelo
-							</button>
+							</SubmitButton>
 						</form>
 					</details>
 				</Panel>
@@ -297,12 +341,12 @@ export default async function ImportPage({ searchParams }: ImportPageProps) {
 							Controle explícito: o arquivo bruto não é salvo. Apenas linhas
 							parseadas e mascaradas ficam no lote para revisão.
 						</p>
-						<button
-							className="rounded-xl bg-[color:var(--color-accent)] px-4 py-2 font-semibold text-[color:var(--color-accent-text)]"
-							type="submit"
+						<SubmitButton
+							className="bg-[color:var(--color-accent)] font-semibold"
+							pendingLabel="Enviando..."
 						>
 							Enviar para revisão
-						</button>
+						</SubmitButton>
 					</form>
 
 					<div className="mt-6 grid gap-2">
@@ -516,22 +560,17 @@ function TemplateCard({
 						Inverter sinal
 					</label>
 					<div className="flex gap-2">
-						<button
-							className="rounded-xl bg-[color:var(--color-accent)] px-3 py-2 font-semibold text-[color:var(--color-accent-text)]"
-							type="submit"
+						<SubmitButton
+							className="bg-[color:var(--color-accent)] px-3 font-semibold"
+							pendingLabel="Salvando..."
 						>
 							Salvar alterações
-						</button>
+						</SubmitButton>
 					</div>
 				</form>
 				<form action={archiveImportTemplate} className="mt-2">
 					<input name="id" type="hidden" value={template.id} />
-					<button
-						className="rounded-xl border border-[color:var(--color-bad-border)] px-3 py-2 text-[color:var(--color-bad)]"
-						type="submit"
-					>
-						Arquivar
-					</button>
+					<DangerSubmitButton className="px-3">Arquivar</DangerSubmitButton>
 				</form>
 			</details>
 		</div>
@@ -598,12 +637,12 @@ function ImportRulePanel({
 						</option>
 					))}
 				</select>
-				<button
-					className="rounded-xl bg-[color:var(--color-accent)] px-4 py-2 font-semibold text-[color:var(--color-accent-text)] md:col-span-2"
-					type="submit"
+				<SubmitButton
+					className="bg-[color:var(--color-accent)] font-semibold md:col-span-2"
+					pendingLabel="Criando..."
 				>
 					Criar regra
-				</button>
+				</SubmitButton>
 			</form>
 			<div className="mt-4 grid gap-2">
 				{activeRules.map((rule) => {
@@ -628,12 +667,9 @@ function ImportRulePanel({
 							</p>
 							<form action={archiveImportCategoryRule}>
 								<input name="id" type="hidden" value={rule.id} />
-								<button
-									className="rounded-xl border border-[color:var(--color-bad-border)] px-3 py-2 text-[color:var(--color-bad)]"
-									type="submit"
-								>
+								<DangerSubmitButton className="px-3">
 									Arquivar
-								</button>
+								</DangerSubmitButton>
 							</form>
 						</div>
 					);
@@ -711,23 +747,25 @@ function BatchReview({
 				{selectedBatch.status === "reviewing" && (
 					<form action={cancelImportBatch}>
 						<input name="batchId" type="hidden" value={selectedBatch.id} />
-						<button
-							className="rounded-xl border border-[color:var(--color-bad-border)] px-3 py-2 text-[color:var(--color-bad)] text-sm"
-							type="submit"
+						<SubmitButton
+							className="px-3"
+							pendingLabel="Cancelando..."
+							variant="danger"
 						>
 							Cancelar lote
-						</button>
+						</SubmitButton>
 					</form>
 				)}
 				{selectedBatch.status === "confirmed" && (
 					<form action={revertImportBatch}>
 						<input name="batchId" type="hidden" value={selectedBatch.id} />
-						<button
-							className="rounded-xl border border-[color:var(--color-bad-border)] px-3 py-2 text-[color:var(--color-bad)] text-sm"
-							type="submit"
+						<SubmitButton
+							className="px-3"
+							pendingLabel="Revertendo..."
+							variant="danger"
 						>
 							Reverter transações
-						</button>
+						</SubmitButton>
 					</form>
 				)}
 			</div>
@@ -752,23 +790,49 @@ function BatchReview({
 							Usada apenas em linhas importadas sem categoria individual.
 						</p>
 					</div>
+					{totals.invalid > 0 && (
+						<div className="rounded-2xl border border-[color:var(--color-bad-border)] bg-[color:var(--color-bad-bg)] p-4 text-[color:var(--color-bad)] text-sm">
+							<p className="font-medium">
+								{totals.invalid} linha(s) inválida(s) precisam de decisão.
+							</p>
+							<p className="mt-1">
+								Compare “Valores lidos do CSV” com o cabeçalho. Se data, valor
+								ou descrição vierem vazios/trocados, ajuste o modelo e envie o
+								CSV novamente; se for uma exceção, corrija a linha ou ignore.
+							</p>
+						</div>
+					)}
 					{rows.map((row) => (
 						<div
 							className="grid gap-2 rounded-2xl border border-[color:var(--color-border-subtle)] p-4"
 							key={row.id}
 						>
-							<div className="flex flex-wrap gap-3 text-sm">
-								<span className="text-[color:var(--color-text-muted)]">
-									Linha {row.rowNumber}
-								</span>
-								<span>{row.occurredOn ?? "sem data"}</span>
-								<span>{formatMoney(row.amountCents ?? 0)}</span>
-								<span>{row.movementType ?? "tipo?"}</span>
-								<span className={rowStatusClass(row.status)}>{row.status}</span>
+							<div className="grid gap-2 text-sm md:grid-cols-5">
+								<RowFact label="Linha" value={row.rowNumber} />
+								<RowFact
+									label="Data normalizada"
+									value={row.occurredOn ?? "sem data"}
+								/>
+								<RowFact
+									label="Valor"
+									value={formatMoney(row.amountCents ?? 0)}
+								/>
+								<RowFact label="Tipo" value={row.movementType ?? "tipo?"} />
+								<RowFact
+									className={rowStatusClass(row.status)}
+									label="Status"
+									value={row.status}
+								/>
 							</div>
-							<p className="text-[color:var(--color-text)] text-sm">
-								{row.originalDescription}
-							</p>
+							<div className="rounded-xl bg-[color:var(--color-surface-muted)] p-3 text-sm">
+								<p className="text-[color:var(--color-text-muted)] text-xs">
+									Descrição importada
+								</p>
+								<p className="text-[color:var(--color-text)]">
+									{row.originalDescription || "sem descrição"}
+								</p>
+							</div>
+							<ParsedDataPreview parsedData={row.parsedData} />
 							{row.bankCategory && (
 								<p className="text-[color:var(--color-text-muted)] text-sm">
 									Categoria do banco: {row.bankCategory}
@@ -890,12 +954,12 @@ function BatchReview({
 							</label>
 						</div>
 					))}
-					<button
-						className="rounded-xl bg-[color:var(--color-accent)] px-4 py-3 font-semibold text-[color:var(--color-accent-text)]"
-						type="submit"
+					<SubmitButton
+						className="bg-[color:var(--color-accent)] py-3 font-semibold"
+						pendingLabel="Confirmando..."
 					>
 						Confirmar decisões do lote
-					</button>
+					</SubmitButton>
 				</form>
 			) : (
 				<div className="mt-5 grid gap-2 text-sm">
@@ -950,6 +1014,81 @@ function Select({
 
 function TextInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
 	return <input className={inputClass} {...props} />;
+}
+
+function LabelledInput({
+	label,
+	...props
+}: React.InputHTMLAttributes<HTMLInputElement> & { label: string }) {
+	return (
+		<label className="grid gap-1 text-[color:var(--color-text-muted)] text-sm">
+			{label}
+			<input className={inputClass} {...props} />
+		</label>
+	);
+}
+
+function RowFact({
+	label,
+	value,
+	className,
+}: {
+	label: string;
+	value: React.ReactNode;
+	className?: string;
+}) {
+	return (
+		<div>
+			<p className="text-[color:var(--color-text-muted)] text-xs">{label}</p>
+			<p className={className ?? "text-[color:var(--color-text)]"}>{value}</p>
+		</div>
+	);
+}
+
+function ParsedDataPreview({ parsedData }: { parsedData: unknown }) {
+	const entries = parsedDataEntries(parsedData).filter(
+		([key]) => key !== "hadSensitiveData",
+	);
+	if (entries.length === 0) return null;
+
+	return (
+		<div className="rounded-xl border border-[color:var(--color-border-subtle)] p-3 text-sm">
+			<p className="mb-2 font-medium">Valores lidos do CSV</p>
+			<dl className="grid gap-2 md:grid-cols-5">
+				{entries.map(([key, value]) => (
+					<div key={key}>
+						<dt className="text-[color:var(--color-text-muted)] text-xs">
+							{parsedDataLabel(key)}
+						</dt>
+						<dd className="break-words text-[color:var(--color-text)]">
+							{value || "—"}
+						</dd>
+					</div>
+				))}
+			</dl>
+			<p className="mt-2 text-[color:var(--color-text-subtle)] text-xs">
+				Use estes valores para detectar coluna errada no modelo.
+			</p>
+		</div>
+	);
+}
+
+function parsedDataEntries(parsedData: unknown): [string, string][] {
+	if (typeof parsedData !== "object" || parsedData === null) return [];
+	return Object.entries(parsedData).map(([key, value]) => [
+		key,
+		value === null || value === undefined ? "" : String(value),
+	]);
+}
+
+function parsedDataLabel(key: string) {
+	const labels: Record<string, string> = {
+		date: "Data bruta",
+		amount: "Valor bruto",
+		kind: "Tipo/sinal bruto",
+		notes: "Observação bruta",
+	};
+	return labels[key] ?? key;
 }
 
 function rowStatusClass(status: string) {

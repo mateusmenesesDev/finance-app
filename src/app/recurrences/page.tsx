@@ -245,13 +245,13 @@ export default async function RecurrencesPage() {
 								</div>
 								<input name="id" type="hidden" value={recurrence.id} />
 								<input name="isArchived" type="hidden" value="false" />
-								<button
-									className="rounded-xl border border-[color:var(--color-border)] px-3 py-2 text-sm"
+								<SubmitButton
 									formAction={archiveRecurrence}
-									type="submit"
+									pendingLabel="Reativando..."
+									variant="secondary"
 								>
 									Reativar
-								</button>
+								</SubmitButton>
 							</form>
 						))}
 					</div>
@@ -313,7 +313,9 @@ function OccurrenceRow({
 					</div>
 				) : null}
 			</div>
-			<SubmitButton>Confirmar ocorrência</SubmitButton>
+			<SubmitButton pendingLabel="Confirmando...">
+				Confirmar ocorrência
+			</SubmitButton>
 		</form>
 	);
 }
@@ -370,13 +372,13 @@ function RecurrenceCard({
 					<form action={archiveRecurrence}>
 						<input name="id" type="hidden" value={recurrence.id} />
 						<input name="isArchived" type="hidden" value="true" />
-						<button
-							className="rounded-xl border border-[color:var(--color-bad-border)] px-3 py-2 text-[color:var(--color-bad)] text-sm"
+						<SubmitButton
 							formAction={archiveRecurrence}
-							type="submit"
+							pendingLabel="Arquivando..."
+							variant="danger"
 						>
 							Arquivar
-						</button>
+						</SubmitButton>
 					</form>
 				</div>
 			</details>
@@ -508,7 +510,11 @@ function RecurrenceForm({
 				/>{" "}
 				Assinatura
 			</label>
-			<SubmitButton>{recurrence ? "Salvar" : "Cadastrar"}</SubmitButton>
+			<SubmitButton
+				pendingLabel={recurrence ? "Salvando..." : "Cadastrando..."}
+			>
+				{recurrence ? "Salvar" : "Cadastrar"}
+			</SubmitButton>
 		</form>
 	);
 }

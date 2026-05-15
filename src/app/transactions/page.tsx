@@ -11,6 +11,7 @@ import {
 	updateTransaction,
 } from "~/app/_actions/finance-actions";
 import {
+	DangerSubmitButton,
 	FinanceShell,
 	inputClass,
 	Panel,
@@ -202,7 +203,9 @@ export default async function TransactionsPage({
 							options={statusLabels}
 						/>
 						<TextInput name="notes" placeholder="Notas" />
-						<SubmitButton>Lançar transação</SubmitButton>
+						<SubmitButton pendingLabel="Lançando...">
+							Lançar transação
+						</SubmitButton>
 					</form>
 				</details>
 			</Panel>
@@ -219,7 +222,7 @@ export default async function TransactionsPage({
 						name="q"
 						placeholder="Buscar por descrição"
 					/>
-					<SubmitButton>Filtrar</SubmitButton>
+					<SubmitButton pendingLabel="Filtrando...">Filtrar</SubmitButton>
 					<details className="md:col-span-4">
 						<summary className="mt-2 cursor-pointer text-[color:var(--color-text-muted)] text-sm hover:text-[color:var(--color-text)]">
 							Filtros avançados
@@ -306,7 +309,9 @@ export default async function TransactionsPage({
 								placeholder="Nome do filtro atual"
 								required
 							/>
-							<SubmitButton>Salvar filtro</SubmitButton>
+							<SubmitButton pendingLabel="Salvando...">
+								Salvar filtro
+							</SubmitButton>
 						</form>
 						<div className="flex flex-wrap gap-2">
 							{savedFilters.map((filter) => {
@@ -332,12 +337,13 @@ export default async function TransactionsPage({
 										</Link>
 										<form action={deleteTransactionFilter}>
 											<input name="id" type="hidden" value={filter.id} />
-											<button
-												className="text-[color:var(--color-text-subtle)] hover:text-[color:var(--color-bad)]"
-												type="submit"
+											<SubmitButton
+												className="border-0 px-1 py-0 text-[color:var(--color-text-subtle)] hover:text-[color:var(--color-bad)]"
+												pendingLabel="Removendo..."
+												variant="secondary"
 											>
 												×
-											</button>
+											</SubmitButton>
 										</form>
 									</span>
 								);
@@ -401,12 +407,12 @@ export default async function TransactionsPage({
 							<option value="false">Restaurar</option>
 							<option value="true">Arquivar</option>
 						</select>
-						<button
-							className="rounded-xl bg-[color:var(--color-warn)] px-4 py-2 font-medium text-[color:var(--color-bg)] text-sm"
-							type="submit"
+						<SubmitButton
+							className="bg-[color:var(--color-warn)] text-[color:var(--color-bg)]"
+							pendingLabel="Aplicando..."
 						>
 							Aplicar nas selecionadas
-						</button>
+						</SubmitButton>
 					</form>
 				</details>
 				<div className="overflow-hidden rounded-2xl border border-[color:var(--color-border-subtle)]">
@@ -525,14 +531,12 @@ export default async function TransactionsPage({
 									name="notes"
 									placeholder="Notas"
 								/>
-								<SubmitButton>Salvar transação</SubmitButton>
-								<button
-									className="rounded-xl border border-[color:var(--color-bad-border)] px-3 py-2 text-[color:var(--color-bad)] text-sm"
-									formAction={archiveTransaction}
-									type="submit"
-								>
+								<SubmitButton pendingLabel="Salvando...">
+									Salvar transação
+								</SubmitButton>
+								<DangerSubmitButton formAction={archiveTransaction}>
 									Arquivar
-								</button>
+								</DangerSubmitButton>
 							</form>
 						</details>
 					))}

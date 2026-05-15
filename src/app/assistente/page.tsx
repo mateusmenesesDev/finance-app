@@ -2,12 +2,14 @@ import { and, asc, desc, eq, isNotNull } from "drizzle-orm";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { regenerateAssistantSuggestions } from "~/app/_actions/assistant-actions";
 import {
-	acceptAssistantSuggestion,
-	regenerateAssistantSuggestions,
-	rejectAssistantSuggestion,
-} from "~/app/_actions/assistant-actions";
-import { FinanceShell, Panel, SummaryCard } from "~/app/_components/finance-ui";
+	FinanceShell,
+	Panel,
+	SubmitButton,
+	SummaryCard,
+} from "~/app/_components/finance-ui";
+import { AssistantSuggestionCard } from "~/app/assistente/assistant-suggestion-card";
 import {
 	type AssistantSummary,
 	type Suggestion,
@@ -336,12 +338,12 @@ export default async function AssistantPage() {
 					value={formatMonthLabel(period)}
 				/>
 				<form action={regenerateAssistantSuggestions} className="self-end">
-					<button
-						className="w-full rounded-2xl border border-[color:var(--color-good-border)] bg-[color:var(--color-good-bg)] px-4 py-3 font-medium text-[color:var(--color-good)] text-sm hover:bg-[color:var(--color-good-bg)]"
-						type="submit"
+					<SubmitButton
+						className="w-full rounded-2xl border border-[color:var(--color-good-border)] bg-[color:var(--color-good-bg)] py-3 text-[color:var(--color-good)] hover:bg-[color:var(--color-good-bg)]"
+						pendingLabel="Atualizando..."
 					>
 						Atualizar sugestões
-					</button>
+					</SubmitButton>
 				</form>
 			</section>
 
@@ -482,41 +484,17 @@ function SuggestionRow({
 	>;
 }) {
 	return (
-		<article className="rounded-2xl border border-[color:var(--color-border-subtle)] bg-[color:var(--color-surface-muted)] p-4">
-			<div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-				<div className="space-y-2">
-					<p className="font-medium text-[color:var(--color-text)] text-sm">
-						{suggestion.reason}
-					</p>
-					<SuggestionDetails
-						accountById={accountById}
-						categoryNames={categoryNames}
-						suggestion={suggestion}
-						transactionsById={transactionsById}
-					/>
-				</div>
-				<div className="flex shrink-0 items-center gap-2">
-					<form action={acceptAssistantSuggestion}>
-						<input name="id" type="hidden" value={suggestion.id} />
-						<button
-							className="rounded-xl bg-[color:var(--color-accent-strong)] px-3 py-2 font-medium text-[color:var(--color-accent-text)] text-xs hover:opacity-90"
-							type="submit"
-						>
-							Aceitar
-						</button>
-					</form>
-					<form action={rejectAssistantSuggestion}>
-						<input name="id" type="hidden" value={suggestion.id} />
-						<button
-							className="rounded-xl border border-[color:var(--color-border)] px-3 py-2 font-medium text-[color:var(--color-text)] text-xs hover:border-[color:var(--color-border)]"
-							type="submit"
-						>
-							Rejeitar
-						</button>
-					</form>
-				</div>
-			</div>
-		</article>
+		<AssistantSuggestionCard suggestionId={suggestion.id}>
+			<p className="font-medium text-[color:var(--color-text)] text-sm">
+				{suggestion.reason}
+			</p>
+			<SuggestionDetails
+				accountById={accountById}
+				categoryNames={categoryNames}
+				suggestion={suggestion}
+				transactionsById={transactionsById}
+			/>
+		</AssistantSuggestionCard>
 	);
 }
 

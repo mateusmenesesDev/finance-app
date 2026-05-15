@@ -178,7 +178,7 @@ export default async function BudgetsPage({ searchParams }: BudgetsPageProps) {
 								type="month"
 							/>
 						</label>
-						<SubmitButton>Atualizar</SubmitButton>
+						<SubmitButton pendingLabel="Atualizando...">Atualizar</SubmitButton>
 					</form>
 				</div>
 				<div className="mt-6 grid gap-4 md:grid-cols-4">
@@ -269,7 +269,11 @@ export default async function BudgetsPage({ searchParams }: BudgetsPageProps) {
 						name="amount"
 						placeholder="Valor"
 					/>
-					<SubmitButton>{editingBudget ? "Salvar" : "Cadastrar"}</SubmitButton>
+					<SubmitButton
+						pendingLabel={editingBudget ? "Salvando..." : "Cadastrando..."}
+					>
+						{editingBudget ? "Salvar" : "Cadastrar"}
+					</SubmitButton>
 				</form>
 				<p className="mt-3 text-[color:var(--color-text-subtle)] text-xs">
 					Para mês geral, deixe grupo e categoria vazios. Para grupo, selecione
@@ -306,7 +310,9 @@ export default async function BudgetsPage({ searchParams }: BudgetsPageProps) {
 							</option>
 						))}
 					</select>
-					<SubmitButton>Copiar orçamento</SubmitButton>
+					<SubmitButton pendingLabel="Copiando...">
+						Copiar orçamento
+					</SubmitButton>
 				</form>
 			</Panel>
 
@@ -432,12 +438,13 @@ function BudgetTable({
 										</Link>
 										<form action={deleteBudget}>
 											<input name="id" type="hidden" value={row.budgetId} />
-											<button
-												className="rounded-xl border border-[color:var(--color-bad-border)] px-3 py-2 text-[color:var(--color-bad)] text-xs"
-												type="submit"
+											<SubmitButton
+												className="px-3 py-2 text-xs"
+												pendingLabel="Excluindo..."
+												variant="danger"
 											>
 												Excluir
-											</button>
+											</SubmitButton>
 										</form>
 									</td>
 								</tr>

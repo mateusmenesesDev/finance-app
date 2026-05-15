@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import {
 	FinanceShell,
 	Panel,
+	SubmitButton,
 	SummaryCard,
 	TextInput,
 } from "~/app/_components/finance-ui";
@@ -292,12 +293,7 @@ export default async function AnalysisPage({
 							<option key={option.key} value={option.key} />
 						))}
 					</datalist>
-					<button
-						className="rounded-xl bg-[color:var(--color-accent-strong)] px-4 py-2 font-medium text-[color:var(--color-accent-text)] text-sm"
-						type="submit"
-					>
-						Aplicar
-					</button>
+					<SubmitButton pendingLabel="Aplicando...">Aplicar</SubmitButton>
 				</form>
 				<div className="grid gap-4 md:grid-cols-3">
 					<SummaryCard
