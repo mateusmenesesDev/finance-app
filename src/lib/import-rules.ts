@@ -348,6 +348,9 @@ function parseMovementType(
 	amount: number | null,
 	config: ImportTemplateConfig,
 ) {
+	if (config.amountMode === "signed" && amount !== null && amount < 0) {
+		return "expense";
+	}
 	const normalized = normalizeHeader(rawKind);
 	if (normalized) {
 		if (config.incomeTokens.map(normalizeHeader).includes(normalized)) {

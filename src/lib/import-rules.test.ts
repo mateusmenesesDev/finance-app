@@ -58,6 +58,29 @@ describe("import rules", () => {
 
 		expect(row?.amountCents).toBe(1234);
 		expect(row?.movementType).toBe("expense");
+		expect(row?.validationError).toBe(null);
+	});
+
+	test("defaults negative signed rows to expenses before kind tokens", () => {
+		const [row] = parseImportCsv(
+			"data;descricao;valor;tipo\n05/05/2026;Cartao;-12,34;credito\n",
+			kindTemplate,
+		);
+
+		expect(row?.amountCents).toBe(1234);
+		expect(row?.movementType).toBe("expense");
+		expect(row?.validationError).toBe(null);
+	});
+
+	test("uses inverted signed amount to default negative rows as expenses", () => {
+		const [row] = parseImportCsv(
+			"data;descricao;valor;tipo\n05/05/2026;Cartao;12,34;credito\n",
+			{ ...kindTemplate, invertSign: true },
+		);
+
+		expect(row?.amountCents).toBe(1234);
+		expect(row?.movementType).toBe("expense");
+		expect(row?.validationError).toBe(null);
 	});
 
 	test("parses separate income and expense columns", () => {
