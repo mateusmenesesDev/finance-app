@@ -336,7 +336,8 @@ function parseMoney(
 		separator === ","
 			? unsigned.replace(/\./g, "").replace(",", ".")
 			: unsigned.replace(/,/g, "");
-	const amount = Number.parseFloat(normalized);
+	if (!/^\d+(?:\.\d+)?$/.test(normalized)) return null;
+	const amount = Number(normalized);
 	if (!Number.isFinite(amount)) return null;
 	const cents = Math.round(amount * 100);
 	if (!Number.isSafeInteger(cents) || cents > MAX_AMOUNT_CENTS) return null;

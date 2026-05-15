@@ -50,6 +50,34 @@ describe("import rules", () => {
 		});
 	});
 
+	test("parses accented comma CSV headers with signed dot-decimal amount", () => {
+		const [row] = parseImportCsv(
+			"Data,Valor,Identificador,Descrição\n05/05/2026,-50.00,69f00000-0000-4000-8000-000000000000,Padaria\n",
+			defaultTemplateConfig,
+		);
+
+		expect(row?.amountCents).toBe(5000);
+		expect(row?.movementType).toBe("expense");
+		expect(row?.originalDescription).toBe("Padaria");
+		expect(row?.validationError).toBe(null);
+	});
+
+	test("rejects UUID prefixes in mapped amount column instead of inventing money", () => {
+		const [row] = parseImportCsv(
+			"Data,Valor,Identificador,Descrição\n05/05/2026,-50.00,69f00000-0000-4000-8000-000000000000,Padaria\n",
+			{
+				...defaultTemplateConfig,
+				descriptionColumn: "Valor",
+				amountColumn: "Identificador",
+			},
+		);
+
+		expect(row?.originalDescription).toBe("-50.00");
+		expect(row?.amountCents).toBe(null);
+		expect(row?.movementType).toBe(null);
+		expect(row?.validationError).toContain("valor inválido");
+	});
+
 	test("parses explicit kind template for positive expenses", () => {
 		const [row] = parseImportCsv(
 			"data;descricao;valor;tipo\n05/05/2026;Padaria;12,34;debito\n",

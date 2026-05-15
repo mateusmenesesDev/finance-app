@@ -163,10 +163,35 @@ export default async function ImportPage({ searchParams }: ImportPageProps) {
 							Abrir configuração de modelo
 						</summary>
 						<form action={createImportTemplate} className="mt-4 grid gap-4">
-							<div className="rounded-2xl border border-[color:var(--color-warn-border)] bg-[color:var(--color-warn-bg)] p-3 text-[color:var(--color-warn)] text-sm">
-								Digite nomes de colunas, não números nem ordem. Ex.: se o
-								cabeçalho for “Data;Valor;Identificador;Descrição”, use
-								exatamente esses textos.
+							<div className="grid gap-3 rounded-2xl border border-[color:var(--color-warn-border)] bg-[color:var(--color-warn-bg)] p-3 text-[color:var(--color-warn)] text-sm md:grid-cols-[1fr_1.1fr]">
+								<div>
+									<p className="font-medium">
+										Use o texto do cabeçalho, não a ordem.
+									</p>
+									<p className="mt-1">
+										Se o cabeçalho for “Data,Valor,Identificador,Descrição”,
+										preencha os campos com esses nomes. Não use “coluna 1”, “2”
+										ou a posição no arquivo.
+									</p>
+								</div>
+								<dl className="grid gap-1 text-xs">
+									<div className="grid grid-cols-[8rem_1fr] gap-2">
+										<dt>Data</dt>
+										<dd>Data</dd>
+									</div>
+									<div className="grid grid-cols-[8rem_1fr] gap-2">
+										<dt>Descrição</dt>
+										<dd>Descrição</dd>
+									</div>
+									<div className="grid grid-cols-[8rem_1fr] gap-2">
+										<dt>Valor único</dt>
+										<dd>Valor</dd>
+									</div>
+									<div className="grid grid-cols-[8rem_1fr] gap-2">
+										<dt>Identificador</dt>
+										<dd>Identificador</dd>
+									</div>
+								</dl>
 							</div>
 							<div className="grid gap-3 md:grid-cols-3">
 								<LabelledInput label="Nome do modelo" name="name" required />
@@ -175,17 +200,15 @@ export default async function ImportPage({ searchParams }: ImportPageProps) {
 									name="sourceLabel"
 									placeholder="Banco/cartão"
 								/>
-								<div className="grid gap-1 text-[color:var(--color-text-muted)] text-sm">
-									<span>Formato do valor</span>
-									<Select
-										defaultValue={defaultTemplateConfig.amountMode}
-										name="amountMode"
-										options={{
-											signed: "Valor único com sinal",
-											separate: "Entrada/saída separadas",
-										}}
-									/>
-								</div>
+								<LabelledSelect
+									defaultValue={defaultTemplateConfig.amountMode}
+									label="Formato do valor"
+									name="amountMode"
+									options={{
+										signed: "Valor único com sinal",
+										separate: "Entrada/saída separadas",
+									}}
+								/>
 							</div>
 							<div className="grid gap-2">
 								<h3 className="font-medium text-sm">Mapeamento obrigatório</h3>
@@ -252,8 +275,9 @@ export default async function ImportPage({ searchParams }: ImportPageProps) {
 								</div>
 							</div>
 							<div className="grid gap-3 md:grid-cols-3">
-								<Select
+								<LabelledSelect
 									defaultValue={defaultTemplateConfig.dateFormat}
+									label="Formato da data"
 									name="dateFormat"
 									options={{
 										"dd/mm/yyyy": "Data dd/mm/aaaa",
@@ -261,35 +285,39 @@ export default async function ImportPage({ searchParams }: ImportPageProps) {
 										"yyyy-mm-dd": "Data aaaa-mm-dd",
 									}}
 								/>
-								<Select
+								<LabelledSelect
 									defaultValue={defaultTemplateConfig.delimiter}
+									label="Separador do arquivo"
 									name="delimiter"
 									options={{
-										auto: "Separador automático",
+										auto: "Detectar automaticamente",
 										",": "Vírgula",
 										";": "Ponto e vírgula",
 									}}
 								/>
-								<Select
+								<LabelledSelect
 									defaultValue={defaultTemplateConfig.decimalSeparator}
+									label="Separador decimal"
 									name="decimalSeparator"
 									options={{
-										auto: "Decimal automático",
+										auto: "Detectar automaticamente",
 										",": "Decimal vírgula",
 										".": "Decimal ponto",
 									}}
 								/>
 							</div>
 							<div className="grid gap-3 md:grid-cols-2">
-								<TextInput
+								<LabelledInput
 									defaultValue={defaultTemplateConfig.incomeTokens.join(", ")}
+									label="Palavras que indicam receita"
 									name="incomeTokens"
-									placeholder="Tokens de receita"
+									placeholder="receita, crédito, entrada"
 								/>
-								<TextInput
+								<LabelledInput
 									defaultValue={defaultTemplateConfig.expenseTokens.join(", ")}
+									label="Palavras que indicam despesa"
 									name="expenseTokens"
-									placeholder="Tokens de despesa"
+									placeholder="despesa, débito, saída"
 								/>
 							</div>
 							<label className="flex items-center gap-2 text-[color:var(--color-text-muted)] text-sm">
@@ -321,7 +349,7 @@ export default async function ImportPage({ searchParams }: ImportPageProps) {
 								<option value="">Modelo salvo</option>
 								{activeTemplates.map((template) => (
 									<option key={template.id} value={template.id}>
-										{template.name}
+										{templateOptionLabel(template)}
 									</option>
 								))}
 							</select>
@@ -459,62 +487,95 @@ function TemplateCard({
 							`${config.incomeAmountColumn}/${config.expenseAmountColumn}`}
 					</span>
 				</summary>
-				<form action={updateImportTemplate} className="mt-3 grid gap-3">
+				<form action={updateImportTemplate} className="mt-3 grid gap-4">
 					<input name="id" type="hidden" value={template.id} />
+					<div className="rounded-xl border border-[color:var(--color-border-subtle)] p-3 text-[color:var(--color-text-muted)] text-xs">
+						<p className="font-medium text-[color:var(--color-text)]">
+							Mapeamento atual
+						</p>
+						<p className="mt-1">{templateMappingText(config)}</p>
+					</div>
 					<div className="grid gap-3 md:grid-cols-3">
-						<TextInput defaultValue={template.name} name="name" required />
-						<TextInput
+						<LabelledInput
+							defaultValue={template.name}
+							label="Nome do modelo"
+							name="name"
+							required
+						/>
+						<LabelledInput
 							defaultValue={template.sourceLabel ?? ""}
+							label="Origem"
 							name="sourceLabel"
 							placeholder="Banco/cartão"
 						/>
-						<Select
+						<LabelledSelect
 							defaultValue={config.amountMode}
+							label="Formato do valor"
 							name="amountMode"
 							options={{ signed: "Valor único", separate: "Entrada/saída" }}
 						/>
 					</div>
-					<div className="grid gap-3 md:grid-cols-4">
-						<TextInput
-							defaultValue={config.dateColumn}
-							name="dateColumn"
-							required
-						/>
-						<TextInput
-							defaultValue={config.descriptionColumn}
-							name="descriptionColumn"
-							required
-						/>
-						<TextInput
-							defaultValue={config.amountColumn ?? ""}
-							name="amountColumn"
-						/>
-						<TextInput
-							defaultValue={config.kindColumn ?? ""}
-							name="kindColumn"
-						/>
-						<TextInput
-							defaultValue={config.incomeAmountColumn ?? ""}
-							name="incomeAmountColumn"
-						/>
-						<TextInput
-							defaultValue={config.expenseAmountColumn ?? ""}
-							name="expenseAmountColumn"
-						/>
-						<TextInput
-							defaultValue={config.categoryColumn ?? ""}
-							name="categoryColumn"
-						/>
-						<TextInput
-							defaultValue={config.externalIdColumn ?? ""}
-							name="externalIdColumn"
-						/>
-						<TextInput
-							defaultValue={config.notesColumn ?? ""}
-							name="notesColumn"
-						/>
-						<Select
+					<div className="grid gap-2">
+						<h3 className="font-medium text-sm">Colunas principais</h3>
+						<div className="grid gap-3 md:grid-cols-3">
+							<LabelledInput
+								defaultValue={config.dateColumn}
+								label="Coluna de data"
+								name="dateColumn"
+								required
+							/>
+							<LabelledInput
+								defaultValue={config.descriptionColumn}
+								label="Coluna de descrição"
+								name="descriptionColumn"
+								required
+							/>
+							<LabelledInput
+								defaultValue={config.amountColumn ?? ""}
+								label="Coluna de valor único"
+								name="amountColumn"
+							/>
+						</div>
+					</div>
+					<div className="grid gap-2">
+						<h3 className="font-medium text-sm">Colunas opcionais</h3>
+						<div className="grid gap-3 md:grid-cols-4">
+							<LabelledInput
+								defaultValue={config.kindColumn ?? ""}
+								label="Coluna de tipo/sinal"
+								name="kindColumn"
+							/>
+							<LabelledInput
+								defaultValue={config.incomeAmountColumn ?? ""}
+								label="Coluna de entrada"
+								name="incomeAmountColumn"
+							/>
+							<LabelledInput
+								defaultValue={config.expenseAmountColumn ?? ""}
+								label="Coluna de saída"
+								name="expenseAmountColumn"
+							/>
+							<LabelledInput
+								defaultValue={config.categoryColumn ?? ""}
+								label="Coluna de categoria"
+								name="categoryColumn"
+							/>
+							<LabelledInput
+								defaultValue={config.externalIdColumn ?? ""}
+								label="Coluna de identificador"
+								name="externalIdColumn"
+							/>
+							<LabelledInput
+								defaultValue={config.notesColumn ?? ""}
+								label="Coluna de observação"
+								name="notesColumn"
+							/>
+						</div>
+					</div>
+					<div className="grid gap-3 md:grid-cols-3">
+						<LabelledSelect
 							defaultValue={config.dateFormat}
+							label="Formato da data"
 							name="dateFormat"
 							options={{
 								"dd/mm/yyyy": "dd/mm/aaaa",
@@ -522,32 +583,36 @@ function TemplateCard({
 								"yyyy-mm-dd": "aaaa-mm-dd",
 							}}
 						/>
-						<Select
+						<LabelledSelect
 							defaultValue={config.delimiter}
+							label="Separador do arquivo"
 							name="delimiter"
 							options={{
-								auto: "Separador automático",
+								auto: "Detectar automaticamente",
 								",": "Vírgula",
 								";": "Ponto e vírgula",
 							}}
 						/>
-						<Select
+						<LabelledSelect
 							defaultValue={config.decimalSeparator}
+							label="Separador decimal"
 							name="decimalSeparator"
 							options={{
-								auto: "Decimal automático",
+								auto: "Detectar automaticamente",
 								",": "Decimal vírgula",
 								".": "Decimal ponto",
 							}}
 						/>
 					</div>
 					<div className="grid gap-3 md:grid-cols-2">
-						<TextInput
+						<LabelledInput
 							defaultValue={config.incomeTokens.join(", ")}
+							label="Palavras que indicam receita"
 							name="incomeTokens"
 						/>
-						<TextInput
+						<LabelledInput
 							defaultValue={config.expenseTokens.join(", ")}
+							label="Palavras que indicam despesa"
 							name="expenseTokens"
 						/>
 					</div>
@@ -575,6 +640,34 @@ function TemplateCard({
 			</details>
 		</div>
 	);
+}
+
+function templateOptionLabel(template: typeof importTemplates.$inferSelect) {
+	const config = normalizeImportTemplateConfig(template.config);
+	return `${template.name} — ${templateMappingText(config)}`;
+}
+
+function templateMappingText(
+	config: ReturnType<typeof normalizeImportTemplateConfig>,
+) {
+	const amount =
+		config.amountMode === "signed"
+			? `valor: ${config.amountColumn ?? "—"}`
+			: `entrada: ${config.incomeAmountColumn ?? "—"}; saída: ${config.expenseAmountColumn ?? "—"}`;
+	const optional = [
+		config.externalIdColumn ? `id: ${config.externalIdColumn}` : null,
+		config.kindColumn ? `tipo: ${config.kindColumn}` : null,
+	]
+		.filter(Boolean)
+		.join("; ");
+	return [
+		`data: ${config.dateColumn}`,
+		`descrição: ${config.descriptionColumn}`,
+		amount,
+		optional || null,
+	]
+		.filter(Boolean)
+		.join("; ");
 }
 
 function ImportRulePanel({
@@ -875,68 +968,82 @@ function BatchReview({
 								</div>
 							)}
 							<div className="grid gap-2 md:grid-cols-7">
-								<select
-									className={inputClass}
-									defaultValue={row.status === "invalid" ? "ignore" : ""}
-									name={`row-${row.id}-decision`}
-									required
-								>
-									<option value="">Decisão explícita</option>
-									<option value="import">Importar</option>
-									<option value="duplicate">Duplicada</option>
-									<option value="ignore">Ignorar</option>
-								</select>
-								<input
-									className={inputClass}
-									defaultValue={row.occurredOn ?? ""}
-									name={`row-${row.id}-occurredOn`}
-									type="date"
-								/>
-								<input
-									className={inputClass}
-									defaultValue={
-										row.amountCents ? formatMoneyInput(row.amountCents) : ""
-									}
-									name={`row-${row.id}-amount`}
-									placeholder="Valor"
-								/>
-								<select
-									className={inputClass}
-									defaultValue={row.movementType ?? "expense"}
-									name={`row-${row.id}-movementType`}
-								>
-									<option value="income">Receita</option>
-									<option value="expense">Despesa</option>
-								</select>
-								<select
-									className={inputClass}
-									defaultValue={row.accountId}
-									name={`row-${row.id}-accountId`}
-								>
-									{reviewAccounts.map((account) => (
-										<option key={account.id} value={account.id}>
-											{account.name}
-										</option>
-									))}
-								</select>
-								<select
-									className={inputClass}
-									defaultValue={row.suggestedCategoryId ?? ""}
-									name={`row-${row.id}-categoryId`}
-								>
-									<option value="">Categoria obrigatória ao importar</option>
-									{reviewCategories.map((category) => (
-										<option key={category.id} value={category.id}>
-											{category.name} ·{" "}
-											{category.kind === "income" ? "receita" : "despesa"}
-										</option>
-									))}
-								</select>
-								<input
-									className={inputClass}
-									defaultValue={row.originalDescription ?? ""}
-									name={`row-${row.id}-description`}
-								/>
+								<FieldLabel label="Decisão">
+									<select
+										className={inputClass}
+										defaultValue={row.status === "invalid" ? "ignore" : ""}
+										name={`row-${row.id}-decision`}
+										required
+									>
+										<option value="">Escolha</option>
+										<option value="import">Importar</option>
+										<option value="duplicate">Duplicada</option>
+										<option value="ignore">Ignorar</option>
+									</select>
+								</FieldLabel>
+								<FieldLabel label="Data final">
+									<input
+										className={inputClass}
+										defaultValue={row.occurredOn ?? ""}
+										name={`row-${row.id}-occurredOn`}
+										type="date"
+									/>
+								</FieldLabel>
+								<FieldLabel label="Valor final">
+									<input
+										className={inputClass}
+										defaultValue={
+											row.amountCents ? formatMoneyInput(row.amountCents) : ""
+										}
+										name={`row-${row.id}-amount`}
+										placeholder="Valor"
+									/>
+								</FieldLabel>
+								<FieldLabel label="Tipo final">
+									<select
+										className={inputClass}
+										defaultValue={row.movementType ?? "expense"}
+										name={`row-${row.id}-movementType`}
+									>
+										<option value="income">Receita</option>
+										<option value="expense">Despesa</option>
+									</select>
+								</FieldLabel>
+								<FieldLabel label="Conta final">
+									<select
+										className={inputClass}
+										defaultValue={row.accountId}
+										name={`row-${row.id}-accountId`}
+									>
+										{reviewAccounts.map((account) => (
+											<option key={account.id} value={account.id}>
+												{account.name}
+											</option>
+										))}
+									</select>
+								</FieldLabel>
+								<FieldLabel label="Categoria">
+									<select
+										className={inputClass}
+										defaultValue={row.suggestedCategoryId ?? ""}
+										name={`row-${row.id}-categoryId`}
+									>
+										<option value="">Obrigatória ao importar</option>
+										{reviewCategories.map((category) => (
+											<option key={category.id} value={category.id}>
+												{category.name} ·{" "}
+												{category.kind === "income" ? "receita" : "despesa"}
+											</option>
+										))}
+									</select>
+								</FieldLabel>
+								<FieldLabel label="Descrição final">
+									<input
+										className={inputClass}
+										defaultValue={row.originalDescription ?? ""}
+										name={`row-${row.id}-description`}
+									/>
+								</FieldLabel>
 							</div>
 							{row.suggestedRecurrenceId && (
 								<label className="flex items-center gap-2 text-[color:var(--color-info)] text-sm">
@@ -1016,14 +1123,49 @@ function TextInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
 	return <input className={inputClass} {...props} />;
 }
 
+function FieldLabel({
+	label,
+	children,
+}: {
+	label: string;
+	children: React.ReactNode;
+}) {
+	return (
+		<div className="grid gap-1 text-[color:var(--color-text-muted)] text-sm">
+			<span>{label}</span>
+			{children}
+		</div>
+	);
+}
+
 function LabelledInput({
 	label,
 	...props
 }: React.InputHTMLAttributes<HTMLInputElement> & { label: string }) {
 	return (
 		<label className="grid gap-1 text-[color:var(--color-text-muted)] text-sm">
-			{label}
+			<span>{label}</span>
 			<input className={inputClass} {...props} />
+		</label>
+	);
+}
+
+function LabelledSelect({
+	label,
+	name,
+	options,
+	defaultValue,
+}: Parameters<typeof Select>[0] & { label: string }) {
+	return (
+		<label className="grid gap-1 text-[color:var(--color-text-muted)] text-sm">
+			<span>{label}</span>
+			<select className={inputClass} defaultValue={defaultValue} name={name}>
+				{Object.entries(options).map(([value, optionLabel]) => (
+					<option key={value} value={value}>
+						{optionLabel}
+					</option>
+				))}
+			</select>
 		</label>
 	);
 }
