@@ -83,6 +83,28 @@ describe("import rules", () => {
 		expect(row?.validationError?.includes("descrição obrigatória")).toBe(true);
 	});
 
+	test("rejects amounts above int32 max as invalid (no scientific-notation insert)", () => {
+		const rows = parseImportCsv(
+			[
+				"data;descricao;valor",
+				"05/05/2026;Excel scientific;6.9E+24",
+				"05/05/2026;Many separators;6.900.000.000.000.000.000.000.000,00",
+				"05/05/2026;At the int32 ceiling;21474836,47",
+				"05/05/2026;One cent above the ceiling;21474836,48",
+			].join("\n"),
+			signedTemplate,
+		);
+
+		expect(rows[0]?.amountCents).toBe(null);
+		expect(rows[0]?.validationError?.includes("valor inválido")).toBe(true);
+		expect(rows[1]?.amountCents).toBe(null);
+		expect(rows[1]?.validationError?.includes("valor inválido")).toBe(true);
+		expect(rows[2]?.amountCents).toBe(2_147_483_647);
+		expect(rows[2]?.validationError).toBe(null);
+		expect(rows[3]?.amountCents).toBe(null);
+		expect(rows[3]?.validationError?.includes("valor inválido")).toBe(true);
+	});
+
 	test("normalizes duplicate keys with masked long numbers", () => {
 		const left = duplicateKey({
 			accountId: 1,

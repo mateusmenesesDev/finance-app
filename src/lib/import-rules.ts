@@ -1,5 +1,7 @@
 import { parse } from "csv-parse/sync";
 
+import { MAX_AMOUNT_CENTS } from "./money";
+
 import { maskSensitive, sanitizeSensitive } from "./sensitive-data";
 
 export { maskSensitive, sanitizeSensitive };
@@ -337,6 +339,7 @@ function parseMoney(
 	const amount = Number.parseFloat(normalized);
 	if (!Number.isFinite(amount)) return null;
 	const cents = Math.round(amount * 100);
+	if (!Number.isSafeInteger(cents) || cents > MAX_AMOUNT_CENTS) return null;
 	return negative ? -cents : cents;
 }
 

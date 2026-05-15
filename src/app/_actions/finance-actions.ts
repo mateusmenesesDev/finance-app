@@ -13,6 +13,7 @@ import {
 	normalizeImportTemplateConfig,
 	parseImportCsv,
 } from "~/lib/import-rules";
+import { MAX_AMOUNT_CENTS, moneyToCents } from "~/lib/money";
 import { matchImportedRowToRecurrence } from "~/lib/recurrences";
 import { maskSensitive } from "~/lib/sensitive-data";
 import { regenerateAssistantSuggestionsForUser } from "~/server/assistant";
@@ -181,14 +182,6 @@ function optionalIntField(formData: FormData, name: string) {
 	if (!Number.isFinite(parsed)) throw new Error(`Número inválido: ${name}`);
 	return parsed;
 }
-function moneyToCents(value: string, { allowZero }: { allowZero: boolean }) {
-	const normalized = value.replace(/\./g, "").replace(",", ".");
-	const amount = Number.parseFloat(normalized);
-	if (!Number.isFinite(amount) || amount < 0) throw new Error("Valor inválido");
-	if (!allowZero && amount === 0)
-		throw new Error("Valor deve ser maior que zero");
-	return Math.round(amount * 100);
-}
 function enumField<T extends string>(
 	formData: FormData,
 	name: string,
@@ -255,6 +248,8 @@ function moneyOrCents(
 	const cents = optionalIntField(formData, centsName);
 	if (cents !== null) {
 		if (cents <= 0) throw new Error("Valor deve ser maior que zero");
+		if (cents > MAX_AMOUNT_CENTS)
+			throw new Error("Valor excede o limite suportado");
 		return cents;
 	}
 	throw new Error("Valor inválido");
