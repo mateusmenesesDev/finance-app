@@ -4,7 +4,7 @@ Aplicativo web PT-BR para controle de finanças pessoais.
 
 ## Fundação atual
 
-- Autenticação por email e senha com Better Auth.
+- Autenticação por email e senha com Better Auth, incluindo fluxo de "esqueci minha senha" via link por email.
 - Painel inicial com estado vazio útil.
 - Modelo financeiro em Drizzle com tabelas prefixadas por `finance_app_`.
 - Tabelas do Better Auth mantidas sem prefixo: `user`, `session`, `account`, `verification`.
@@ -28,6 +28,15 @@ bun run db:migrate
 bun run db:seed
 bun run db:sanitize -- --email <email>
 ```
+
+## Recuperação de senha
+
+- Link "Esqueci minha senha" na tela de entrada leva para `/esqueci-senha`.
+- O backend usa Better Auth (`requestPasswordReset` / `resetPassword`) com token de 1 hora, single-use, e revoga todas as outras sessões ao redefinir.
+- A resposta para o pedido é sempre genérica para evitar enumeração de emails.
+- Email transacional: `RESEND_API_KEY` e `EMAIL_FROM` em `.env`.
+  - Em produção ambos são obrigatórios (validado em `src/env.js`).
+  - Em dev, se vazios, o link é impresso no console do servidor (procure por `[email:dev]`) para que o desenvolvedor copie manualmente.
 
 ## Seed local de desenvolvimento
 
