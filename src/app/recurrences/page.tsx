@@ -153,7 +153,7 @@ export default async function RecurrencesPage() {
 			eyebrow="Recorrências"
 			title="Recorrências"
 		>
-			<section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+			<section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
 				<SummaryCard label="Ativas" value={String(activeRecurrences.length)} />
 				<SummaryCard
 					label="Total mensal previsto"
@@ -397,7 +397,7 @@ function RecurrenceForm({
 	return (
 		<form
 			action={recurrence ? updateRecurrence : createRecurrence}
-			className="grid gap-4 md:grid-cols-4 md:items-end"
+			className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 xl:items-end"
 		>
 			{recurrence ? (
 				<input name="id" type="hidden" value={recurrence.id} />

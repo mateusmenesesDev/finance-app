@@ -181,7 +181,7 @@ export default async function BudgetsPage({ searchParams }: BudgetsPageProps) {
 						<SubmitButton pendingLabel="Atualizando...">Atualizar</SubmitButton>
 					</form>
 				</div>
-				<div className="mt-6 grid gap-4 md:grid-cols-4">
+				<div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
 					<SummaryCard
 						label="Previsto consolidado"
 						value={plannedCents ? formatMoney(plannedCents) : "Não configurado"}
@@ -227,7 +227,7 @@ export default async function BudgetsPage({ searchParams }: BudgetsPageProps) {
 			>
 				<form
 					action={createOrUpdateBudget}
-					className="grid gap-3 rounded-2xl border border-[color:var(--color-border-subtle)] p-4 md:grid-cols-5"
+					className="grid gap-3 rounded-2xl border border-[color:var(--color-border-subtle)] p-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5"
 				>
 					<input name="monthKey" type="hidden" value={period.key} />
 					{editingBudget ? (

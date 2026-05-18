@@ -61,7 +61,7 @@ export default async function AccountsPage() {
 			eyebrow="Contas"
 			title="Contas e cartões"
 		>
-			<section className="grid gap-4 md:grid-cols-2">
+			<section className="grid gap-4 sm:grid-cols-2">
 				<div className="rounded-2xl border border-[color:var(--color-border-subtle)] bg-[color:var(--color-surface)] p-4">
 					<p className="text-[color:var(--color-text-muted)] text-sm">
 						Saldo consolidado sem cartões
@@ -83,7 +83,7 @@ export default async function AccountsPage() {
 			<Panel title="Nova conta">
 				<form
 					action={createAccount}
-					className="grid gap-3 rounded-2xl border border-[color:var(--color-border-subtle)] p-4 md:grid-cols-3"
+					className="grid gap-3 rounded-2xl border border-[color:var(--color-border-subtle)] p-4 sm:grid-cols-2 lg:grid-cols-3"
 				>
 					<TextInput name="name" placeholder="Nome" />
 					<TextInput name="institution" placeholder="Instituição" />
@@ -109,7 +109,7 @@ export default async function AccountsPage() {
 			</Panel>
 
 			<Panel title="Faturas dinâmicas de cartão">
-				<div className="grid gap-4 md:grid-cols-2">
+				<div className="grid gap-4 sm:grid-cols-2">
 					{activeAccounts
 						.filter((account) => account.type === "credit_card")
 						.map((card) => {

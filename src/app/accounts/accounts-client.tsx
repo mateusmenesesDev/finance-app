@@ -115,7 +115,7 @@ export function AccountsList({
 			{visibleAccounts.map((account) => (
 				<form
 					action={updateAccount}
-					className="grid gap-2 rounded-2xl border border-[color:var(--color-border-subtle)] p-4 md:grid-cols-6"
+					className="grid gap-2 rounded-2xl border border-[color:var(--color-border-subtle)] p-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6"
 					key={account.id}
 				>
 					<input name="id" type="hidden" value={account.id} />

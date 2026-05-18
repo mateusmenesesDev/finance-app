@@ -276,7 +276,7 @@ export default async function Home({ searchParams }: HomeProps) {
 			{showFirstAccountOnboarding ||
 			showFirstImportOnboarding ||
 			showCategoryOnboarding ? (
-				<section className="grid gap-4 md:grid-cols-3">
+				<section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
 					{showFirstAccountOnboarding ? (
 						<div className="rounded-3xl border border-[color:var(--color-good-border)] bg-[color:var(--color-good-bg)] p-5">
 							<p className="font-semibold text-[color:var(--color-good)]">
@@ -366,7 +366,7 @@ export default async function Home({ searchParams }: HomeProps) {
 					</form>
 				</div>
 
-				<div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+				<div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
 					<SummaryCard
 						label="Receitas do mês"
 						value={formatMoney(monthlyTotals.incomeCents)}
@@ -391,7 +391,7 @@ export default async function Home({ searchParams }: HomeProps) {
 				</div>
 			</section>
 
-			<section className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
+			<section className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
 				<Panel title="Alertas importantes">
 					{alerts.length > 0 ? (
 						<div className="grid gap-3">
@@ -462,7 +462,7 @@ export default async function Home({ searchParams }: HomeProps) {
 				</Link>
 			</Panel>
 
-			<section className="grid gap-6 xl:grid-cols-2">
+			<section className="grid gap-6 lg:grid-cols-2">
 				<Panel title="Saldo por conta">
 					<div className="grid gap-3">
 						{activeAccounts.map((account) => {
@@ -498,7 +498,7 @@ export default async function Home({ searchParams }: HomeProps) {
 							<EmptyState text="Cadastre uma conta para acompanhar saldos." />
 						) : null}
 					</div>
-					<div className="mt-4 grid gap-4 md:grid-cols-2">
+					<div className="mt-4 grid gap-4 sm:grid-cols-2">
 						<SummaryCard
 							label="Consolidado sem cartões"
 							value={formatMoney(normalConsolidated)}
@@ -512,7 +512,7 @@ export default async function Home({ searchParams }: HomeProps) {
 				</Panel>
 
 				<Panel title="Fluxo previsto até o fim do mês">
-					<div className="grid gap-4 md:grid-cols-2">
+					<div className="grid gap-4 sm:grid-cols-2">
 						<SummaryCard
 							label="Entradas previstas"
 							value={formatMoney(projectedIncomeCents)}
@@ -542,7 +542,7 @@ export default async function Home({ searchParams }: HomeProps) {
 
 			<Panel title="Assinaturas e gastos fixos">
 				{fixedExpenseRanking.length > 0 ? (
-					<div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+					<div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
 						{fixedExpenseRanking.map((item) => {
 							const suggestion = reviewSuggestions.get(item.recurrenceId);
 							return (
@@ -576,7 +576,7 @@ export default async function Home({ searchParams }: HomeProps) {
 				)}
 			</Panel>
 
-			<section className="grid gap-6 xl:grid-cols-2">
+			<section className="grid gap-6 lg:grid-cols-2">
 				<Panel title="Gasto por grupo de categoria">
 					<Ranking
 						rows={groupRanking.map((row) => ({
@@ -597,7 +597,7 @@ export default async function Home({ searchParams }: HomeProps) {
 				</Panel>
 			</section>
 
-			<section className="grid gap-6 xl:grid-cols-2">
+			<section className="grid gap-6 lg:grid-cols-2">
 				<Panel
 					description="Estimadas pelas compras no cartão; pagamento de fatura segue como transferência."
 					title="Faturas abertas de cartão"
@@ -666,7 +666,7 @@ export default async function Home({ searchParams }: HomeProps) {
 function PublicHome() {
 	return (
 		<main className="min-h-screen bg-[color:var(--color-bg)] px-6 py-10 text-[color:var(--color-text)]">
-			<div className="mx-auto flex w-full max-w-7xl flex-col gap-10">
+			<div className="mx-auto flex w-full max-w-[96rem] flex-col gap-10">
 				<header className="border-[color:var(--color-border-subtle)] border-b pb-8">
 					<p className="font-medium text-[color:var(--color-accent)] text-sm uppercase tracking-[0.3em]">
 						Finanças pessoais

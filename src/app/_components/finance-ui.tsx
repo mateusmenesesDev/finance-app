@@ -42,7 +42,7 @@ export function FinanceShell({
 }) {
 	return (
 		<main className="min-h-screen bg-[color:var(--color-bg)] px-4 py-6 text-[color:var(--color-text)] sm:px-6 lg:py-10">
-			<div className="mx-auto flex w-full max-w-7xl flex-col gap-8">
+			<div className="mx-auto flex w-full max-w-[96rem] flex-col gap-8">
 				<header className="rounded-3xl border border-[color:var(--color-border-subtle)] bg-[color:var(--color-surface)] p-4 shadow-sm sm:p-6">
 					<div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
 						<div className="min-w-0">

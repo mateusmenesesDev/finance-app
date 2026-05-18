@@ -321,7 +321,7 @@ export default async function AssistantPage() {
 			eyebrow="Assistente"
 			title="Assistente financeiro"
 		>
-			<section className="grid gap-4 md:grid-cols-3">
+			<section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
 				<SummaryCard
 					description={
 						totalPending > 0

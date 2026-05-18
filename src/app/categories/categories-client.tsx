@@ -207,7 +207,7 @@ export function CategoriesClient({
 				</form>
 				<form
 					action={createGroupAction}
-					className="grid gap-3 rounded-2xl border border-[color:var(--color-border-subtle)] p-4 md:grid-cols-3"
+					className="grid gap-3 rounded-2xl border border-[color:var(--color-border-subtle)] p-4 sm:grid-cols-2 lg:grid-cols-3"
 					onSubmit={() => setVisibleError(null)}
 				>
 					<TextInput name="name" placeholder="Grupo" />
@@ -221,7 +221,7 @@ export function CategoriesClient({
 				</form>
 				<form
 					action={createAction}
-					className="mt-3 grid gap-3 rounded-2xl border border-[color:var(--color-border-subtle)] p-4 md:grid-cols-3"
+					className="mt-3 grid gap-3 rounded-2xl border border-[color:var(--color-border-subtle)] p-4 sm:grid-cols-2 lg:grid-cols-3"
 					onSubmit={() => setVisibleError(null)}
 				>
 					<TextInput name="name" placeholder="Categoria" />
@@ -238,13 +238,13 @@ export function CategoriesClient({
 				</form>
 			</Panel>
 
-			<section className="grid gap-6 xl:grid-cols-2">
+			<section className="grid gap-6 lg:grid-cols-2">
 				<Panel title="Grupos">
 					<div className="grid gap-2">
 						{visibleGroups.map((group) => (
 							<form
 								action={updateGroupAction}
-								className="grid gap-2 rounded-xl border border-[color:var(--color-border-subtle)] p-3 md:grid-cols-[1fr_110px_120px_90px]"
+								className="grid gap-2 rounded-xl border border-[color:var(--color-border-subtle)] p-3 sm:grid-cols-[1fr_110px_120px_90px]"
 								key={group.id}
 								onSubmit={() => setVisibleError(null)}
 							>
@@ -269,7 +269,7 @@ export function CategoriesClient({
 						{visibleCategories.map((category) => (
 							<form
 								action={updateAction}
-								className="grid gap-2 rounded-xl border border-[color:var(--color-border-subtle)] p-3 md:grid-cols-[1fr_1fr_120px_90px]"
+								className="grid gap-2 rounded-xl border border-[color:var(--color-border-subtle)] p-3 sm:grid-cols-[1fr_1fr_120px_90px]"
 								key={category.id}
 								onSubmit={() => setVisibleError(null)}
 							>

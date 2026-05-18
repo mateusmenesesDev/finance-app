@@ -32,7 +32,7 @@ export function ReportFilterForm({
 			className="rounded-3xl border border-[color:var(--color-border-subtle)] bg-[color:var(--color-surface)] p-6"
 			method="get"
 		>
-			<div className="grid gap-4 md:grid-cols-4">
+			<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
 				<Field label="Período">
 					<Select
 						defaultValue={filters.preset}
@@ -76,7 +76,7 @@ export function ReportFilterForm({
 				<summary className="cursor-pointer font-medium text-sm">
 					Filtros avançados
 				</summary>
-				<div className="mt-4 grid gap-4 md:grid-cols-4">
+				<div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
 					<Field label="Conta">
 						<select
 							className="rounded-xl border border-[color:var(--color-border)] bg-[color:var(--color-surface)] px-3 py-2 text-sm"

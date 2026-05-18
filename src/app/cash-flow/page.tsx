@@ -198,7 +198,7 @@ export default async function CashFlowPage({
 			title="Fluxo de caixa"
 		>
 			<Panel title="Filtros do fluxo">
-				<form className="grid gap-4 md:grid-cols-5 md:items-end">
+				<form className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 xl:items-end">
 					<label
 						className="grid gap-1 text-[color:var(--color-text-muted)] text-sm"
 						htmlFor="granularity"
@@ -255,7 +255,7 @@ export default async function CashFlowPage({
 				</p>
 			</Panel>
 
-			<section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+			<section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
 				<SummaryCard
 					label="Entradas previstas"
 					value={formatMoney(plannedIncome)}
@@ -371,7 +371,7 @@ export default async function CashFlowPage({
 				)}
 			</Panel>
 
-			<section className="grid gap-6 xl:grid-cols-2">
+			<section className="grid gap-6 lg:grid-cols-2">
 				<Panel title="Faturas futuras de cartão">
 					{invoices.length > 0 ? (
 						<div className="grid gap-3">
@@ -420,7 +420,7 @@ export default async function CashFlowPage({
 				</Panel>
 			</section>
 
-			<section className="grid gap-6 xl:grid-cols-2">
+			<section className="grid gap-6 lg:grid-cols-2">
 				<Panel title="Previsto vs Realizado">
 					<SimpleTable
 						headers={["Período", "Previsto", "Realizado", "Δ R$", "Δ %"]}

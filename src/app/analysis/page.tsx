@@ -295,7 +295,7 @@ export default async function AnalysisPage({
 					</datalist>
 					<SubmitButton pendingLabel="Aplicando...">Aplicar</SubmitButton>
 				</form>
-				<div className="grid gap-4 md:grid-cols-3">
+				<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
 					<SummaryCard
 						description={comparisonText(incomeComparisons.previousMonth)}
 						label="Receitas"

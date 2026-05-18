@@ -160,7 +160,7 @@ export default async function TransactionsPage({
 					</summary>
 					<form
 						action={createTransaction}
-						className="mt-4 grid gap-3 rounded-2xl border border-[color:var(--color-border-subtle)] p-4 md:grid-cols-4"
+						className="mt-4 grid gap-3 rounded-2xl border border-[color:var(--color-border-subtle)] p-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
 					>
 						<TextInput
 							defaultValue={period.start}
@@ -214,7 +214,7 @@ export default async function TransactionsPage({
 				description="Período e busca ficam sempre visíveis; conta, categoria, tipo e filtros salvos ficam recolhidos."
 				title="Filtros"
 			>
-				<form className="grid gap-3 rounded-2xl border border-[color:var(--color-border-subtle)] p-4 md:grid-cols-[160px_160px_1fr_auto]">
+				<form className="grid gap-3 rounded-2xl border border-[color:var(--color-border-subtle)] p-4 sm:grid-cols-2 lg:grid-cols-[160px_160px_1fr_auto]">
 					<TextInput defaultValue={filters.start} name="start" type="date" />
 					<TextInput defaultValue={filters.end} name="end" type="date" />
 					<TextInput
@@ -223,11 +223,11 @@ export default async function TransactionsPage({
 						placeholder="Buscar por descrição"
 					/>
 					<SubmitButton pendingLabel="Filtrando...">Filtrar</SubmitButton>
-					<details className="md:col-span-4">
+					<details className="sm:col-span-2 lg:col-span-4">
 						<summary className="mt-2 cursor-pointer text-[color:var(--color-text-muted)] text-sm hover:text-[color:var(--color-text)]">
 							Filtros avançados
 						</summary>
-						<div className="mt-3 grid gap-3 md:grid-cols-4">
+						<div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
 							<select
 								className={inputClass}
 								defaultValue={filters.accountId}
@@ -368,7 +368,7 @@ export default async function TransactionsPage({
 					</summary>
 					<form
 						action={bulkUpdateTransactions}
-						className="mt-4 grid gap-3 rounded-2xl border border-[color:var(--color-border-subtle)] p-4 lg:grid-cols-6"
+						className="mt-4 grid gap-3 rounded-2xl border border-[color:var(--color-border-subtle)] p-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6"
 						id="bulk-edit-transactions"
 					>
 						<label className="flex items-center gap-2 text-[color:var(--color-text-muted)] text-sm">
@@ -421,7 +421,7 @@ export default async function TransactionsPage({
 							className="border-[color:var(--color-border-subtle)] border-b p-4 text-sm"
 							key={transaction.id}
 						>
-							<summary className="grid cursor-pointer gap-2 md:grid-cols-[32px_110px_1fr_160px_160px_120px]">
+							<summary className="grid cursor-pointer gap-2 lg:grid-cols-[32px_110px_1fr_160px_160px_120px]">
 								<input
 									aria-label={`Selecionar transação ${transaction.description}`}
 									form="bulk-edit-transactions"
@@ -460,7 +460,7 @@ export default async function TransactionsPage({
 							) : null}
 							<form
 								action={updateTransaction}
-								className="mt-4 grid gap-3 rounded-xl border border-[color:var(--color-border-subtle)] p-4 md:grid-cols-4"
+								className="mt-4 grid gap-3 rounded-xl border border-[color:var(--color-border-subtle)] p-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
 							>
 								<input name="id" type="hidden" value={transaction.id} />
 								<TextInput

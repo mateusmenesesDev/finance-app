@@ -132,189 +132,205 @@ export default async function ImportPage({ searchParams }: ImportPageProps) {
 			title="Centro de importação CSV"
 		>
 			<Panel title="Ajuda CSV">
-				<ul className="list-disc space-y-1 pl-5 text-[color:var(--color-text-muted)] text-sm">
-					<li>
-						Os campos do modelo são nomes de colunas do cabeçalho do CSV, não a
-						posição delas. Copie exatamente como aparece no arquivo.
-					</li>
-					<li>Exemplo comum: Data, Valor, Identificador e Descrição.</li>
-					<li>
-						Valores podem vir em coluna única com sinal ou em colunas separadas
-						de entrada e saída.
-					</li>
-					<li>
-						Revise linhas inválidas ou duplicadas antes de confirmar; o arquivo
-						bruto não é armazenado. A prévia mostra os valores lidos para
-						revelar erros de mapeamento.
-					</li>
-				</ul>
-				<Link
-					className="mt-3 inline-block text-[color:var(--color-accent)] text-sm hover:underline"
-					href="/import/help"
-				>
-					Abrir guia completo de exportação CSV
-				</Link>
+				<details>
+					<summary className="flex cursor-pointer items-center justify-between gap-3 text-[color:var(--color-text-muted)] text-sm hover:text-[color:var(--color-text)]">
+						<span>
+							Como o app lê seu CSV — abra antes de criar o primeiro modelo.
+						</span>
+						<span className="text-[color:var(--color-text-subtle)] text-xs">
+							mostrar/ocultar
+						</span>
+					</summary>
+					<ul className="mt-4 list-disc space-y-1 pl-5 text-[color:var(--color-text-muted)] text-sm">
+						<li>
+							No modelo, você digita o <strong>texto do cabeçalho</strong> de
+							cada coluna do CSV (ex.: <code>Data</code>, <code>Valor</code>) —
+							não a posição (<code>coluna 1</code>, <code>2</code>).
+						</li>
+						<li>
+							Valor pode vir em uma coluna única com sinal (positivo/negativo)
+							ou em duas colunas separadas para entrada e saída.
+						</li>
+						<li>
+							O arquivo bruto <strong>não</strong> é salvo. Apenas as linhas já
+							parseadas e mascaradas ficam no lote para revisão.
+						</li>
+						<li>
+							A prévia de cada linha mostra os valores lidos do CSV ao lado dos
+							normalizados — use isso para detectar coluna trocada.
+						</li>
+					</ul>
+					<Link
+						className="mt-3 inline-block text-[color:var(--color-accent)] text-sm hover:underline"
+						href="/import/help"
+					>
+						Abrir guia completo de exportação CSV →
+					</Link>
+				</details>
 			</Panel>
 
-			<section className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
+			<section className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
 				<Panel title="Novo modelo reutilizável">
 					<details>
 						<summary className="cursor-pointer rounded-2xl border border-[color:var(--color-border)] px-4 py-3 font-medium text-sm hover:bg-[color:var(--color-surface-muted)]">
 							Abrir configuração de modelo
 						</summary>
 						<form action={createImportTemplate} className="mt-4 grid gap-4">
-							<div className="grid gap-3 rounded-2xl border border-[color:var(--color-warn-border)] bg-[color:var(--color-warn-bg)] p-3 text-[color:var(--color-warn)] text-sm md:grid-cols-[1fr_1.1fr]">
-								<div>
-									<p className="font-medium">
-										Use o texto do cabeçalho, não a ordem.
-									</p>
-									<p className="mt-1">
-										Se o cabeçalho for “Data,Valor,Identificador,Descrição”,
-										preencha os campos com esses nomes. Não use “coluna 1”, “2”
-										ou a posição no arquivo.
-									</p>
-								</div>
-								<dl className="grid gap-1 text-xs">
-									<div className="grid grid-cols-[8rem_1fr] gap-2">
-										<dt>Data</dt>
-										<dd>Data</dd>
-									</div>
-									<div className="grid grid-cols-[8rem_1fr] gap-2">
-										<dt>Descrição</dt>
-										<dd>Descrição</dd>
-									</div>
-									<div className="grid grid-cols-[8rem_1fr] gap-2">
-										<dt>Valor único</dt>
-										<dd>Valor</dd>
-									</div>
-									<div className="grid grid-cols-[8rem_1fr] gap-2">
-										<dt>Identificador</dt>
-										<dd>Identificador</dd>
-									</div>
-								</dl>
+							<div className="rounded-2xl border border-[color:var(--color-warn-border)] bg-[color:var(--color-warn-bg)] p-3 text-[color:var(--color-warn)] text-sm">
+								<p className="font-medium">
+									Preencha cada campo com o texto da coluna no cabeçalho.
+								</p>
+								<p className="mt-1">
+									Ex.: se o CSV começa com{" "}
+									<code>Data;Descrição;Valor;Identificador</code>, digite{" "}
+									<code>Data</code>, <code>Descrição</code>, <code>Valor</code>{" "}
+									e <code>Identificador</code> abaixo. Não use posição (1, 2,
+									3...).
+								</p>
 							</div>
-							<div className="grid gap-3 md:grid-cols-3">
-								<LabelledInput label="Nome do modelo" name="name" required />
+							<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
 								<LabelledInput
+									hint="Como você vai chamar este modelo na lista de lotes."
+									label="Nome do modelo"
+									name="name"
+									placeholder="Ex.: Nubank conta"
+									required
+								/>
+								<LabelledInput
+									hint="Banco, corretora ou cartão de onde vem o CSV. Opcional."
 									label="Origem"
 									name="sourceLabel"
-									placeholder="Banco/cartão"
+									placeholder="Ex.: Nubank"
 								/>
 								<LabelledSelect
 									defaultValue={defaultTemplateConfig.amountMode}
+									hint="Como o valor aparece no CSV."
 									label="Formato do valor"
 									name="amountMode"
 									options={{
-										signed: "Valor único com sinal",
-										separate: "Entrada/saída separadas",
+										signed: "Uma coluna, com sinal (+/-)",
+										separate: "Duas colunas (entrada e saída)",
 									}}
 								/>
 							</div>
 							<div className="grid gap-2">
-								<h3 className="font-medium text-sm">Mapeamento obrigatório</h3>
+								<h3 className="font-medium text-sm">Colunas obrigatórias</h3>
 								<p className="text-[color:var(--color-text-subtle)] text-xs">
 									Data e descrição são sempre necessárias. Para valor, preencha
 									“valor único” ou use entrada/saída abaixo.
 								</p>
-								<div className="grid gap-3 md:grid-cols-3">
+								<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
 									<LabelledInput
 										defaultValue={defaultTemplateConfig.dateColumn}
-										label="Coluna de data"
+										label="Data"
 										name="dateColumn"
 										placeholder="Data"
 										required
 									/>
 									<LabelledInput
 										defaultValue={defaultTemplateConfig.descriptionColumn}
-										label="Coluna de descrição"
+										label="Descrição"
 										name="descriptionColumn"
 										placeholder="Descrição"
 										required
 									/>
 									<LabelledInput
 										defaultValue={defaultTemplateConfig.amountColumn}
-										label="Coluna de valor único"
+										hint="Use só quando o valor vem em uma coluna única."
+										label="Valor (coluna única)"
 										name="amountColumn"
 										placeholder="Valor"
 									/>
 								</div>
 							</div>
 							<div className="grid gap-2">
-								<h3 className="font-medium text-sm">Mapeamento opcional</h3>
-								<div className="grid gap-3 md:grid-cols-4">
+								<h3 className="font-medium text-sm">Colunas opcionais</h3>
+								<p className="text-[color:var(--color-text-subtle)] text-xs">
+									Deixe vazio o que seu CSV não tiver.
+								</p>
+								<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
 									<LabelledInput
-										label="Coluna de tipo/sinal"
+										hint="Coluna que diz se a linha é receita ou despesa."
+										label="Tipo / sinal"
 										name="kindColumn"
 										placeholder="Tipo"
 									/>
 									<LabelledInput
-										label="Coluna de entrada"
+										hint="Use só com valor em duas colunas."
+										label="Entrada"
 										name="incomeAmountColumn"
 										placeholder="Entrada"
 									/>
 									<LabelledInput
-										label="Coluna de saída"
+										hint="Use só com valor em duas colunas."
+										label="Saída"
 										name="expenseAmountColumn"
 										placeholder="Saída"
 									/>
 									<LabelledInput
-										label="Coluna de categoria"
+										hint="Categoria que o banco já sugere."
+										label="Categoria do banco"
 										name="categoryColumn"
 										placeholder="Categoria"
 									/>
 									<LabelledInput
-										label="Coluna de identificador"
+										hint="ID único da transação no banco. Evita duplicar."
+										label="Identificador externo"
 										name="externalIdColumn"
 										placeholder="Identificador"
 									/>
 									<LabelledInput
-										label="Coluna de observação"
+										label="Observação"
 										name="notesColumn"
 										placeholder="Observação"
 									/>
 								</div>
 							</div>
-							<div className="grid gap-3 md:grid-cols-3">
+							<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
 								<LabelledSelect
 									defaultValue={defaultTemplateConfig.dateFormat}
 									label="Formato da data"
 									name="dateFormat"
 									options={{
-										"dd/mm/yyyy": "Data dd/mm/aaaa",
-										"dd-mm-yyyy": "Data dd-mm-aaaa",
-										"yyyy-mm-dd": "Data aaaa-mm-dd",
+										"dd/mm/yyyy": "dd/mm/aaaa",
+										"dd-mm-yyyy": "dd-mm-aaaa",
+										"yyyy-mm-dd": "aaaa-mm-dd",
 									}}
 								/>
 								<LabelledSelect
 									defaultValue={defaultTemplateConfig.delimiter}
-									label="Separador do arquivo"
+									hint="O que separa as colunas no CSV."
+									label="Separador de colunas"
 									name="delimiter"
 									options={{
 										auto: "Detectar automaticamente",
-										",": "Vírgula",
-										";": "Ponto e vírgula",
+										",": "Vírgula ( , )",
+										";": "Ponto e vírgula ( ; )",
 									}}
 								/>
 								<LabelledSelect
 									defaultValue={defaultTemplateConfig.decimalSeparator}
+									hint="O que separa centavos do inteiro."
 									label="Separador decimal"
 									name="decimalSeparator"
 									options={{
 										auto: "Detectar automaticamente",
-										",": "Decimal vírgula",
-										".": "Decimal ponto",
+										",": "Vírgula (1.234,56)",
+										".": "Ponto (1,234.56)",
 									}}
 								/>
 							</div>
-							<div className="grid gap-3 md:grid-cols-2">
+							<div className="grid gap-3 sm:grid-cols-2">
 								<LabelledInput
 									defaultValue={defaultTemplateConfig.incomeTokens.join(", ")}
+									hint="Texto na coluna 'tipo' que indica receita. Separe por vírgula."
 									label="Palavras que indicam receita"
 									name="incomeTokens"
 									placeholder="receita, crédito, entrada"
 								/>
 								<LabelledInput
 									defaultValue={defaultTemplateConfig.expenseTokens.join(", ")}
+									hint="Texto na coluna 'tipo' que indica despesa. Separe por vírgula."
 									label="Palavras que indicam despesa"
 									name="expenseTokens"
 									placeholder="despesa, débito, saída"
@@ -336,38 +352,53 @@ export default async function ImportPage({ searchParams }: ImportPageProps) {
 
 				<Panel title="Novo lote">
 					<form action={createImportBatch} className="grid gap-3">
-						<div className="grid gap-3 md:grid-cols-3">
-							<select className={inputClass} name="accountId" required>
-								<option value="">Conta fixa do lote</option>
-								{usableAccounts.map((account) => (
-									<option key={account.id} value={account.id}>
-										{account.name}
-									</option>
-								))}
-							</select>
-							<select className={inputClass} name="templateId" required>
-								<option value="">Modelo salvo</option>
-								{activeTemplates.map((template) => (
-									<option key={template.id} value={template.id}>
-										{templateOptionLabel(template)}
-									</option>
-								))}
-							</select>
-							<input
-								accept=".csv,text/csv"
-								className={inputClass}
-								name="csvFile"
-								required
-								type="file"
-							/>
+						<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+							<FieldLabel
+								hint="Todas as linhas vão para esta conta."
+								label="Conta de destino"
+							>
+								<select className={inputClass} name="accountId" required>
+									<option value="">Escolha uma conta</option>
+									{usableAccounts.map((account) => (
+										<option key={account.id} value={account.id}>
+											{account.name}
+										</option>
+									))}
+								</select>
+							</FieldLabel>
+							<FieldLabel
+								hint="Define como o CSV vai ser interpretado."
+								label="Modelo de importação"
+							>
+								<select className={inputClass} name="templateId" required>
+									<option value="">Escolha um modelo salvo</option>
+									{activeTemplates.map((template) => (
+										<option key={template.id} value={template.id}>
+											{templateOptionLabel(template)}
+										</option>
+									))}
+								</select>
+							</FieldLabel>
+							<FieldLabel
+								hint="Só arquivos .csv. O conteúdo bruto não é salvo."
+								label="Arquivo CSV"
+							>
+								<input
+									accept=".csv,text/csv"
+									className={inputClass}
+									name="csvFile"
+									required
+									type="file"
+								/>
+							</FieldLabel>
 						</div>
 						<label className="flex items-center gap-2 text-[color:var(--color-text-muted)] text-sm">
-							<input disabled name="rawFileStored" type="checkbox" /> Armazenar
-							arquivo bruto (desativado nesta versão)
+							<input disabled name="rawFileStored" type="checkbox" /> Guardar
+							arquivo original (desativado por privacidade)
 						</label>
-						<p className="text-[color:var(--color-text-muted)] text-sm">
-							Controle explícito: o arquivo bruto não é salvo. Apenas linhas
-							parseadas e mascaradas ficam no lote para revisão.
+						<p className="text-[color:var(--color-text-subtle)] text-xs">
+							O CSV é lido em memória; só as linhas já parseadas e mascaradas
+							ficam salvas para revisão.
 						</p>
 						<SubmitButton
 							className="bg-[color:var(--color-accent)] font-semibold"
@@ -384,7 +415,8 @@ export default async function ImportPage({ searchParams }: ImportPageProps) {
 						))}
 						{activeTemplates.length === 0 && (
 							<p className="text-[color:var(--color-text-muted)] text-sm">
-								Crie um modelo antes de enviar CSV.
+								Nenhum modelo salvo ainda. Use o bloco ao lado para criar o
+								primeiro.
 							</p>
 						)}
 					</div>
@@ -399,7 +431,7 @@ export default async function ImportPage({ searchParams }: ImportPageProps) {
 				rules={rules}
 			/>
 
-			<section className="grid gap-6 xl:grid-cols-[0.35fr_0.65fr]">
+			<section className="grid gap-6 lg:grid-cols-[0.4fr_0.6fr]">
 				<Panel title="Histórico de lotes">
 					<div className="grid gap-2">
 						{batches.map((batch) => (
@@ -408,21 +440,18 @@ export default async function ImportPage({ searchParams }: ImportPageProps) {
 								href={`/import?batchId=${batch.id}`}
 								key={batch.id}
 							>
-								<p className="font-medium">
-									#{batch.id} {batch.originalFileName}
+								<p className="truncate font-medium">
+									<span className="text-[color:var(--color-text-subtle)]">
+										#{batch.id}
+									</span>{" "}
+									{batch.originalFileName}
 								</p>
-								<p className="text-[color:var(--color-text-muted)]">
+								<p className="text-[color:var(--color-text-muted)] text-xs">
 									{formatDateTime(batch.createdAt)} ·{" "}
-									{statusLabels[batch.status]} · {batch.rowCount} linhas
+									{statusLabels[batch.status]} · {batch.rowCount} linha(s)
 								</p>
-								<p className="text-[color:var(--color-text-muted)]">
-									Conta: {accountById.get(batch.accountId)?.name ?? "conta"} ·{" "}
-									Usuário:{" "}
-									{session.user.email ?? session.user.name ?? session.user.id}
-								</p>
-								<p className="text-[color:var(--color-text-subtle)]">
-									Arquivo bruto:{" "}
-									{batch.rawFileStored ? "armazenado" : "não armazenado"} ·
+								<p className="mt-1 text-[color:var(--color-text-muted)] text-xs">
+									Conta: {accountById.get(batch.accountId)?.name ?? "—"} ·
 									Modelo:{" "}
 									{batch.importTemplateId
 										? (templateById.get(batch.importTemplateId)?.name ??
@@ -432,8 +461,9 @@ export default async function ImportPage({ searchParams }: ImportPageProps) {
 							</Link>
 						))}
 						{batches.length === 0 && (
-							<p className="text-[color:var(--color-text-muted)]">
-								Nenhum lote ainda.
+							<p className="text-[color:var(--color-text-muted)] text-sm">
+								Nenhum lote enviado ainda. Crie um modelo e envie um CSV para
+								começar.
 							</p>
 						)}
 					</div>
@@ -456,8 +486,9 @@ export default async function ImportPage({ searchParams }: ImportPageProps) {
 							selectedBatch={selectedBatch}
 						/>
 					) : (
-						<p className="text-[color:var(--color-text-muted)]">
-							Selecione ou crie um lote.
+						<p className="text-[color:var(--color-text-muted)] text-sm">
+							Selecione um lote no histórico ou envie um novo CSV para começar a
+							revisão.
 						</p>
 					)}
 				</Panel>
@@ -495,7 +526,7 @@ function TemplateCard({
 						</p>
 						<p className="mt-1">{templateMappingText(config)}</p>
 					</div>
-					<div className="grid gap-3 md:grid-cols-3">
+					<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
 						<LabelledInput
 							defaultValue={template.name}
 							label="Nome do modelo"
@@ -512,67 +543,70 @@ function TemplateCard({
 							defaultValue={config.amountMode}
 							label="Formato do valor"
 							name="amountMode"
-							options={{ signed: "Valor único", separate: "Entrada/saída" }}
+							options={{
+								signed: "Uma coluna, com sinal",
+								separate: "Duas colunas (entrada/saída)",
+							}}
 						/>
 					</div>
 					<div className="grid gap-2">
-						<h3 className="font-medium text-sm">Colunas principais</h3>
-						<div className="grid gap-3 md:grid-cols-3">
+						<h3 className="font-medium text-sm">Colunas obrigatórias</h3>
+						<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
 							<LabelledInput
 								defaultValue={config.dateColumn}
-								label="Coluna de data"
+								label="Data"
 								name="dateColumn"
 								required
 							/>
 							<LabelledInput
 								defaultValue={config.descriptionColumn}
-								label="Coluna de descrição"
+								label="Descrição"
 								name="descriptionColumn"
 								required
 							/>
 							<LabelledInput
 								defaultValue={config.amountColumn ?? ""}
-								label="Coluna de valor único"
+								label="Valor (coluna única)"
 								name="amountColumn"
 							/>
 						</div>
 					</div>
 					<div className="grid gap-2">
 						<h3 className="font-medium text-sm">Colunas opcionais</h3>
-						<div className="grid gap-3 md:grid-cols-4">
+						<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
 							<LabelledInput
 								defaultValue={config.kindColumn ?? ""}
-								label="Coluna de tipo/sinal"
+								label="Tipo / sinal"
 								name="kindColumn"
 							/>
 							<LabelledInput
 								defaultValue={config.incomeAmountColumn ?? ""}
-								label="Coluna de entrada"
+								label="Entrada"
 								name="incomeAmountColumn"
 							/>
 							<LabelledInput
 								defaultValue={config.expenseAmountColumn ?? ""}
-								label="Coluna de saída"
+								label="Saída"
 								name="expenseAmountColumn"
 							/>
 							<LabelledInput
 								defaultValue={config.categoryColumn ?? ""}
-								label="Coluna de categoria"
+								label="Categoria do banco"
 								name="categoryColumn"
 							/>
 							<LabelledInput
 								defaultValue={config.externalIdColumn ?? ""}
-								label="Coluna de identificador"
+								label="Identificador externo"
 								name="externalIdColumn"
 							/>
 							<LabelledInput
 								defaultValue={config.notesColumn ?? ""}
-								label="Coluna de observação"
+								label="Observação"
 								name="notesColumn"
 							/>
 						</div>
 					</div>
-					<div className="grid gap-3 md:grid-cols-3">
+					<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
 						<LabelledSelect
 							defaultValue={config.dateFormat}
 							label="Formato da data"
@@ -585,12 +619,12 @@ function TemplateCard({
 						/>
 						<LabelledSelect
 							defaultValue={config.delimiter}
-							label="Separador do arquivo"
+							label="Separador de colunas"
 							name="delimiter"
 							options={{
 								auto: "Detectar automaticamente",
-								",": "Vírgula",
-								";": "Ponto e vírgula",
+								",": "Vírgula ( , )",
+								";": "Ponto e vírgula ( ; )",
 							}}
 						/>
 						<LabelledSelect
@@ -599,12 +633,12 @@ function TemplateCard({
 							name="decimalSeparator"
 							options={{
 								auto: "Detectar automaticamente",
-								",": "Decimal vírgula",
-								".": "Decimal ponto",
+								",": "Vírgula (1.234,56)",
+								".": "Ponto (1,234.56)",
 							}}
 						/>
 					</div>
-					<div className="grid gap-3 md:grid-cols-2">
+					<div className="grid gap-3 sm:grid-cols-2">
 						<LabelledInput
 							defaultValue={config.incomeTokens.join(", ")}
 							label="Palavras que indicam receita"
@@ -686,58 +720,90 @@ function ImportRulePanel({
 	const activeRules = rules.filter((rule) => !rule.isArchived);
 	return (
 		<Panel title="Regras de categorização">
+			<p className="-mt-2 mb-4 text-[color:var(--color-text-muted)] text-sm">
+				Quando uma linha do CSV bate com o texto da regra, o app já sugere a
+				categoria na revisão. Você ainda pode aceitar, trocar ou ignorar.
+			</p>
 			<form
 				action={createImportCategoryRule}
-				className="grid gap-3 md:grid-cols-6"
+				className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6"
 			>
-				<TextInput
-					className={`${inputClass} md:col-span-2`}
+				<LabelledInput
+					hint="Trecho da descrição que aparece no CSV."
+					label="Texto a procurar"
 					name="description"
-					placeholder="Texto normalizado/estabelecimento"
+					placeholder="Ex.: Mercado Exemplo"
 					required
+					wrapperClassName="sm:col-span-2 xl:col-span-2"
 				/>
-				<Select
+				<LabelledSelect
 					defaultValue="contains"
+					hint="Como comparar o texto."
+					label="Modo de busca"
 					name="textMatchMode"
-					options={{ contains: "Contém", exact: "Exato" }}
+					options={{ contains: "Contém", exact: "Igual exato" }}
 				/>
-				<Select
+				<LabelledSelect
 					defaultValue="expense"
+					label="Tipo da linha"
 					name="movementType"
 					options={{ expense: "Despesa", income: "Receita" }}
 				/>
-				<TextInput name="amount" placeholder="Valor aprox. opcional" />
-				<TextInput name="amountTolerance" placeholder="Tolerância opcional" />
-				<TextInput name="priority" placeholder="Prioridade" />
-				<select className={inputClass} name="accountId">
-					<option value="">Qualquer conta</option>
-					{ruleAccounts.map((account) => (
-						<option key={account.id} value={account.id}>
-							{account.name}
-						</option>
-					))}
-				</select>
-				<select
-					className={`${inputClass} md:col-span-2`}
-					name="categoryId"
-					required
+				<LabelledInput
+					hint="Restringe a um valor próximo. Opcional."
+					label="Valor aproximado"
+					name="amount"
+					placeholder="Ex.: 49,90"
+				/>
+				<LabelledInput
+					hint="Quanto pode variar do valor acima. Opcional."
+					label="Tolerância"
+					name="amountTolerance"
+					placeholder="Ex.: 2,00"
+				/>
+				<LabelledInput
+					hint="Maior = aplicada antes."
+					label="Prioridade"
+					name="priority"
+					placeholder="Ex.: 10"
+				/>
+				<FieldLabel
+					hint="Aplique só em lotes de uma conta específica."
+					label="Conta (opcional)"
 				>
-					<option value="">Categoria ativa e compatível</option>
-					{ruleCategories.map((category) => (
-						<option key={category.id} value={category.id}>
-							{category.name} ·{" "}
-							{category.kind === "income" ? "receita" : "despesa"}
-						</option>
-					))}
-				</select>
+					<select className={inputClass} name="accountId">
+						<option value="">Qualquer conta</option>
+						{ruleAccounts.map((account) => (
+							<option key={account.id} value={account.id}>
+								{account.name}
+							</option>
+						))}
+					</select>
+				</FieldLabel>
+				<FieldLabel
+					hint="Categoria sugerida quando a regra bater."
+					label="Categoria de destino"
+					wrapperClassName="sm:col-span-2 xl:col-span-2"
+				>
+					<select className={inputClass} name="categoryId" required>
+						<option value="">Selecione uma categoria</option>
+						{ruleCategories.map((category) => (
+							<option key={category.id} value={category.id}>
+								{category.name} ·{" "}
+								{category.kind === "income" ? "receita" : "despesa"}
+							</option>
+						))}
+					</select>
+				</FieldLabel>
 				<SubmitButton
-					className="bg-[color:var(--color-accent)] font-semibold md:col-span-2"
+					className="self-end bg-[color:var(--color-accent)] font-semibold sm:col-span-2 xl:col-span-2"
 					pendingLabel="Criando..."
 				>
 					Criar regra
 				</SubmitButton>
 			</form>
-			<div className="mt-4 grid gap-2">
+			<div className="mt-6 grid gap-2">
+				<h3 className="font-medium text-sm">Regras ativas</h3>
 				{activeRules.map((rule) => {
 					const category = categoryById.get(rule.categoryId);
 					const account = rule.accountId
@@ -745,19 +811,34 @@ function ImportRulePanel({
 						: null;
 					return (
 						<div
-							className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[color:var(--color-border-subtle)] p-3 text-sm"
+							className="flex flex-wrap items-start justify-between gap-3 rounded-2xl border border-[color:var(--color-border-subtle)] p-4 text-sm"
 							key={rule.id}
 						>
-							<p>
-								<span className="font-medium">
-									{rule.normalizedDescription}
-								</span>{" "}
-								· {rule.textMatchMode} · {rule.movementType} ·{" "}
-								{account?.name ?? "qualquer conta"} ·{" "}
-								{category?.name ?? "categoria arquivada"} · prioridade{" "}
-								{rule.priority} · sugeriu {rule.matchCount} · auto categorizou{" "}
-								{rule.acceptedCount} · rejeitou {rule.rejectedCount}
-							</p>
+							<div className="min-w-0 flex-1">
+								<p className="font-medium text-[color:var(--color-text)]">
+									“{rule.normalizedDescription}” →{" "}
+									{category?.name ?? "categoria arquivada"}
+								</p>
+								<p className="mt-1 text-[color:var(--color-text-muted)] text-xs">
+									{rule.textMatchMode === "contains" ? "contém" : "igual"} ·{" "}
+									{movementTypeLabels[rule.movementType] ?? rule.movementType} ·{" "}
+									{account?.name ?? "qualquer conta"} · prioridade{" "}
+									{rule.priority}
+								</p>
+								<div className="mt-2 flex flex-wrap gap-2">
+									<StatChip label="Sugestões" value={rule.matchCount} />
+									<StatChip
+										label="Aceitas"
+										tone={rule.acceptedCount > 0 ? "good" : "default"}
+										value={rule.acceptedCount}
+									/>
+									<StatChip
+										label="Rejeitadas"
+										tone={rule.rejectedCount > 0 ? "warn" : "default"}
+										value={rule.rejectedCount}
+									/>
+								</div>
+							</div>
 							<form action={archiveImportCategoryRule}>
 								<input name="id" type="hidden" value={rule.id} />
 								<DangerSubmitButton className="px-3">
@@ -769,7 +850,8 @@ function ImportRulePanel({
 				})}
 				{activeRules.length === 0 && (
 					<p className="text-[color:var(--color-text-muted)] text-sm">
-						Sem regras ativas.
+						Nenhuma regra ativa. Crie uma acima para acelerar a categorização
+						dos próximos lotes.
 					</p>
 				)}
 			</div>
@@ -820,21 +902,14 @@ function BatchReview({
 
 	return (
 		<>
-			<div className="flex items-start justify-between gap-4">
-				<div>
-					<p className="text-[color:var(--color-text-muted)] text-sm">
-						{selectedBatch.originalFileName} · arquivo bruto armazenado:{" "}
-						{selectedBatch.rawFileStored ? "sim" : "não"}
-					</p>
-					<p className="mt-2 text-[color:var(--color-text-muted)] text-sm">
-						Prévia normalizada: Receitas {formatMoney(totals.income)} · Despesas{" "}
-						{formatMoney(totals.expense)} · Transferências{" "}
-						{formatMoney(totals.transfer)} · Ignoradas {totals.ignored} ·
-						Duplicadas {totals.duplicates} · Inválidas {totals.invalid} ·
-						Sugestões {selectedBatch.suggestionCount} (auto categorizadas{" "}
-						{selectedBatch.suggestionAcceptedCount}, rejeitadas{" "}
-						{selectedBatch.suggestionRejectedCount}, alteradas{" "}
-						{selectedBatch.suggestionOverriddenCount})
+			<div className="flex flex-wrap items-start justify-between gap-4">
+				<div className="min-w-0 flex-1">
+					<p className="truncate text-[color:var(--color-text-muted)] text-sm">
+						<span className="font-medium text-[color:var(--color-text)]">
+							{selectedBatch.originalFileName}
+						</span>{" "}
+						· arquivo bruto{" "}
+						{selectedBatch.rawFileStored ? "guardado" : "não guardado"}
 					</p>
 				</div>
 				{selectedBatch.status === "reviewing" && (
@@ -845,7 +920,7 @@ function BatchReview({
 							pendingLabel="Cancelando..."
 							variant="danger"
 						>
-							Cancelar lote
+							Descartar lote
 						</SubmitButton>
 					</form>
 				)}
@@ -862,15 +937,52 @@ function BatchReview({
 					</form>
 				)}
 			</div>
+			<div className="mt-4 flex flex-wrap gap-2">
+				<StatChip
+					label="Receitas"
+					tone="good"
+					value={formatMoney(totals.income)}
+				/>
+				<StatChip
+					label="Despesas"
+					tone="bad"
+					value={formatMoney(totals.expense)}
+				/>
+				{totals.transfer > 0 ? (
+					<StatChip
+						label="Transferências"
+						tone="info"
+						value={formatMoney(totals.transfer)}
+					/>
+				) : null}
+				{totals.invalid > 0 ? (
+					<StatChip label="Inválidas" tone="bad" value={totals.invalid} />
+				) : null}
+				{totals.duplicates > 0 ? (
+					<StatChip label="Duplicadas" tone="warn" value={totals.duplicates} />
+				) : null}
+				{totals.ignored > 0 ? (
+					<StatChip label="Ignoradas" value={totals.ignored} />
+				) : null}
+				{selectedBatch.suggestionCount > 0 ? (
+					<StatChip
+						label="Sugestões"
+						tone="info"
+						value={`${selectedBatch.suggestionCount} (${selectedBatch.suggestionAcceptedCount} aceitas)`}
+					/>
+				) : null}
+			</div>
 
 			{selectedBatch.status === "reviewing" ? (
-				<form action={confirmImportBatch} className="mt-5 grid gap-3">
+				<form action={confirmImportBatch} className="mt-5 grid gap-4">
 					<input name="batchId" type="hidden" value={selectedBatch.id} />
 					<div className="rounded-2xl border border-[color:var(--color-border-subtle)] p-4">
-						<label className="grid gap-2 text-[color:var(--color-text-muted)] text-sm md:grid-cols-[220px_1fr] md:items-center">
-							Aplicar categoria em lote
+						<label className="grid gap-2 text-[color:var(--color-text-muted)] text-sm sm:grid-cols-[1fr_2fr] sm:items-center">
+							<span>
+								Aplicar uma categoria em todas as linhas sem categoria
+							</span>
 							<select className={inputClass} name="bulkCategoryId">
-								<option value="">Não aplicar</option>
+								<option value="">Não aplicar em lote</option>
 								{reviewCategories.map((category) => (
 									<option key={category.id} value={category.id}>
 										{category.name} ·{" "}
@@ -880,41 +992,48 @@ function BatchReview({
 							</select>
 						</label>
 						<p className="mt-2 text-[color:var(--color-text-subtle)] text-xs">
-							Usada apenas em linhas importadas sem categoria individual.
+							Linhas que você já escolheu categoria individual ficam intactas.
 						</p>
 					</div>
 					{totals.invalid > 0 && (
 						<div className="rounded-2xl border border-[color:var(--color-bad-border)] bg-[color:var(--color-bad-bg)] p-4 text-[color:var(--color-bad)] text-sm">
 							<p className="font-medium">
-								{totals.invalid} linha(s) inválida(s) precisam de decisão.
+								{totals.invalid} linha(s) inválida(s) marcadas como ignoradas
+								por padrão.
 							</p>
 							<p className="mt-1">
 								Compare “Valores lidos do CSV” com o cabeçalho. Se data, valor
-								ou descrição vierem vazios/trocados, ajuste o modelo e envie o
-								CSV novamente; se for uma exceção, corrija a linha ou ignore.
+								ou descrição vierem vazios ou trocados, ajuste o modelo e envie
+								o CSV de novo. Se for um caso isolado, corrija a linha aqui ou
+								mantenha como ignorada.
 							</p>
 						</div>
 					)}
 					{rows.map((row) => (
 						<div
-							className="grid gap-2 rounded-2xl border border-[color:var(--color-border-subtle)] p-4"
+							className="grid gap-3 rounded-2xl border border-[color:var(--color-border-subtle)] p-4"
 							key={row.id}
 						>
-							<div className="grid gap-2 text-sm md:grid-cols-5">
+							<div className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
 								<RowFact label="Linha" value={row.rowNumber} />
-								<RowFact
-									label="Data normalizada"
-									value={row.occurredOn ?? "sem data"}
-								/>
+								<RowFact label="Data" value={row.occurredOn ?? "sem data"} />
 								<RowFact
 									label="Valor"
 									value={formatMoney(row.amountCents ?? 0)}
 								/>
-								<RowFact label="Tipo" value={row.movementType ?? "tipo?"} />
+								<RowFact
+									label="Tipo"
+									value={
+										row.movementType
+											? (movementTypeLabels[row.movementType] ??
+												row.movementType)
+											: "não detectado"
+									}
+								/>
 								<RowFact
 									className={rowStatusClass(row.status)}
 									label="Status"
-									value={row.status}
+									value={rowStatusLabels[row.status] ?? row.status}
 								/>
 							</div>
 							<div className="rounded-xl bg-[color:var(--color-surface-muted)] p-3 text-sm">
@@ -933,55 +1052,61 @@ function BatchReview({
 							)}
 							{rowHadSensitiveData(row.parsedData) && (
 								<p className="text-[color:var(--color-warn)] text-sm">
-									Dados sensíveis detectados e mascarados antes de salvar.
+									Dados sensíveis (CPF, cartão, etc.) detectados e mascarados
+									antes de salvar.
 								</p>
 							)}
 							{row.suggestedCategoryId && (
 								<p className="text-[color:var(--color-accent)] text-sm">
-									Sugestão:{" "}
-									{reviewCategories.find(
-										(category) => category.id === row.suggestedCategoryId,
-									)?.name ?? "categoria"}{" "}
-									· regra #{row.suggestedRuleId}:{" "}
+									Sugestão de categoria:{" "}
+									<strong>
+										{reviewCategories.find(
+											(category) => category.id === row.suggestedCategoryId,
+										)?.name ?? "categoria"}
+									</strong>
 									{row.suggestedRuleId
-										? ruleById.get(row.suggestedRuleId)?.normalizedDescription
+										? ` — a partir da regra “${ruleById.get(row.suggestedRuleId)?.normalizedDescription ?? ""}”`
 										: ""}
 								</p>
 							)}
 							{row.suggestedRecurrenceId &&
 								row.suggestedRecurrenceOccurrenceOn && (
 									<p className="text-[color:var(--color-info)] text-sm">
-										Sugestão: recorrência{" "}
-										{recurrenceById.get(row.suggestedRecurrenceId)?.name ??
-											`#${row.suggestedRecurrenceId}`}{" "}
-										(vencimento {row.suggestedRecurrenceOccurrenceOn})
+										Parece ser a recorrência{" "}
+										<strong>
+											{recurrenceById.get(row.suggestedRecurrenceId)?.name ??
+												`#${row.suggestedRecurrenceId}`}
+										</strong>{" "}
+										(vencimento {row.suggestedRecurrenceOccurrenceOn}).
 									</p>
 								)}
 							{row.validationError && (
 								<div className="rounded-xl border border-[color:var(--color-bad-border)] bg-[color:var(--color-bad-bg)] p-3 text-sm">
 									<p className="font-medium text-[color:var(--color-bad)]">
-										Erro da linha: {row.validationError}
+										Problema na linha: {row.validationError}
 									</p>
 									<p className="mt-1 text-[color:var(--color-bad)]">
 										{actionableImportError(row.validationError)}
 									</p>
 								</div>
 							)}
-							<div className="grid gap-2 md:grid-cols-7">
-								<FieldLabel label="Decisão">
+							<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+								<FieldLabel
+									hint="Pré-selecionado pelo status; ajuste se necessário."
+									label="O que fazer com esta linha"
+								>
 									<select
 										className={inputClass}
-										defaultValue={row.status === "invalid" ? "ignore" : ""}
+										defaultValue={defaultDecisionFor(row.status)}
 										name={`row-${row.id}-decision`}
 										required
 									>
-										<option value="">Escolha</option>
-										<option value="import">Importar</option>
-										<option value="duplicate">Duplicada</option>
-										<option value="ignore">Ignorar</option>
+										<option value="import">Importar (criar transação)</option>
+										<option value="duplicate">Marcar como duplicada</option>
+										<option value="ignore">Ignorar linha</option>
 									</select>
 								</FieldLabel>
-								<FieldLabel label="Data final">
+								<FieldLabel label="Data">
 									<input
 										className={inputClass}
 										defaultValue={row.occurredOn ?? ""}
@@ -989,17 +1114,17 @@ function BatchReview({
 										type="date"
 									/>
 								</FieldLabel>
-								<FieldLabel label="Valor final">
+								<FieldLabel label="Valor">
 									<input
 										className={inputClass}
 										defaultValue={
 											row.amountCents ? formatMoneyInput(row.amountCents) : ""
 										}
 										name={`row-${row.id}-amount`}
-										placeholder="Valor"
+										placeholder="Ex.: 49,90"
 									/>
 								</FieldLabel>
-								<FieldLabel label="Tipo final">
+								<FieldLabel label="Tipo">
 									<select
 										className={inputClass}
 										defaultValue={row.movementType ?? "expense"}
@@ -1009,7 +1134,7 @@ function BatchReview({
 										<option value="expense">Despesa</option>
 									</select>
 								</FieldLabel>
-								<FieldLabel label="Conta final">
+								<FieldLabel label="Conta">
 									<select
 										className={inputClass}
 										defaultValue={row.accountId}
@@ -1022,13 +1147,16 @@ function BatchReview({
 										))}
 									</select>
 								</FieldLabel>
-								<FieldLabel label="Categoria">
+								<FieldLabel
+									hint="Obrigatória só quando você importar a linha."
+									label="Categoria"
+								>
 									<select
 										className={inputClass}
 										defaultValue={row.suggestedCategoryId ?? ""}
 										name={`row-${row.id}-categoryId`}
 									>
-										<option value="">Obrigatória ao importar</option>
+										<option value="">Sem categoria</option>
 										{reviewCategories.map((category) => (
 											<option key={category.id} value={category.id}>
 												{category.name} ·{" "}
@@ -1037,7 +1165,10 @@ function BatchReview({
 										))}
 									</select>
 								</FieldLabel>
-								<FieldLabel label="Descrição final">
+								<FieldLabel
+									label="Descrição final"
+									wrapperClassName="sm:col-span-2 lg:col-span-3 xl:col-span-4"
+								>
 									<input
 										className={inputClass}
 										defaultValue={row.originalDescription ?? ""}
@@ -1052,12 +1183,13 @@ function BatchReview({
 										name={`row-${row.id}-acceptRecurrence`}
 										type="checkbox"
 									/>{" "}
-									Vincular recorrência sugerida ao importar
+									Confirmar como ocorrência desta recorrência
 								</label>
 							)}
 							<label className="flex items-center gap-2 text-[color:var(--color-text-muted)] text-sm">
 								<input name={`row-${row.id}-createRule`} type="checkbox" />{" "}
-								Criar regra a partir desta correção
+								Salvar a categoria escolhida como nova regra (aplica em lotes
+								futuros)
 							</label>
 						</div>
 					))}
@@ -1075,7 +1207,8 @@ function BatchReview({
 							className="rounded-xl border border-[color:var(--color-border-subtle)] p-3"
 							key={row.id}
 						>
-							Linha {row.rowNumber}: {row.status} · {row.originalDescription}
+							Linha {row.rowNumber}: {rowStatusLabels[row.status] ?? row.status}{" "}
+							· {row.originalDescription}
 						</p>
 					))}
 				</div>
@@ -1099,53 +1232,53 @@ function Panel({
 	);
 }
 
-function Select({
-	name,
-	options,
-	defaultValue,
-}: {
-	name: string;
-	options: Record<string, string>;
-	defaultValue?: string;
-}) {
-	return (
-		<select className={inputClass} defaultValue={defaultValue} name={name}>
-			{Object.entries(options).map(([value, label]) => (
-				<option key={value} value={value}>
-					{label}
-				</option>
-			))}
-		</select>
-	);
-}
-
-function TextInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
-	return <input className={inputClass} {...props} />;
-}
-
 function FieldLabel({
 	label,
 	children,
+	hint,
+	wrapperClassName,
 }: {
 	label: string;
 	children: React.ReactNode;
+	hint?: string;
+	wrapperClassName?: string;
 }) {
 	return (
-		<div className="grid gap-1 text-[color:var(--color-text-muted)] text-sm">
+		<div
+			className={`grid gap-1 text-[color:var(--color-text-muted)] text-sm ${wrapperClassName ?? ""}`}
+		>
 			<span>{label}</span>
 			{children}
+			{hint ? (
+				<span className="text-[color:var(--color-text-subtle)] text-xs">
+					{hint}
+				</span>
+			) : null}
 		</div>
 	);
 }
 
 function LabelledInput({
 	label,
+	hint,
+	wrapperClassName,
 	...props
-}: React.InputHTMLAttributes<HTMLInputElement> & { label: string }) {
+}: React.InputHTMLAttributes<HTMLInputElement> & {
+	label: string;
+	hint?: string;
+	wrapperClassName?: string;
+}) {
 	return (
-		<label className="grid gap-1 text-[color:var(--color-text-muted)] text-sm">
+		<label
+			className={`grid gap-1 text-[color:var(--color-text-muted)] text-sm ${wrapperClassName ?? ""}`}
+		>
 			<span>{label}</span>
 			<input className={inputClass} {...props} />
+			{hint ? (
+				<span className="text-[color:var(--color-text-subtle)] text-xs">
+					{hint}
+				</span>
+			) : null}
 		</label>
 	);
 }
@@ -1155,18 +1288,83 @@ function LabelledSelect({
 	name,
 	options,
 	defaultValue,
-}: Parameters<typeof Select>[0] & { label: string }) {
+	hint,
+	wrapperClassName,
+	required,
+}: {
+	name: string;
+	options: Record<string, string>;
+	defaultValue?: string;
+	label: string;
+	hint?: string;
+	wrapperClassName?: string;
+	required?: boolean;
+}) {
 	return (
-		<label className="grid gap-1 text-[color:var(--color-text-muted)] text-sm">
+		<label
+			className={`grid gap-1 text-[color:var(--color-text-muted)] text-sm ${wrapperClassName ?? ""}`}
+		>
 			<span>{label}</span>
-			<select className={inputClass} defaultValue={defaultValue} name={name}>
+			<select
+				className={inputClass}
+				defaultValue={defaultValue}
+				name={name}
+				required={required}
+			>
 				{Object.entries(options).map(([value, optionLabel]) => (
 					<option key={value} value={value}>
 						{optionLabel}
 					</option>
 				))}
 			</select>
+			{hint ? (
+				<span className="text-[color:var(--color-text-subtle)] text-xs">
+					{hint}
+				</span>
+			) : null}
 		</label>
+	);
+}
+
+const rowStatusLabels: Record<string, string> = {
+	pending_review: "aguardando revis\u00e3o",
+	valid: "v\u00e1lida",
+	invalid: "inv\u00e1lida",
+	ignored: "ignorada",
+	duplicate: "duplicada",
+	imported: "importada",
+};
+
+const movementTypeLabels: Record<string, string> = {
+	income: "receita",
+	expense: "despesa",
+	transfer: "transfer\u00eancia",
+};
+
+function StatChip({
+	label,
+	value,
+	tone = "default",
+}: {
+	label: string;
+	value: React.ReactNode;
+	tone?: "default" | "good" | "bad" | "warn" | "info";
+}) {
+	const toneClass = {
+		default:
+			"border-[color:var(--color-border-subtle)] bg-[color:var(--color-surface-muted)] text-[color:var(--color-text)]",
+		good: "border-[color:var(--color-good-border)] bg-[color:var(--color-good-bg)] text-[color:var(--color-good)]",
+		bad: "border-[color:var(--color-bad-border)] bg-[color:var(--color-bad-bg)] text-[color:var(--color-bad)]",
+		warn: "border-[color:var(--color-warn-border)] bg-[color:var(--color-warn-bg)] text-[color:var(--color-warn)]",
+		info: "border-[color:var(--color-info-border)] bg-[color:var(--color-info-bg)] text-[color:var(--color-info)]",
+	}[tone];
+	return (
+		<span
+			className={`inline-flex items-baseline gap-2 rounded-full border px-3 py-1 text-xs ${toneClass}`}
+		>
+			<span className="opacity-80">{label}</span>
+			<span className="font-semibold">{value}</span>
+		</span>
 	);
 }
 
@@ -1194,9 +1392,11 @@ function ParsedDataPreview({ parsedData }: { parsedData: unknown }) {
 	if (entries.length === 0) return null;
 
 	return (
-		<div className="rounded-xl border border-[color:var(--color-border-subtle)] p-3 text-sm">
-			<p className="mb-2 font-medium">Valores lidos do CSV</p>
-			<dl className="grid gap-2 md:grid-cols-5">
+		<details className="rounded-xl border border-[color:var(--color-border-subtle)] p-3 text-sm">
+			<summary className="cursor-pointer font-medium text-[color:var(--color-text-muted)] hover:text-[color:var(--color-text)]">
+				Valores lidos direto do CSV
+			</summary>
+			<dl className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
 				{entries.map(([key, value]) => (
 					<div key={key}>
 						<dt className="text-[color:var(--color-text-muted)] text-xs">
@@ -1209,9 +1409,10 @@ function ParsedDataPreview({ parsedData }: { parsedData: unknown }) {
 				))}
 			</dl>
 			<p className="mt-2 text-[color:var(--color-text-subtle)] text-xs">
-				Use estes valores para detectar coluna errada no modelo.
+				Compare com a coluna esperada no modelo. Valor estranho aqui geralmente
+				significa coluna trocada.
 			</p>
-		</div>
+		</details>
 	);
 }
 
@@ -1240,17 +1441,23 @@ function rowStatusClass(status: string) {
 	return "text-[color:var(--color-text-muted)]";
 }
 
+function defaultDecisionFor(status: string) {
+	if (status === "duplicate") return "duplicate";
+	if (status === "invalid" || status === "ignored") return "ignore";
+	return "import";
+}
+
 function actionableImportError(error: string) {
 	const lower = error.toLowerCase();
 	if (lower.includes("data"))
-		return "Confira a coluna de data e o formato escolhido no modelo.";
+		return "Confira a coluna de data e o formato (dd/mm/aaaa, etc.) no modelo.";
 	if (lower.includes("valor") || lower.includes("amount"))
-		return "Confira separador decimal, sinal e colunas de entrada/saída.";
+		return "Confira o separador decimal, o sinal do valor e as colunas de entrada/saída.";
 	if (lower.includes("descr"))
-		return "Confira se a coluna de descrição existe e tem conteúdo.";
+		return "Confira se a coluna de descrição existe no CSV e não veio vazia.";
 	if (lower.includes("duplic"))
-		return "Marque como duplicada ou ajuste o ID externo/descrição antes de importar.";
-	return "Ajuste a linha no formulário ou marque como ignorada antes de confirmar.";
+		return "Marque como duplicada ou ajuste o identificador externo antes de importar.";
+	return "Ajuste os campos abaixo ou marque como ignorada antes de confirmar.";
 }
 
 function rowHadSensitiveData(parsedData: unknown) {
