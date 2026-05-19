@@ -6,7 +6,6 @@ import {
 	archiveImportCategoryRule,
 	archiveImportTemplate,
 	cancelImportBatch,
-	confirmImportBatch,
 	createImportBatch,
 	createImportCategoryRule,
 	createImportTemplate,
@@ -18,6 +17,10 @@ import {
 	FinanceShell,
 	SubmitButton,
 } from "~/app/_components/finance-ui";
+import {
+	type ConfirmFormRow,
+	ConfirmImportForm,
+} from "~/app/import/confirm-import-form";
 import {
 	defaultTemplateConfig,
 	normalizeImportTemplateConfig,
@@ -878,6 +881,38 @@ function BatchReview({
 	const recurrenceById = new Map(
 		reviewRecurrences.map((recurrence) => [recurrence.id, recurrence]),
 	);
+	const categoryByIdLocal = new Map(
+		reviewCategories.map((category) => [category.id, category]),
+	);
+	const reviewFormRows: ConfirmFormRow[] = rows.map((row) => ({
+		id: row.id,
+		rowNumber: row.rowNumber,
+		status: row.status,
+		occurredOn: row.occurredOn,
+		amountCents: row.amountCents,
+		movementType:
+			row.movementType === "income" || row.movementType === "expense"
+				? row.movementType
+				: null,
+		accountId: row.accountId,
+		originalDescription: row.originalDescription,
+		bankCategory: row.bankCategory,
+		parsedData: row.parsedData,
+		hadSensitiveData: rowHadSensitiveData(row.parsedData),
+		validationError: row.validationError,
+		suggestedCategoryId: row.suggestedCategoryId,
+		suggestedCategoryName: row.suggestedCategoryId
+			? (categoryByIdLocal.get(row.suggestedCategoryId)?.name ?? null)
+			: null,
+		suggestedRuleDescription: row.suggestedRuleId
+			? (ruleById.get(row.suggestedRuleId)?.normalizedDescription ?? null)
+			: null,
+		suggestedRecurrenceId: row.suggestedRecurrenceId,
+		suggestedRecurrenceOccurrenceOn: row.suggestedRecurrenceOccurrenceOn,
+		suggestedRecurrenceName: row.suggestedRecurrenceId
+			? (recurrenceById.get(row.suggestedRecurrenceId)?.name ?? null)
+			: null,
+	}));
 	const totals = rows.reduce(
 		(summary, row) => {
 			if (row.status === "ignored") summary.ignored++;
@@ -974,232 +1009,20 @@ function BatchReview({
 			</div>
 
 			{selectedBatch.status === "reviewing" ? (
-				<form action={confirmImportBatch} className="mt-5 grid gap-4">
-					<input name="batchId" type="hidden" value={selectedBatch.id} />
-					<div className="rounded-2xl border border-[color:var(--color-border-subtle)] p-4">
-						<label className="grid gap-2 text-[color:var(--color-text-muted)] text-sm sm:grid-cols-[1fr_2fr] sm:items-center">
-							<span>
-								Aplicar uma categoria em todas as linhas sem categoria
-							</span>
-							<select className={inputClass} name="bulkCategoryId">
-								<option value="">Não aplicar em lote</option>
-								{reviewCategories.map((category) => (
-									<option key={category.id} value={category.id}>
-										{category.name} ·{" "}
-										{category.kind === "income" ? "receita" : "despesa"}
-									</option>
-								))}
-							</select>
-						</label>
-						<p className="mt-2 text-[color:var(--color-text-subtle)] text-xs">
-							Linhas que você já escolheu categoria individual ficam intactas.
-						</p>
-					</div>
-					{totals.invalid > 0 && (
-						<div className="rounded-2xl border border-[color:var(--color-bad-border)] bg-[color:var(--color-bad-bg)] p-4 text-[color:var(--color-bad)] text-sm">
-							<p className="font-medium">
-								{totals.invalid} linha(s) inválida(s) marcadas como ignoradas
-								por padrão.
-							</p>
-							<p className="mt-1">
-								Compare “Valores lidos do CSV” com o cabeçalho. Se data, valor
-								ou descrição vierem vazios ou trocados, ajuste o modelo e envie
-								o CSV de novo. Se for um caso isolado, corrija a linha aqui ou
-								mantenha como ignorada.
-							</p>
-						</div>
-					)}
-					{rows.map((row) => (
-						<div
-							className="grid gap-3 rounded-2xl border border-[color:var(--color-border-subtle)] p-4"
-							key={row.id}
-						>
-							<div className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-								<RowFact label="Linha" value={row.rowNumber} />
-								<RowFact label="Data" value={row.occurredOn ?? "sem data"} />
-								<RowFact
-									label="Valor"
-									value={formatMoney(row.amountCents ?? 0)}
-								/>
-								<RowFact
-									label="Tipo"
-									value={
-										row.movementType
-											? (movementTypeLabels[row.movementType] ??
-												row.movementType)
-											: "não detectado"
-									}
-								/>
-								<RowFact
-									className={rowStatusClass(row.status)}
-									label="Status"
-									value={rowStatusLabels[row.status] ?? row.status}
-								/>
-							</div>
-							<div className="rounded-xl bg-[color:var(--color-surface-muted)] p-3 text-sm">
-								<p className="text-[color:var(--color-text-muted)] text-xs">
-									Descrição importada
-								</p>
-								<p className="text-[color:var(--color-text)]">
-									{row.originalDescription || "sem descrição"}
-								</p>
-							</div>
-							<ParsedDataPreview parsedData={row.parsedData} />
-							{row.bankCategory && (
-								<p className="text-[color:var(--color-text-muted)] text-sm">
-									Categoria do banco: {row.bankCategory}
-								</p>
-							)}
-							{rowHadSensitiveData(row.parsedData) && (
-								<p className="text-[color:var(--color-warn)] text-sm">
-									Dados sensíveis (CPF, cartão, etc.) detectados e mascarados
-									antes de salvar.
-								</p>
-							)}
-							{row.suggestedCategoryId && (
-								<p className="text-[color:var(--color-accent)] text-sm">
-									Sugestão de categoria:{" "}
-									<strong>
-										{reviewCategories.find(
-											(category) => category.id === row.suggestedCategoryId,
-										)?.name ?? "categoria"}
-									</strong>
-									{row.suggestedRuleId
-										? ` — a partir da regra “${ruleById.get(row.suggestedRuleId)?.normalizedDescription ?? ""}”`
-										: ""}
-								</p>
-							)}
-							{row.suggestedRecurrenceId &&
-								row.suggestedRecurrenceOccurrenceOn && (
-									<p className="text-[color:var(--color-info)] text-sm">
-										Parece ser a recorrência{" "}
-										<strong>
-											{recurrenceById.get(row.suggestedRecurrenceId)?.name ??
-												`#${row.suggestedRecurrenceId}`}
-										</strong>{" "}
-										(vencimento {row.suggestedRecurrenceOccurrenceOn}).
-									</p>
-								)}
-							{row.validationError && (
-								<div className="rounded-xl border border-[color:var(--color-bad-border)] bg-[color:var(--color-bad-bg)] p-3 text-sm">
-									<p className="font-medium text-[color:var(--color-bad)]">
-										Problema na linha: {row.validationError}
-									</p>
-									<p className="mt-1 text-[color:var(--color-bad)]">
-										{actionableImportError(row.validationError)}
-									</p>
-								</div>
-							)}
-							<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-								<FieldLabel
-									hint="Pré-selecionado pelo status; ajuste se necessário."
-									label="O que fazer com esta linha"
-								>
-									<select
-										className={inputClass}
-										defaultValue={defaultDecisionFor(row.status)}
-										name={`row-${row.id}-decision`}
-										required
-									>
-										<option value="import">Importar (criar transação)</option>
-										<option value="duplicate">Marcar como duplicada</option>
-										<option value="ignore">Ignorar linha</option>
-									</select>
-								</FieldLabel>
-								<FieldLabel label="Data">
-									<input
-										className={inputClass}
-										defaultValue={row.occurredOn ?? ""}
-										name={`row-${row.id}-occurredOn`}
-										type="date"
-									/>
-								</FieldLabel>
-								<FieldLabel label="Valor">
-									<input
-										className={inputClass}
-										defaultValue={
-											row.amountCents ? formatMoneyInput(row.amountCents) : ""
-										}
-										name={`row-${row.id}-amount`}
-										placeholder="Ex.: 49,90"
-									/>
-								</FieldLabel>
-								<FieldLabel label="Tipo">
-									<select
-										className={inputClass}
-										defaultValue={row.movementType ?? "expense"}
-										name={`row-${row.id}-movementType`}
-									>
-										<option value="income">Receita</option>
-										<option value="expense">Despesa</option>
-									</select>
-								</FieldLabel>
-								<FieldLabel label="Conta">
-									<select
-										className={inputClass}
-										defaultValue={row.accountId}
-										name={`row-${row.id}-accountId`}
-									>
-										{reviewAccounts.map((account) => (
-											<option key={account.id} value={account.id}>
-												{account.name}
-											</option>
-										))}
-									</select>
-								</FieldLabel>
-								<FieldLabel
-									hint="Obrigatória só quando você importar a linha."
-									label="Categoria"
-								>
-									<select
-										className={inputClass}
-										defaultValue={row.suggestedCategoryId ?? ""}
-										name={`row-${row.id}-categoryId`}
-									>
-										<option value="">Sem categoria</option>
-										{reviewCategories.map((category) => (
-											<option key={category.id} value={category.id}>
-												{category.name} ·{" "}
-												{category.kind === "income" ? "receita" : "despesa"}
-											</option>
-										))}
-									</select>
-								</FieldLabel>
-								<FieldLabel
-									label="Descrição final"
-									wrapperClassName="sm:col-span-2 lg:col-span-3 xl:col-span-4"
-								>
-									<input
-										className={inputClass}
-										defaultValue={row.originalDescription ?? ""}
-										name={`row-${row.id}-description`}
-									/>
-								</FieldLabel>
-							</div>
-							{row.suggestedRecurrenceId && (
-								<label className="flex items-center gap-2 text-[color:var(--color-info)] text-sm">
-									<input
-										defaultChecked
-										name={`row-${row.id}-acceptRecurrence`}
-										type="checkbox"
-									/>{" "}
-									Confirmar como ocorrência desta recorrência
-								</label>
-							)}
-							<label className="flex items-center gap-2 text-[color:var(--color-text-muted)] text-sm">
-								<input name={`row-${row.id}-createRule`} type="checkbox" />{" "}
-								Salvar a categoria escolhida como nova regra (aplica em lotes
-								futuros)
-							</label>
-						</div>
-					))}
-					<SubmitButton
-						className="bg-[color:var(--color-accent)] py-3 font-semibold"
-						pendingLabel="Confirmando..."
-					>
-						Confirmar decisões do lote
-					</SubmitButton>
-				</form>
+				<ConfirmImportForm
+					accounts={reviewAccounts.map((account) => ({
+						id: account.id,
+						name: account.name,
+					}))}
+					batchId={selectedBatch.id}
+					categories={reviewCategories.map((category) => ({
+						id: category.id,
+						name: category.name,
+						kind: category.kind,
+					}))}
+					invalidCount={totals.invalid}
+					rows={reviewFormRows}
+				/>
 			) : (
 				<div className="mt-5 grid gap-2 text-sm">
 					{rows.map((row) => (
@@ -1368,98 +1191,6 @@ function StatChip({
 	);
 }
 
-function RowFact({
-	label,
-	value,
-	className,
-}: {
-	label: string;
-	value: React.ReactNode;
-	className?: string;
-}) {
-	return (
-		<div>
-			<p className="text-[color:var(--color-text-muted)] text-xs">{label}</p>
-			<p className={className ?? "text-[color:var(--color-text)]"}>{value}</p>
-		</div>
-	);
-}
-
-function ParsedDataPreview({ parsedData }: { parsedData: unknown }) {
-	const entries = parsedDataEntries(parsedData).filter(
-		([key]) => key !== "hadSensitiveData",
-	);
-	if (entries.length === 0) return null;
-
-	return (
-		<details className="rounded-xl border border-[color:var(--color-border-subtle)] p-3 text-sm">
-			<summary className="cursor-pointer font-medium text-[color:var(--color-text-muted)] hover:text-[color:var(--color-text)]">
-				Valores lidos direto do CSV
-			</summary>
-			<dl className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-				{entries.map(([key, value]) => (
-					<div key={key}>
-						<dt className="text-[color:var(--color-text-muted)] text-xs">
-							{parsedDataLabel(key)}
-						</dt>
-						<dd className="break-words text-[color:var(--color-text)]">
-							{value || "—"}
-						</dd>
-					</div>
-				))}
-			</dl>
-			<p className="mt-2 text-[color:var(--color-text-subtle)] text-xs">
-				Compare com a coluna esperada no modelo. Valor estranho aqui geralmente
-				significa coluna trocada.
-			</p>
-		</details>
-	);
-}
-
-function parsedDataEntries(parsedData: unknown): [string, string][] {
-	if (typeof parsedData !== "object" || parsedData === null) return [];
-	return Object.entries(parsedData).map(([key, value]) => [
-		key,
-		value === null || value === undefined ? "" : String(value),
-	]);
-}
-
-function parsedDataLabel(key: string) {
-	const labels: Record<string, string> = {
-		date: "Data bruta",
-		amount: "Valor bruto",
-		kind: "Tipo/sinal bruto",
-		notes: "Observação bruta",
-	};
-	return labels[key] ?? key;
-}
-
-function rowStatusClass(status: string) {
-	if (status === "duplicate") return "text-[color:var(--color-warn)]";
-	if (status === "invalid") return "text-[color:var(--color-bad)]";
-	if (status === "imported") return "text-[color:var(--color-accent)]";
-	return "text-[color:var(--color-text-muted)]";
-}
-
-function defaultDecisionFor(status: string) {
-	if (status === "duplicate") return "duplicate";
-	if (status === "invalid" || status === "ignored") return "ignore";
-	return "import";
-}
-
-function actionableImportError(error: string) {
-	const lower = error.toLowerCase();
-	if (lower.includes("data"))
-		return "Confira a coluna de data e o formato (dd/mm/aaaa, etc.) no modelo.";
-	if (lower.includes("valor") || lower.includes("amount"))
-		return "Confira o separador decimal, o sinal do valor e as colunas de entrada/saída.";
-	if (lower.includes("descr"))
-		return "Confira se a coluna de descrição existe no CSV e não veio vazia.";
-	if (lower.includes("duplic"))
-		return "Marque como duplicada ou ajuste o identificador externo antes de importar.";
-	return "Ajuste os campos abaixo ou marque como ignorada antes de confirmar.";
-}
-
 function rowHadSensitiveData(parsedData: unknown) {
 	return (
 		typeof parsedData === "object" &&
@@ -1474,10 +1205,6 @@ function formatMoney(cents: number) {
 		style: "currency",
 		currency: "BRL",
 	}).format(cents / 100);
-}
-
-function formatMoneyInput(cents: number) {
-	return (cents / 100).toFixed(2).replace(".", ",");
 }
 
 function formatDateTime(date: Date) {

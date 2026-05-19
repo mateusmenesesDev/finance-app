@@ -10,6 +10,11 @@ import {
 } from "~/lib/category-errors";
 import { matchImportCategoryRule } from "~/lib/import-category-rules";
 import {
+	formatConfirmCategoryError,
+	type ImportConfirmCategory,
+	resolveConfirmRowCategory,
+} from "~/lib/import-confirm";
+import {
 	defaultTemplateConfig,
 	duplicateKey,
 	type ImportTemplateConfig,
@@ -2072,14 +2077,27 @@ export async function createImportBatch(formData: FormData) {
 	redirect(`/import?batchId=${batch.id}`);
 }
 
-export async function confirmImportBatch(formData: FormData) {
+export type ConfirmImportBatchState = {
+	rowErrors: Record<number, string>;
+	globalError: string | null;
+};
+
+const confirmImportBatchInitialState: ConfirmImportBatchState = {
+	rowErrors: {},
+	globalError: null,
+};
+
+export async function confirmImportBatch(
+	_prevState: ConfirmImportBatchState,
+	formData: FormData,
+): Promise<ConfirmImportBatchState> {
 	const userId = await requireUserId();
 	const batchId = intField(formData, "batchId");
 	const batch = await db.query.importBatches.findFirst({
 		where: and(eq(importBatches.id, batchId), eq(importBatches.userId, userId)),
 	});
 	if (!batch || batch.status !== "reviewing")
-		throw new Error("Importação inválida");
+		return { rowErrors: {}, globalError: "Importação inválida" };
 
 	const rows = await db.query.importRows.findMany({
 		where: and(eq(importRows.batchId, batchId), eq(importRows.userId, userId)),
@@ -2107,7 +2125,50 @@ export async function confirmImportBatch(formData: FormData) {
 	const categoriesById = new Map(
 		activeCategories.map((category) => [category.id, category]),
 	);
+	const confirmCategoriesById = new Map<number, ImportConfirmCategory>(
+		activeCategories.map((category) => [
+			category.id,
+			{ id: category.id, name: category.name, kind: category.kind },
+		]),
+	);
 	const bulkCategoryId = optionalIntField(formData, "bulkCategoryId");
+
+	// Pre-pass: surface category/kind issues per-row before opening the
+	// transaction so the review screen can show inline errors instead of a
+	// blanket digest crash.
+	const rowErrors: Record<number, string> = {};
+	for (const row of rows) {
+		const decision = formData.get(`row-${row.id}-decision`)?.toString();
+		if (decision !== "import") continue;
+		const movementTypeValue = formData
+			.get(`row-${row.id}-movementType`)
+			?.toString();
+		if (
+			!movementTypeValue ||
+			!importMovementTypes.has(movementTypeValue as "income" | "expense")
+		)
+			continue;
+		const movementType = movementTypeValue as "income" | "expense";
+		const rowCategoryId = optionalIntField(
+			formData,
+			`row-${row.id}-categoryId`,
+		);
+		const resolved = resolveConfirmRowCategory({
+			movementType,
+			rowCategoryId,
+			bulkCategoryId,
+			categoriesById: confirmCategoriesById,
+		});
+		if (resolved.kind === "ok") continue;
+		rowErrors[row.id] = formatConfirmCategoryError(resolved, movementType);
+	}
+	if (Object.keys(rowErrors).length > 0) {
+		return {
+			rowErrors,
+			globalError: `Corrija ${Object.keys(rowErrors).length} linha(s) com categoria incompatível antes de confirmar.`,
+		};
+	}
+
 	const rulesFromCorrections: Parameters<
 		typeof createImportRuleIfMissing
 	>[0][] = [];
@@ -2348,6 +2409,7 @@ export async function confirmImportBatch(formData: FormData) {
 	revalidatePath("/");
 	revalidatePath("/import");
 	revalidatePath("/assistente");
+	return confirmImportBatchInitialState;
 }
 
 export async function cancelImportBatch(formData: FormData) {
