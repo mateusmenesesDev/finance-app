@@ -1,0 +1,7 @@
+CREATE TYPE "public"."finance_app_import_rule_action" AS ENUM('categorize', 'ignore');--> statement-breakpoint
+ALTER TABLE "finance_app_import_category_rules" DROP CONSTRAINT "finance_app_import_category_rules_type_valid";--> statement-breakpoint
+ALTER TABLE "finance_app_import_category_rules" ALTER COLUMN "category_id" DROP NOT NULL;--> statement-breakpoint
+ALTER TABLE "finance_app_import_category_rules" ALTER COLUMN "movement_type" DROP NOT NULL;--> statement-breakpoint
+ALTER TABLE "finance_app_import_category_rules" ADD COLUMN "action" "finance_app_import_rule_action" DEFAULT 'categorize' NOT NULL;--> statement-breakpoint
+ALTER TABLE "finance_app_import_category_rules" ADD CONSTRAINT "finance_app_import_category_rules_action_fields_valid" CHECK (("finance_app_import_category_rules"."action" = 'categorize' AND "finance_app_import_category_rules"."category_id" IS NOT NULL AND "finance_app_import_category_rules"."movement_type" IS NOT NULL) OR ("finance_app_import_category_rules"."action" = 'ignore' AND "finance_app_import_category_rules"."category_id" IS NULL));--> statement-breakpoint
+ALTER TABLE "finance_app_import_category_rules" ADD CONSTRAINT "finance_app_import_category_rules_type_valid" CHECK ("finance_app_import_category_rules"."movement_type" IS NULL OR "finance_app_import_category_rules"."movement_type" IN ('income', 'expense'));

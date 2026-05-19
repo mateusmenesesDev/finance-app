@@ -152,6 +152,7 @@ describe("suggestCategoryForTransactions", () => {
 			rules: [
 				{
 					id: 7,
+					action: "categorize",
 					categoryId: 1,
 					accountId: null,
 					movementType: "expense",
@@ -159,6 +160,7 @@ describe("suggestCategoryForTransactions", () => {
 					textMatchMode: "contains",
 					amountCents: null,
 					amountToleranceCents: null,
+					descriptionOverride: null,
 					priority: 0,
 					createdAt: new Date("2025-01-01"),
 				},
@@ -318,6 +320,7 @@ describe("suggestCategoryRules", () => {
 			existingRules: [
 				{
 					id: 9,
+					action: "categorize",
 					categoryId: 1,
 					accountId: null,
 					movementType: "expense",
@@ -325,6 +328,7 @@ describe("suggestCategoryRules", () => {
 					textMatchMode: "contains",
 					amountCents: null,
 					amountToleranceCents: null,
+					descriptionOverride: null,
 					priority: 0,
 					createdAt: new Date(),
 				},
@@ -563,6 +567,7 @@ describe("heuristicAssistant", () => {
 			rules: [
 				{
 					id: 7,
+					action: "categorize",
 					categoryId: 1,
 					accountId: null,
 					movementType: "expense",
@@ -570,6 +575,7 @@ describe("heuristicAssistant", () => {
 					textMatchMode: "contains",
 					amountCents: null,
 					amountToleranceCents: null,
+					descriptionOverride: null,
 					priority: 0,
 					createdAt: new Date("2025-01-01"),
 				},

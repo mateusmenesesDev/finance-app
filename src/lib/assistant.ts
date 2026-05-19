@@ -169,6 +169,11 @@ export function suggestCategoryForTransactions(input: {
 		);
 
 		if (ruleMatch) {
+			if (ruleMatch.action === "ignore" || ruleMatch.categoryId === null) {
+				// Ignore rules pre-empt category suggestions; the user already told us
+				// to skip this kind of row.
+				continue;
+			}
 			const category = categoriesById.get(ruleMatch.categoryId);
 			if (!category || category.kind !== tx.movementType) continue;
 			const payload: CategoryForTransactionPayload = {

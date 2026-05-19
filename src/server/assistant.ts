@@ -99,6 +99,7 @@ export async function regenerateAssistantSuggestionsForUser(userId: string) {
 	}));
 	const ruleInputs = rules.map((rule) => ({
 		id: rule.id,
+		action: rule.action,
 		categoryId: rule.categoryId,
 		accountId: rule.accountId,
 		movementType: rule.movementType,
@@ -106,6 +107,7 @@ export async function regenerateAssistantSuggestionsForUser(userId: string) {
 		textMatchMode: rule.textMatchMode,
 		amountCents: rule.amountCents,
 		amountToleranceCents: rule.amountToleranceCents,
+		descriptionOverride: rule.descriptionOverride,
 		priority: rule.priority,
 		createdAt: rule.createdAt,
 	}));
@@ -307,6 +309,7 @@ export async function applyAcceptedSuggestion(
 			if (existing.length === 0) {
 				await db.insert(importCategoryRules).values({
 					userId,
+					action: "categorize",
 					categoryId: payload.categoryId,
 					accountId: null,
 					movementType: payload.movementType,

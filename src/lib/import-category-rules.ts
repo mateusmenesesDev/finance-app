@@ -1,15 +1,18 @@
 export type ImportRuleMatchMode = "contains" | "exact";
 export type ImportRuleMovementType = "income" | "expense";
+export type ImportRuleAction = "categorize" | "ignore";
 
 export type ImportCategoryRule = {
 	id: number;
-	categoryId: number;
+	action: ImportRuleAction;
+	categoryId: number | null;
 	accountId: number | null;
-	movementType: ImportRuleMovementType | string;
+	movementType: ImportRuleMovementType | string | null;
 	normalizedDescription: string;
 	textMatchMode: ImportRuleMatchMode;
 	amountCents: number | null;
 	amountToleranceCents: number | null;
+	descriptionOverride: string | null;
 	priority: number;
 	createdAt: Date;
 };
@@ -33,7 +36,8 @@ export function matchImportCategoryRule(
 }
 
 export function ruleMatchesRow(rule: ImportCategoryRule, row: ImportRuleRow) {
-	if (row.movementType !== rule.movementType) return false;
+	if (rule.movementType !== null && row.movementType !== rule.movementType)
+		return false;
 	const description = row.normalizedDescription ?? "";
 	if (!description) return false;
 	if (rule.textMatchMode === "exact") {
@@ -50,7 +54,10 @@ export function ruleMatchesRow(rule: ImportCategoryRule, row: ImportRuleRow) {
 	return true;
 }
 
+// Ignore wins over categorize so users get a definitive "skip" signal even
+// when a competing categorize rule also matches.
 function compareRules(a: ImportCategoryRule, b: ImportCategoryRule) {
+	if (a.action !== b.action) return a.action === "ignore" ? -1 : 1;
 	const specificity = ruleSpecificity(b) - ruleSpecificity(a);
 	if (specificity !== 0) return specificity;
 	const priority = b.priority - a.priority;
@@ -62,6 +69,7 @@ function ruleSpecificity(rule: ImportCategoryRule) {
 	return (
 		(rule.textMatchMode === "exact" ? 100 : 0) +
 		rule.normalizedDescription.length +
+		(rule.movementType === null ? 0 : 10) +
 		(rule.accountId === null ? 0 : 20) +
 		(rule.amountCents === null ? 0 : 20)
 	);

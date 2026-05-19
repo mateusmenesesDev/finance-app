@@ -85,6 +85,11 @@ export const importRuleTextMatchMode = pgEnum(
 	["contains", "exact"],
 );
 
+export const importRuleAction = pgEnum("finance_app_import_rule_action", [
+	"categorize",
+	"ignore",
+]);
+
 export const assistantSuggestionKind = pgEnum(
 	"finance_app_assistant_suggestion_kind",
 	[
@@ -463,6 +468,7 @@ export const importRows = createFinanceTable(
 		bankCategory: varchar("bank_category", { length: 120 }),
 		suggestedCategoryId: integer("suggested_category_id"),
 		suggestedRuleId: integer("suggested_rule_id"),
+		suggestedDescription: text("suggested_description"),
 		suggestedRecurrenceId: integer("suggested_recurrence_id"),
 		suggestedRecurrenceOccurrenceOn: date("suggested_recurrence_occurrence_on"),
 		suggestionSource: varchar("suggestion_source", { length: 40 }),
@@ -519,15 +525,17 @@ export const importCategoryRules = createFinanceTable(
 		userId: text("user_id")
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
-		categoryId: integer("category_id").notNull(),
+		action: importRuleAction("action").notNull().default("categorize"),
+		categoryId: integer("category_id"),
 		accountId: integer("account_id"),
-		movementType: movementType("movement_type").notNull(),
+		movementType: movementType("movement_type"),
 		normalizedDescription: text("normalized_description").notNull(),
 		textMatchMode: importRuleTextMatchMode("text_match_mode")
 			.notNull()
 			.default("contains"),
 		amountCents: integer("amount_cents"),
 		amountToleranceCents: integer("amount_tolerance_cents"),
+		descriptionOverride: text("description_override"),
 		priority: integer("priority").notNull().default(0),
 		matchCount: integer("match_count").notNull().default(0),
 		acceptedCount: integer("accepted_count").notNull().default(0),
@@ -563,7 +571,11 @@ export const importCategoryRules = createFinanceTable(
 		}),
 		check(
 			"finance_app_import_category_rules_type_valid",
-			sql`${t.movementType} IN ('income', 'expense')`,
+			sql`${t.movementType} IS NULL OR ${t.movementType} IN ('income', 'expense')`,
+		),
+		check(
+			"finance_app_import_category_rules_action_fields_valid",
+			sql`(${t.action} = 'categorize' AND ${t.categoryId} IS NOT NULL AND ${t.movementType} IS NOT NULL) OR (${t.action} = 'ignore' AND ${t.categoryId} IS NULL)`,
 		),
 		check(
 			"finance_app_import_category_rules_amount_cents_positive",

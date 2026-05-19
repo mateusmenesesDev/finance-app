@@ -7,7 +7,6 @@ import {
 	archiveImportTemplate,
 	cancelImportBatch,
 	createImportBatch,
-	createImportCategoryRule,
 	createImportTemplate,
 	revertImportBatch,
 	updateImportTemplate,
@@ -21,6 +20,7 @@ import {
 	type ConfirmFormRow,
 	ConfirmImportForm,
 } from "~/app/import/confirm-import-form";
+import { ImportRuleForm } from "~/app/import/import-rule-form";
 import {
 	defaultTemplateConfig,
 	normalizeImportTemplateConfig,
@@ -724,94 +724,36 @@ function ImportRulePanel({
 	return (
 		<Panel title="Regras de categorização">
 			<p className="-mt-2 mb-4 text-[color:var(--color-text-muted)] text-sm">
-				Quando uma linha do CSV bate com o texto da regra, o app já sugere a
-				categoria na revisão. Você ainda pode aceitar, trocar ou ignorar.
+				Regras casam pelo texto do CSV. Em “Sugerir categoria” o app pré-marca a
+				categoria na revisão; em “Ignorar linha” já pré-marca a linha como
+				ignorada. Você pode trocar a decisão antes de confirmar o lote.
 			</p>
-			<form
-				action={createImportCategoryRule}
-				className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6"
-			>
-				<LabelledInput
-					hint="Trecho da descrição que aparece no CSV."
-					label="Texto a procurar"
-					name="description"
-					placeholder="Ex.: Mercado Exemplo"
-					required
-					wrapperClassName="sm:col-span-2 xl:col-span-2"
-				/>
-				<LabelledSelect
-					defaultValue="contains"
-					hint="Como comparar o texto."
-					label="Modo de busca"
-					name="textMatchMode"
-					options={{ contains: "Contém", exact: "Igual exato" }}
-				/>
-				<LabelledSelect
-					defaultValue="expense"
-					label="Tipo da linha"
-					name="movementType"
-					options={{ expense: "Despesa", income: "Receita" }}
-				/>
-				<LabelledInput
-					hint="Restringe a um valor próximo. Opcional."
-					label="Valor aproximado"
-					name="amount"
-					placeholder="Ex.: 49,90"
-				/>
-				<LabelledInput
-					hint="Quanto pode variar do valor acima. Opcional."
-					label="Tolerância"
-					name="amountTolerance"
-					placeholder="Ex.: 2,00"
-				/>
-				<LabelledInput
-					hint="Maior = aplicada antes."
-					label="Prioridade"
-					name="priority"
-					placeholder="Ex.: 10"
-				/>
-				<FieldLabel
-					hint="Aplique só em lotes de uma conta específica."
-					label="Conta (opcional)"
-				>
-					<select className={inputClass} name="accountId">
-						<option value="">Qualquer conta</option>
-						{ruleAccounts.map((account) => (
-							<option key={account.id} value={account.id}>
-								{account.name}
-							</option>
-						))}
-					</select>
-				</FieldLabel>
-				<FieldLabel
-					hint="Categoria sugerida quando a regra bater."
-					label="Categoria de destino"
-					wrapperClassName="sm:col-span-2 xl:col-span-2"
-				>
-					<select className={inputClass} name="categoryId" required>
-						<option value="">Selecione uma categoria</option>
-						{ruleCategories.map((category) => (
-							<option key={category.id} value={category.id}>
-								{category.name} ·{" "}
-								{category.kind === "income" ? "receita" : "despesa"}
-							</option>
-						))}
-					</select>
-				</FieldLabel>
-				<SubmitButton
-					className="self-end bg-[color:var(--color-accent)] font-semibold sm:col-span-2 xl:col-span-2"
-					pendingLabel="Criando..."
-				>
-					Criar regra
-				</SubmitButton>
-			</form>
+			<ImportRuleForm
+				accounts={ruleAccounts.map((account) => ({
+					id: account.id,
+					name: account.name,
+				}))}
+				categories={ruleCategories.map((category) => ({
+					id: category.id,
+					name: category.name,
+					kind: category.kind,
+				}))}
+			/>
 			<div className="mt-6 grid gap-2">
 				<h3 className="font-medium text-sm">Regras ativas</h3>
 				{activeRules.map((rule) => {
-					const category = categoryById.get(rule.categoryId);
+					const category =
+						rule.categoryId !== null ? categoryById.get(rule.categoryId) : null;
 					const account = rule.accountId
 						? accountById.get(rule.accountId)
 						: null;
+					const targetLabel =
+						rule.action === "ignore"
+							? "ignorar linha"
+							: (category?.name ?? "categoria arquivada");
+					const typeLabel = rule.movementType
+						? (movementTypeLabels[rule.movementType] ?? rule.movementType)
+						: "qualquer tipo";
 					return (
 						<div
 							className="flex flex-wrap items-start justify-between gap-3 rounded-2xl border border-[color:var(--color-border-subtle)] p-4 text-sm"
@@ -819,13 +761,16 @@ function ImportRulePanel({
 						>
 							<div className="min-w-0 flex-1">
 								<p className="font-medium text-[color:var(--color-text)]">
-									“{rule.normalizedDescription}” →{" "}
-									{category?.name ?? "categoria arquivada"}
+									“{rule.normalizedDescription}” → {targetLabel}
 								</p>
+								{rule.descriptionOverride ? (
+									<p className="mt-1 text-[color:var(--color-text-muted)] text-xs">
+										descrição final: “{rule.descriptionOverride}”
+									</p>
+								) : null}
 								<p className="mt-1 text-[color:var(--color-text-muted)] text-xs">
 									{rule.textMatchMode === "contains" ? "contém" : "igual"} ·{" "}
-									{movementTypeLabels[rule.movementType] ?? rule.movementType} ·{" "}
-									{account?.name ?? "qualquer conta"} · prioridade{" "}
+									{typeLabel} · {account?.name ?? "qualquer conta"} · prioridade{" "}
 									{rule.priority}
 								</p>
 								<div className="mt-2 flex flex-wrap gap-2">
@@ -907,6 +852,8 @@ function BatchReview({
 		suggestedRuleDescription: row.suggestedRuleId
 			? (ruleById.get(row.suggestedRuleId)?.normalizedDescription ?? null)
 			: null,
+		suggestedDescription: row.suggestedDescription,
+		suggestionSource: row.suggestionSource,
 		suggestedRecurrenceId: row.suggestedRecurrenceId,
 		suggestedRecurrenceOccurrenceOn: row.suggestedRecurrenceOccurrenceOn,
 		suggestedRecurrenceName: row.suggestedRecurrenceId

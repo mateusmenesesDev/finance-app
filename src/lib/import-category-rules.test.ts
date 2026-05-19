@@ -3,12 +3,15 @@ import { describe, expect, test } from "bun:test";
 import { matchImportCategoryRule } from "./import-category-rules";
 
 const base = {
-	categoryId: 1,
+	action: "categorize" as const,
+	categoryId: 1 as number | null,
 	accountId: null,
 	movementType: "expense" as const,
+	normalizedDescription: "",
 	textMatchMode: "contains" as const,
 	amountCents: null,
 	amountToleranceCents: null,
+	descriptionOverride: null as string | null,
 	priority: 0,
 	createdAt: new Date("2026-01-01T00:00:00Z"),
 };
@@ -131,5 +134,81 @@ describe("import category rules", () => {
 		};
 		expect(matchImportCategoryRule(row, [oldRule, newRule])?.id).toBe(2);
 		expect(matchImportCategoryRule(row, [newRule, specific])?.id).toBe(3);
+	});
+
+	test("ignore rule wins over a categorize rule matching the same row", () => {
+		const categorize = {
+			...base,
+			id: 1,
+			normalizedDescription: "ifood restaurante especifico",
+			priority: 100,
+		};
+		const ignore = {
+			...base,
+			id: 2,
+			action: "ignore" as const,
+			categoryId: null,
+			normalizedDescription: "ifood",
+			priority: 0,
+		};
+		const row = {
+			accountId: 1,
+			movementType: "expense" as const,
+			normalizedDescription: "ifood restaurante especifico",
+			amountCents: 4200,
+		};
+		expect(matchImportCategoryRule(row, [categorize, ignore])?.id).toBe(2);
+	});
+
+	test("preserves descriptionOverride on the returned match", () => {
+		const rule = {
+			...base,
+			id: 99,
+			normalizedDescription: "mercado",
+			descriptionOverride: "Supermercado mensal",
+		};
+		const match = matchImportCategoryRule(
+			{
+				accountId: 1,
+				movementType: "expense",
+				normalizedDescription: "mercado x",
+				amountCents: 1000,
+			},
+			[rule],
+		);
+		expect(match?.descriptionOverride).toBe("Supermercado mensal");
+	});
+
+	test("ignore rule with null movementType matches both income and expense", () => {
+		const ignore = {
+			...base,
+			id: 1,
+			action: "ignore" as const,
+			categoryId: null,
+			movementType: null,
+			normalizedDescription: "rendimento poupanca",
+		};
+		expect(
+			matchImportCategoryRule(
+				{
+					accountId: 1,
+					movementType: "income",
+					normalizedDescription: "rendimento poupanca pagamento",
+					amountCents: 5,
+				},
+				[ignore],
+			)?.id,
+		).toBe(1);
+		expect(
+			matchImportCategoryRule(
+				{
+					accountId: 1,
+					movementType: "expense",
+					normalizedDescription: "rendimento poupanca taxa",
+					amountCents: 5,
+				},
+				[ignore],
+			)?.id,
+		).toBe(1);
 	});
 });

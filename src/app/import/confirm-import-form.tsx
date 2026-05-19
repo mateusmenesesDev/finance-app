@@ -38,6 +38,8 @@ export type ConfirmFormRow = {
 	suggestedCategoryId: number | null;
 	suggestedCategoryName: string | null;
 	suggestedRuleDescription: string | null;
+	suggestedDescription: string | null;
+	suggestionSource: string | null;
 	suggestedRecurrenceId: number | null;
 	suggestedRecurrenceOccurrenceOn: string | null;
 	suggestedRecurrenceName: string | null;
@@ -250,6 +252,7 @@ function RowBlock({
 		(category) => category.kind === movementType,
 	);
 	const categoryErrorId = error ? `row-${row.id}-category-error` : undefined;
+	const isIgnoreSuggestion = row.suggestionSource === "rule_ignore";
 	const suggestionVisible =
 		row.suggestedCategoryId &&
 		row.suggestedCategoryName &&
@@ -300,23 +303,32 @@ function RowBlock({
 					salvar.
 				</p>
 			)}
-			{suggestionVisible && (
+			{isIgnoreSuggestion ? (
+				<p className="text-[color:var(--color-warn)] text-sm">
+					Sugestão: ignorar esta linha
+					{row.suggestedRuleDescription
+						? ` — a partir da regra “${row.suggestedRuleDescription}”`
+						: ""}
+				</p>
+			) : suggestionVisible ? (
 				<p className="text-[color:var(--color-accent)] text-sm">
 					Sugestão de categoria: <strong>{row.suggestedCategoryName}</strong>
 					{row.suggestedRuleDescription
 						? ` — a partir da regra “${row.suggestedRuleDescription}”`
 						: ""}
 				</p>
-			)}
-			{row.suggestedRecurrenceId && row.suggestedRecurrenceOccurrenceOn && (
-				<p className="text-[color:var(--color-info)] text-sm">
-					Parece ser a recorrência{" "}
-					<strong>
-						{row.suggestedRecurrenceName ?? `#${row.suggestedRecurrenceId}`}
-					</strong>{" "}
-					(vencimento {row.suggestedRecurrenceOccurrenceOn}).
-				</p>
-			)}
+			) : null}
+			{!isIgnoreSuggestion &&
+				row.suggestedRecurrenceId &&
+				row.suggestedRecurrenceOccurrenceOn && (
+					<p className="text-[color:var(--color-info)] text-sm">
+						Parece ser a recorrência{" "}
+						<strong>
+							{row.suggestedRecurrenceName ?? `#${row.suggestedRecurrenceId}`}
+						</strong>{" "}
+						(vencimento {row.suggestedRecurrenceOccurrenceOn}).
+					</p>
+				)}
 			{row.validationError && (
 				<div className="rounded-xl border border-[color:var(--color-bad-border)] bg-[color:var(--color-bad-bg)] p-3 text-sm">
 					<p className="font-medium text-[color:var(--color-bad)]">
@@ -329,12 +341,12 @@ function RowBlock({
 			)}
 			<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
 				<FieldLabel
-					hint="Pré-selecionado pelo status; ajuste se necessário."
+					hint="Pré-selecionado pelo status/regra; ajuste se necessário."
 					label="O que fazer com esta linha"
 				>
 					<select
 						className={inputClass}
-						defaultValue={defaultDecisionFor(row.status)}
+						defaultValue={defaultDecisionFor(row.status, row.suggestionSource)}
 						name={`row-${row.id}-decision`}
 						required
 					>
@@ -414,12 +426,19 @@ function RowBlock({
 					</select>
 				</FieldLabel>
 				<FieldLabel
+					hint={
+						row.suggestedDescription
+							? "Vindo da regra de categorização. Edite se quiser."
+							: undefined
+					}
 					label="Descrição final"
 					wrapperClassName="sm:col-span-2 lg:col-span-3 xl:col-span-4"
 				>
 					<input
 						className={inputClass}
-						defaultValue={row.originalDescription ?? ""}
+						defaultValue={
+							row.suggestedDescription ?? row.originalDescription ?? ""
+						}
 						name={`row-${row.id}-description`}
 					/>
 				</FieldLabel>
@@ -433,19 +452,22 @@ function RowBlock({
 					{error}
 				</p>
 			)}
-			{row.suggestedRecurrenceId && suggestionVisible && (
-				<label className="flex items-center gap-2 text-[color:var(--color-info)] text-sm">
-					<input
-						defaultChecked
-						name={`row-${row.id}-acceptRecurrence`}
-						type="checkbox"
-					/>{" "}
-					Confirmar como ocorrência desta recorrência
-				</label>
-			)}
+			{!isIgnoreSuggestion &&
+				row.suggestedRecurrenceId &&
+				suggestionVisible && (
+					<label className="flex items-center gap-2 text-[color:var(--color-info)] text-sm">
+						<input
+							defaultChecked
+							name={`row-${row.id}-acceptRecurrence`}
+							type="checkbox"
+						/>{" "}
+						Confirmar como ocorrência desta recorrência
+					</label>
+				)}
 			<label className="flex items-center gap-2 text-[color:var(--color-text-muted)] text-sm">
 				<input name={`row-${row.id}-createRule`} type="checkbox" /> Salvar a
-				categoria escolhida como nova regra (aplica em lotes futuros)
+				decisão desta linha como nova regra (categorizar se importar; ignorar se
+				marcar como ignorar). Aplica em lotes futuros.
 			</label>
 		</div>
 	);
@@ -550,7 +572,8 @@ function rowStatusClass(status: string) {
 	return "text-[color:var(--color-text-muted)]";
 }
 
-function defaultDecisionFor(status: string) {
+function defaultDecisionFor(status: string, suggestionSource: string | null) {
+	if (suggestionSource === "rule_ignore") return "ignore";
 	if (status === "duplicate") return "duplicate";
 	if (status === "invalid" || status === "ignored") return "ignore";
 	return "import";
