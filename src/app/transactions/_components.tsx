@@ -3,10 +3,10 @@
 import { useRef } from "react";
 
 import { quickCategorizeTransaction } from "~/app/_actions/finance-actions";
-import { SubmitButton } from "~/app/_components/pending-submit-button";
+import { SubmitButton } from "~/components/submit-button";
 
 const inputClass =
-	"rounded-xl border border-[color:var(--color-border)] bg-[color:var(--color-bg)] px-3 py-2 text-sm text-[color:var(--color-text)]";
+	"h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 dark:bg-input/30";
 
 type QuickCategory = {
 	id: number;
@@ -29,7 +29,7 @@ export function QuickCategorizeForm({
 
 	if (categories.length === 0) {
 		return (
-			<p className="mt-3 text-[color:var(--color-text-subtle)] text-sm">
+			<p className="mt-3 text-muted-foreground text-sm">
 				Crie uma categoria compatível antes de categorizar rapidamente.
 			</p>
 		);
@@ -73,10 +73,7 @@ export function QuickCategorizeForm({
 			>
 				Categorizar
 			</SubmitButton>
-			<span
-				className="text-[color:var(--color-text-subtle)] text-xs"
-				id={hintId}
-			>
+			<span className="text-muted-foreground text-xs" id={hintId}>
 				Atalho com foco neste controle: Ctrl+Enter.
 			</span>
 		</form>

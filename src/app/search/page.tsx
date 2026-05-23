@@ -2,8 +2,20 @@ import { desc, eq } from "drizzle-orm";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { FinanceShell, Panel, TextInput } from "~/app/_components/finance-ui";
-import { formatDate, formatMoney } from "~/lib/formatters";
+import { SearchTransactionsTable } from "~/app/search/search-results-table";
+import { AppShell } from "~/components/app-shell";
+import { PageHeader } from "~/components/page-header";
+import { SubmitButton } from "~/components/submit-button";
+import { Button } from "~/components/ui/button";
+import {
+	Card,
+	CardContent,
+	CardDescription,
+	CardHeader,
+	CardTitle,
+} from "~/components/ui/card";
+import { Input } from "~/components/ui/input";
+import { formatMoney } from "~/lib/formatters";
 import { getSession } from "~/server/better-auth/server";
 import { db } from "~/server/db";
 import {
@@ -69,6 +81,12 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
 				])
 			: [[], [], [], [], [], [], []];
 
+	const accountById = new Map(
+		accountRows.map((account) => [account.id, account]),
+	);
+	const categoryById = new Map(
+		categoryRows.map((category) => [category.id, category]),
+	);
 	const matchedTransactions = transactionRows
 		.filter((transaction) => !transaction.isArchived)
 		.filter((transaction) =>
@@ -133,125 +151,119 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
 		.slice(0, 20);
 
 	return (
-		<FinanceShell
-			description="Busca global limitada a entidades financeiras; não pesquisa configuração, ajuda ou navegação."
-			eyebrow="Busca"
-			title="Buscar"
-		>
-			<Panel title="Nova busca">
-				<search>
-					<form className="flex flex-wrap gap-3">
-						<label className="sr-only" htmlFor="search-page-query">
-							Termo de busca
-						</label>
-						<TextInput
-							defaultValue={q}
-							id="search-page-query"
-							name="q"
-							placeholder="Digite ao menos 2 caracteres"
-						/>
-						<button
-							className="rounded-xl bg-[color:var(--color-accent-strong)] px-4 py-2 font-medium text-[color:var(--color-accent-text)] text-sm"
-							type="submit"
-						>
-							Buscar
-						</button>
-					</form>
-				</search>
-			</Panel>
+		<AppShell user={{ name: session.user.name, email: session.user.email }}>
+			<PageHeader
+				description="Busca global limitada a entidades financeiras; não pesquisa configuração, ajuda ou navegação."
+				eyebrow="Busca"
+				title="Buscar"
+			/>
+
+			<Card>
+				<CardHeader>
+					<CardTitle>Nova busca</CardTitle>
+				</CardHeader>
+				<CardContent>
+					<search>
+						<form className="flex flex-wrap gap-3">
+							<label className="sr-only" htmlFor="search-page-query">
+								Termo de busca
+							</label>
+							<Input
+								className="max-w-md"
+								defaultValue={q}
+								id="search-page-query"
+								name="q"
+								placeholder="Digite ao menos 2 caracteres"
+							/>
+							<SubmitButton>Buscar</SubmitButton>
+						</form>
+					</search>
+				</CardContent>
+			</Card>
 
 			{q.length < 2 ? (
-				<Panel title="Resultados">
-					<p className="text-[color:var(--color-text-muted)] text-sm">
-						Digite ao menos 2 caracteres.
-					</p>
-				</Panel>
+				<Card>
+					<CardHeader>
+						<CardTitle>Resultados</CardTitle>
+					</CardHeader>
+					<CardContent>
+						<p className="text-muted-foreground text-sm">
+							Digite ao menos 2 caracteres.
+						</p>
+					</CardContent>
+				</Card>
 			) : (
 				<div className="grid gap-6 lg:grid-cols-2">
-					<ResultPanel count={matchedTransactions.length} title="Transações">
-						{matchedTransactions.map((transaction) => (
-							<Link
-								className="block rounded-2xl border border-[color:var(--color-border-subtle)] p-4 text-sm hover:border-[color:var(--color-border)]"
-								href={`/transactions?q=${encodeURIComponent(q)}`}
-								key={transaction.id}
-							>
-								<span className="font-medium">{transaction.description}</span>
-								<span className="mt-1 block text-[color:var(--color-text-muted)]">
-									{formatDate(transaction.occurredOn)} ·{" "}
-									{formatMoney(transaction.amountCents)}
-								</span>
-							</Link>
-						))}
-					</ResultPanel>
+					<Card className="lg:col-span-2">
+						<CardHeader>
+							<CardTitle>Transações</CardTitle>
+							<CardDescription>
+								{matchedTransactions.length} resultado(s)
+							</CardDescription>
+						</CardHeader>
+						<CardContent>
+							<SearchTransactionsTable
+								rows={matchedTransactions.map((transaction) => ({
+									id: transaction.id,
+									accountName:
+										accountById.get(transaction.accountId)?.name ?? null,
+									amountCents: transaction.amountCents,
+									categoryName:
+										categoryById.get(transaction.categoryId ?? 0)?.name ?? null,
+									description: transaction.description,
+									movementType: transaction.movementType,
+									occurredOn: transaction.occurredOn,
+									query: q,
+									status: transaction.status,
+								}))}
+							/>
+						</CardContent>
+					</Card>
 					<ResultPanel count={matchedAccounts.length} title="Contas">
 						{matchedAccounts.map((account) => (
-							<Link
-								className="block rounded-2xl border border-[color:var(--color-border-subtle)] p-4 text-sm hover:border-[color:var(--color-border)]"
-								href="/accounts"
-								key={account.id}
-							>
+							<ResultLink href="/accounts" key={account.id}>
 								{account.name}
-							</Link>
+							</ResultLink>
 						))}
 					</ResultPanel>
 					<ResultPanel count={matchedCategories.length} title="Categorias">
 						{matchedCategories.map((category) => (
-							<Link
-								className="block rounded-2xl border border-[color:var(--color-border-subtle)] p-4 text-sm hover:border-[color:var(--color-border)]"
-								href="/categories"
-								key={category.id}
-							>
+							<ResultLink href="/categories" key={category.id}>
 								{category.name}
-							</Link>
+							</ResultLink>
 						))}
 					</ResultPanel>
 					<ResultPanel count={matchedRecurrences.length} title="Recorrências">
 						{matchedRecurrences.map((recurrence) => (
-							<Link
-								className="block rounded-2xl border border-[color:var(--color-border-subtle)] p-4 text-sm hover:border-[color:var(--color-border)]"
-								href="/recurrences"
-								key={recurrence.id}
-							>
+							<ResultLink href="/recurrences" key={recurrence.id}>
 								{recurrence.name}
-							</Link>
+							</ResultLink>
 						))}
 					</ResultPanel>
 					<ResultPanel count={matchedBatches.length} title="Importações">
 						{matchedBatches.map((batch) => (
-							<Link
-								className="block rounded-2xl border border-[color:var(--color-border-subtle)] p-4 text-sm hover:border-[color:var(--color-border)]"
-								href={`/import?batchId=${batch.id}`}
-								key={batch.id}
-							>
+							<ResultLink href={`/import?batchId=${batch.id}`} key={batch.id}>
 								{batch.originalFileName}
-							</Link>
+							</ResultLink>
 						))}
 					</ResultPanel>
 					<ResultPanel count={matchedTemplates.length} title="Modelos CSV">
 						{matchedTemplates.map((template) => (
-							<Link
-								className="block rounded-2xl border border-[color:var(--color-border-subtle)] p-4 text-sm hover:border-[color:var(--color-border)]"
-								href="/import"
-								key={template.id}
-							>
+							<ResultLink href="/import" key={template.id}>
 								{template.name}
-							</Link>
+							</ResultLink>
 						))}
 					</ResultPanel>
 					<ResultPanel count={matchedRules.length} title="Regras de importação">
 						{matchedRules.map((rule) => (
-							<Link
-								className="block rounded-2xl border border-[color:var(--color-border-subtle)] p-4 text-sm hover:border-[color:var(--color-border)]"
-								href="/import"
-								key={rule.id}
-							>
+							<ResultLink href="/import" key={rule.id}>
 								{rule.normalizedDescription}
-							</Link>
+							</ResultLink>
 						))}
 					</ResultPanel>
 				</div>
 			)}
-		</FinanceShell>
+		</AppShell>
 	);
 }
 
@@ -284,16 +296,34 @@ function ResultPanel({
 	title: string;
 }) {
 	return (
-		<Panel description={`${count} resultado(s)`} title={title}>
-			<div className="grid gap-3">
-				{count > 0 ? (
-					children
-				) : (
-					<p className="text-[color:var(--color-text-subtle)] text-sm">
-						Nada encontrado.
-					</p>
-				)}
-			</div>
-		</Panel>
+		<Card>
+			<CardHeader>
+				<CardTitle>{title}</CardTitle>
+				<CardDescription>{count} resultado(s)</CardDescription>
+			</CardHeader>
+			<CardContent>
+				<div className="grid gap-3">
+					{count > 0 ? (
+						children
+					) : (
+						<p className="text-muted-foreground text-sm">Nada encontrado.</p>
+					)}
+				</div>
+			</CardContent>
+		</Card>
+	);
+}
+
+function ResultLink({
+	children,
+	href,
+}: {
+	children: React.ReactNode;
+	href: string;
+}) {
+	return (
+		<Button asChild className="justify-start" variant="outline">
+			<Link href={href}>{children}</Link>
+		</Button>
 	);
 }
