@@ -5,157 +5,174 @@ import {
 	BarChart,
 	CartesianGrid,
 	ComposedChart,
-	Legend,
 	Line,
 	LineChart,
-	ResponsiveContainer,
-	Tooltip,
 	XAxis,
 	YAxis,
 } from "recharts";
+
+import {
+	type ChartConfig,
+	ChartContainer,
+	ChartLegend,
+	ChartLegendContent,
+	ChartTooltip,
+	ChartTooltipContent,
+} from "~/components/ui/chart";
 
 const money = (value: unknown) =>
 	new Intl.NumberFormat("pt-BR", { currency: "BRL", style: "currency" }).format(
 		(Number(value) || 0) / 100,
 	);
-const chartColor = {
-	bad: "var(--color-bad)",
-	border: "var(--color-border-subtle)",
-	good: "var(--color-good)",
-	info: "var(--color-info)",
-	warn: "var(--color-warn)",
-};
-const tooltip = {
-	contentStyle: {
-		background: "var(--color-surface)",
-		borderColor: "var(--color-border)",
-		color: "var(--color-text)",
-	},
-	formatter: money,
-};
+
+const incomeExpenseConfig = {
+	incomeCents: { label: "Receitas", color: "var(--chart-1)" },
+	expenseCents: { label: "Despesas", color: "var(--chart-5)" },
+	netCents: { label: "Líquido", color: "var(--chart-3)" },
+} satisfies ChartConfig;
+
+const expenseConfig = {
+	totalCents: { label: "Despesas", color: "var(--chart-5)" },
+} satisfies ChartConfig;
+
+const accountConfig = {
+	inflowCents: { label: "Entradas", color: "var(--chart-1)" },
+	outflowCents: { label: "Saídas", color: "var(--chart-5)" },
+	netCents: { label: "Líquido", color: "var(--chart-3)" },
+} satisfies ChartConfig;
+
+const cardConfig = {
+	totalCents: { label: "Faturas", color: "var(--chart-5)" },
+} satisfies ChartConfig;
+
+const budgetConfig = {
+	plannedCents: { label: "Previsto", color: "var(--chart-4)" },
+	spentCents: { label: "Realizado", color: "var(--chart-5)" },
+} satisfies ChartConfig;
+
+const cashFlowConfig = {
+	realizedIncome: { label: "Receita realizada", color: "var(--chart-1)" },
+	plannedIncome: { label: "Receita prevista", color: "var(--chart-3)" },
+	realizedExpense: { label: "Despesa realizada", color: "var(--chart-5)" },
+} satisfies ChartConfig;
 
 type Row = Record<string, string | number | Record<string, number> | undefined>;
+
 function EmptyChart({
 	rows,
 	children,
+	config,
 }: {
 	rows: Row[];
 	children: React.ReactElement;
+	config: ChartConfig;
 }) {
 	if (rows.length === 0)
 		return (
-			<p className="text-[color:var(--color-text-subtle)] text-sm">
-				Sem dados para o período.
-			</p>
+			<p className="text-muted-foreground text-sm">Sem dados para o período.</p>
 		);
 	return (
-		<ResponsiveContainer height={280} width="100%">
+		<ChartContainer className="h-72 w-full" config={config}>
 			{children}
-		</ResponsiveContainer>
+		</ChartContainer>
 	);
 }
 
 export function IncomeExpenseChart({ rows }: { rows: Row[] }) {
 	return (
-		<EmptyChart rows={rows}>
+		<EmptyChart config={incomeExpenseConfig} rows={rows}>
 			<ComposedChart data={rows}>
-				<CartesianGrid stroke={chartColor.border} />
+				<CartesianGrid vertical={false} />
 				<XAxis dataKey="label" />
 				<YAxis tickFormatter={(v) => money(v)} />
-				<Tooltip {...tooltip} />
-				<Legend />
-				<Bar dataKey="incomeCents" fill={chartColor.good} name="Receitas" />
-				<Bar dataKey="expenseCents" fill={chartColor.bad} name="Despesas" />
-				<Line dataKey="netCents" name="Líquido" stroke={chartColor.info} />
+				<ChartTooltip content={<ChartTooltipContent />} />
+				<ChartLegend content={<ChartLegendContent />} />
+				<Bar dataKey="incomeCents" fill="var(--color-incomeCents)" />
+				<Bar dataKey="expenseCents" fill="var(--color-expenseCents)" />
+				<Line dataKey="netCents" stroke="var(--color-netCents)" />
 			</ComposedChart>
 		</EmptyChart>
 	);
 }
+
 export function CategoryRankingChart({ rows }: { rows: Row[] }) {
 	return (
-		<EmptyChart rows={rows}>
+		<EmptyChart config={expenseConfig} rows={rows}>
 			<BarChart data={rows} layout="vertical">
-				<CartesianGrid stroke={chartColor.border} />
+				<CartesianGrid horizontal={false} />
 				<XAxis tickFormatter={(v) => money(v)} type="number" />
 				<YAxis dataKey="name" type="category" width={120} />
-				<Tooltip {...tooltip} />
-				<Bar dataKey="totalCents" fill={chartColor.bad} name="Despesas" />
+				<ChartTooltip content={<ChartTooltipContent />} />
+				<Bar dataKey="totalCents" fill="var(--color-totalCents)" />
 			</BarChart>
 		</EmptyChart>
 	);
 }
+
 export function GroupStackChart({ rows }: { rows: Row[] }) {
 	return <CategoryRankingChart rows={rows} />;
 }
+
 export function AccountMovementChart({ rows }: { rows: Row[] }) {
 	return (
-		<EmptyChart rows={rows}>
+		<EmptyChart config={accountConfig} rows={rows}>
 			<BarChart data={rows} layout="vertical">
-				<CartesianGrid stroke={chartColor.border} />
+				<CartesianGrid horizontal={false} />
 				<XAxis tickFormatter={(v) => money(v)} type="number" />
 				<YAxis dataKey="accountName" type="category" width={120} />
-				<Tooltip {...tooltip} />
-				<Legend />
-				<Bar dataKey="inflowCents" fill={chartColor.good} name="Entradas" />
-				<Bar dataKey="outflowCents" fill={chartColor.bad} name="Saídas" />
-				<Bar dataKey="netCents" fill={chartColor.info} name="Líquido" />
+				<ChartTooltip content={<ChartTooltipContent />} />
+				<ChartLegend content={<ChartLegendContent />} />
+				<Bar dataKey="inflowCents" fill="var(--color-inflowCents)" />
+				<Bar dataKey="outflowCents" fill="var(--color-outflowCents)" />
+				<Bar dataKey="netCents" fill="var(--color-netCents)" />
 			</BarChart>
 		</EmptyChart>
 	);
 }
+
 export function CardInvoiceChart({ rows }: { rows: Row[] }) {
 	return (
-		<EmptyChart rows={rows}>
+		<EmptyChart config={cardConfig} rows={rows}>
 			<BarChart data={rows}>
-				<CartesianGrid stroke={chartColor.border} />
+				<CartesianGrid vertical={false} />
 				<XAxis dataKey="monthKey" />
 				<YAxis tickFormatter={(v) => money(v)} />
-				<Tooltip {...tooltip} />
-				<Legend />
-				<Bar dataKey="totalCents" fill={chartColor.bad} name="Faturas" />
+				<ChartTooltip content={<ChartTooltipContent />} />
+				<ChartLegend content={<ChartLegendContent />} />
+				<Bar dataKey="totalCents" fill="var(--color-totalCents)" />
 			</BarChart>
 		</EmptyChart>
 	);
 }
+
 export function BudgetVsActualChart({ rows }: { rows: Row[] }) {
 	return (
-		<EmptyChart rows={rows}>
+		<EmptyChart config={budgetConfig} rows={rows}>
 			<BarChart data={rows}>
-				<CartesianGrid stroke={chartColor.border} />
+				<CartesianGrid vertical={false} />
 				<XAxis dataKey="name" />
 				<YAxis tickFormatter={(v) => money(v)} />
-				<Tooltip {...tooltip} />
-				<Legend />
-				<Bar dataKey="plannedCents" fill={chartColor.warn} name="Previsto" />
-				<Bar dataKey="spentCents" fill={chartColor.bad} name="Realizado" />
+				<ChartTooltip content={<ChartTooltipContent />} />
+				<ChartLegend content={<ChartLegendContent />} />
+				<Bar dataKey="plannedCents" fill="var(--color-plannedCents)" />
+				<Bar dataKey="spentCents" fill="var(--color-spentCents)" />
 			</BarChart>
 		</EmptyChart>
 	);
 }
+
 export function CashFlowLineChart({ rows }: { rows: Row[] }) {
 	return (
-		<EmptyChart rows={rows}>
+		<EmptyChart config={cashFlowConfig} rows={rows}>
 			<LineChart data={rows}>
-				<CartesianGrid stroke={chartColor.border} />
+				<CartesianGrid vertical={false} />
 				<XAxis dataKey="label" />
 				<YAxis tickFormatter={(v) => money(v)} />
-				<Tooltip {...tooltip} />
-				<Legend />
-				<Line
-					dataKey="realizedIncome"
-					name="Receita realizada"
-					stroke={chartColor.good}
-				/>
-				<Line
-					dataKey="plannedIncome"
-					name="Receita prevista"
-					stroke={chartColor.info}
-				/>
-				<Line
-					dataKey="realizedExpense"
-					name="Despesa realizada"
-					stroke={chartColor.bad}
-				/>
+				<ChartTooltip content={<ChartTooltipContent />} />
+				<ChartLegend content={<ChartLegendContent />} />
+				<Line dataKey="realizedIncome" stroke="var(--color-realizedIncome)" />
+				<Line dataKey="plannedIncome" stroke="var(--color-plannedIncome)" />
+				<Line dataKey="realizedExpense" stroke="var(--color-realizedExpense)" />
 			</LineChart>
 		</EmptyChart>
 	);
