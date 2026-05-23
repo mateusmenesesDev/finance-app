@@ -10,6 +10,7 @@ import {
 	DialogFooter,
 	DialogHeader,
 	DialogTitle,
+	DialogTrigger,
 } from "~/components/ui/dialog";
 
 type Props = {
@@ -43,16 +44,7 @@ export function ConfirmDialog({
 
 	return (
 		<Dialog onOpenChange={setOpen} open={open}>
-			<button
-				className="contents"
-				onClick={(event) => {
-					event.preventDefault();
-					setOpen(true);
-				}}
-				type="button"
-			>
-				{trigger}
-			</button>
+			<DialogTrigger asChild>{trigger}</DialogTrigger>
 			<DialogContent>
 				<DialogHeader>
 					<DialogTitle>{title}</DialogTitle>
