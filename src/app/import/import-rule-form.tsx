@@ -32,8 +32,11 @@ const inputClass =
 const wrapperBase = "grid gap-1 text-muted-foreground text-sm";
 
 export function ImportRuleForm({ accounts, categories }: Props) {
-	const [action, setAction] = useState<"categorize" | "ignore">("categorize");
+	const [action, setAction] = useState<"categorize" | "ignore" | "transfer">(
+		"categorize",
+	);
 	const isIgnore = action === "ignore";
+	const isTransfer = action === "transfer";
 	return (
 		<Dialog>
 			<DialogTrigger asChild>
@@ -69,17 +72,22 @@ export function ImportRuleForm({ accounts, categories }: Props) {
 							className={inputClass}
 							name="action"
 							onChange={(event) =>
-								setAction(event.target.value as "categorize" | "ignore")
+								setAction(
+									event.target.value as "categorize" | "ignore" | "transfer",
+								)
 							}
 							value={action}
 						>
 							<option value="categorize">Sugerir categoria</option>
+							<option value="transfer">Sugerir transferência</option>
 							<option value="ignore">Ignorar linha</option>
 						</select>
 						<span className="text-muted-foreground text-xs">
 							{isIgnore
 								? "Linhas que baterem viram “ignorar” na revisão."
-								: "Linhas que baterem ganham a categoria escolhida."}
+								: isTransfer
+									? "Linhas que baterem viram transferências na revisão."
+									: "Linhas que baterem ganham a categoria escolhida."}
 						</span>
 					</label>
 					<label className={wrapperBase}>
@@ -102,8 +110,8 @@ export function ImportRuleForm({ accounts, categories }: Props) {
 							name="movementType"
 						>
 							{isIgnore ? <option value="any">Qualquer tipo</option> : null}
-							<option value="expense">Despesa</option>
-							<option value="income">Receita</option>
+							<option value="expense">Saída/despesa no CSV</option>
+							<option value="income">Entrada/receita no CSV</option>
 						</select>
 					</label>
 					<div className={wrapperBase}>
@@ -132,7 +140,7 @@ export function ImportRuleForm({ accounts, categories }: Props) {
 						</span>
 					</div>
 					<div className={wrapperBase}>
-						<span>Conta (opcional)</span>
+						<span>Conta do lote (opcional)</span>
 						<select className={inputClass} name="accountId">
 							<option value="">Qualquer conta</option>
 							{accounts.map((account) => (
@@ -142,10 +150,45 @@ export function ImportRuleForm({ accounts, categories }: Props) {
 							))}
 						</select>
 						<span className="text-muted-foreground text-xs">
-							Aplique só em lotes de uma conta específica.
+							Aplique só em lotes importados de uma conta específica.
 						</span>
 					</div>
-					{isIgnore ? null : (
+					{isTransfer ? (
+						<>
+							<div className={`${wrapperBase} sm:col-span-2 xl:col-span-2`}>
+								<span>Origem da transferência</span>
+								<select className={inputClass} name="sourceAccountId" required>
+									<option value="">Selecione a origem</option>
+									{accounts.map((account) => (
+										<option key={account.id} value={account.id}>
+											{account.name}
+										</option>
+									))}
+								</select>
+								<span className="text-muted-foreground text-xs">
+									Conta real de onde o dinheiro saiu.
+								</span>
+							</div>
+							<div className={`${wrapperBase} sm:col-span-2 xl:col-span-2`}>
+								<span>Destino da transferência</span>
+								<select
+									className={inputClass}
+									name="destinationAccountId"
+									required
+								>
+									<option value="">Selecione o destino</option>
+									{accounts.map((account) => (
+										<option key={account.id} value={account.id}>
+											{account.name}
+										</option>
+									))}
+								</select>
+								<span className="text-muted-foreground text-xs">
+									Conta real para onde o dinheiro entrou.
+								</span>
+							</div>
+						</>
+					) : isIgnore ? null : (
 						<div className={`${wrapperBase} sm:col-span-2 xl:col-span-2`}>
 							<span>Categoria de destino</span>
 							<select className={inputClass} name="categoryId" required>

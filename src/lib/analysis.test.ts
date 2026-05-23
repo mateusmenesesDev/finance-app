@@ -165,13 +165,24 @@ describe("analysis", () => {
 		expect(rows).toEqual([
 			{
 				monthKey: "2026-03",
+				mainIncomeCents: 5000,
+				financialIncomeCents: 0,
 				incomeCents: 5000,
 				expenseCents: 0,
 				netCents: 5000,
 			},
-			{ monthKey: "2026-04", incomeCents: 0, expenseCents: 0, netCents: 0 },
+			{
+				monthKey: "2026-04",
+				mainIncomeCents: 0,
+				financialIncomeCents: 0,
+				incomeCents: 0,
+				expenseCents: 0,
+				netCents: 0,
+			},
 			{
 				monthKey: "2026-05",
+				mainIncomeCents: 0,
+				financialIncomeCents: 0,
 				incomeCents: 0,
 				expenseCents: 1200,
 				netCents: -1200,

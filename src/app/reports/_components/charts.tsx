@@ -26,7 +26,11 @@ const money = (value: unknown) =>
 	);
 
 const incomeExpenseConfig = {
-	incomeCents: { label: "Receitas", color: "var(--chart-1)" },
+	mainIncomeCents: { label: "Receita principal", color: "var(--chart-1)" },
+	financialIncomeCents: {
+		label: "Receita financeira",
+		color: "var(--chart-2)",
+	},
 	expenseCents: { label: "Despesas", color: "var(--chart-5)" },
 	netCents: { label: "Líquido", color: "var(--chart-3)" },
 } satisfies ChartConfig;
@@ -87,7 +91,11 @@ export function IncomeExpenseChart({ rows }: { rows: Row[] }) {
 				<YAxis tickFormatter={(v) => money(v)} />
 				<ChartTooltip content={<ChartTooltipContent />} />
 				<ChartLegend content={<ChartLegendContent />} />
-				<Bar dataKey="incomeCents" fill="var(--color-incomeCents)" />
+				<Bar dataKey="mainIncomeCents" fill="var(--color-mainIncomeCents)" />
+				<Bar
+					dataKey="financialIncomeCents"
+					fill="var(--color-financialIncomeCents)"
+				/>
 				<Bar dataKey="expenseCents" fill="var(--color-expenseCents)" />
 				<Line dataKey="netCents" stroke="var(--color-netCents)" />
 			</ComposedChart>

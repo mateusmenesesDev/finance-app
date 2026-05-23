@@ -1,6 +1,6 @@
 import {
 	affectsReports,
-	calculateMonthlyTotals,
+	calculateMonthlyTotalsByCashFlowRole,
 	getMonthPeriod,
 	isInPeriod,
 	type MonthPeriod,
@@ -23,6 +23,8 @@ export type NamedAccount = RuleAccount & { name: string };
 export type Comparison = { deltaCents: number; percent: number | null };
 export type MonthlyTotalsPoint = {
 	monthKey: string;
+	mainIncomeCents: number;
+	financialIncomeCents: number;
 	incomeCents: number;
 	expenseCents: number;
 	netCents: number;
@@ -203,11 +205,20 @@ export function rankSubscriptions(recurrences: RecurrenceInput[], limit = 10) {
 export function monthlyTotalsSeries(
 	transactions: RuleTransaction[],
 	window: MonthPeriod[],
+	categories: RuleCategory[] = [],
+	groups: RuleCategoryGroup[] = [],
 ): MonthlyTotalsPoint[] {
 	return window.map((period) => {
-		const totals = calculateMonthlyTotals(transactions, period);
+		const totals = calculateMonthlyTotalsByCashFlowRole(
+			transactions,
+			categories,
+			groups,
+			period,
+		);
 		return {
 			monthKey: period.key,
+			mainIncomeCents: totals.mainIncomeCents,
+			financialIncomeCents: totals.financialIncomeCents,
 			incomeCents: totals.incomeCents,
 			expenseCents: totals.expenseCents,
 			netCents: totals.netCents,

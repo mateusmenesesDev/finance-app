@@ -28,6 +28,7 @@ export type CategoryKey = keyof typeof categoryNames;
 type GroupPlan = Array<{
 	name: string;
 	kind: "income" | "expense";
+	cashFlowRole?: "operational" | "financial";
 	categories: string[];
 }>;
 
@@ -35,7 +36,14 @@ export const groupPlan = [
 	{
 		name: "Renda",
 		kind: "income" as const,
-		categories: ["Salário", "Freelas", "Rendimentos", "Reembolso"],
+		cashFlowRole: "operational" as const,
+		categories: ["Salário", "Freelas", "Reembolso"],
+	},
+	{
+		name: "Rendimentos financeiros",
+		kind: "income" as const,
+		cashFlowRole: "financial" as const,
+		categories: ["Rendimentos", "Juros", "Dividendos"],
 	},
 	{
 		name: "Moradia",

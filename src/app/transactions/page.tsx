@@ -147,6 +147,12 @@ export default async function TransactionsPage({
 			return right.occurredOn.localeCompare(left.occurredOn);
 		});
 
+	const investmentAccounts = activeAccounts.filter(
+		(account) => account.type === "investment",
+	);
+	const investmentReviewCandidates = findInvestmentReviewCandidates(
+		allTransactions,
+	).slice(0, 8);
 	const accountOptions = allAccounts.map(({ id, name }) => ({ id, name }));
 	const categoryOptions = allCategories.map(({ id, name, kind }) => ({
 		id,
@@ -227,6 +233,36 @@ export default async function TransactionsPage({
 					</details>
 				</CardContent>
 			</Card>
+
+			{investmentAccounts.length > 0 &&
+			investmentReviewCandidates.length > 0 ? (
+				<Card>
+					<CardHeader>
+						<CardTitle>Revisão assistida de caixinhas</CardTitle>
+						<CardDescription>
+							Possíveis aportes/resgates lançados como receita ou despesa.
+							Revise e converta para transferência quando for só mudança entre
+							Nubank e caixinha.
+						</CardDescription>
+					</CardHeader>
+					<CardContent className="grid gap-2">
+						{investmentReviewCandidates.map((transaction) => (
+							<Link
+								className="flex items-center justify-between gap-3 rounded-md border bg-muted/20 p-3 text-sm transition hover:border-primary/50 hover:bg-muted/30"
+								href={`/transactions?start=${transaction.occurredOn}&end=${transaction.occurredOn}&q=${encodeURIComponent(transaction.description)}`}
+								key={transaction.id}
+							>
+								<span className="min-w-0 truncate">
+									{transaction.occurredOn} · {transaction.description}
+								</span>
+								<span className="shrink-0">
+									{movementLabels[transaction.movementType]}
+								</span>
+							</Link>
+						))}
+					</CardContent>
+				</Card>
+			) : null}
 
 			<Card>
 				<CardHeader>
@@ -514,6 +550,29 @@ function SelectRecord({
 			))}
 		</select>
 	);
+}
+
+function findInvestmentReviewCandidates(
+	rows: (typeof transactions.$inferSelect)[],
+) {
+	return rows.filter((transaction) => {
+		if (transaction.isArchived || transaction.status !== "confirmed")
+			return false;
+		if (
+			transaction.movementType !== "income" &&
+			transaction.movementType !== "expense"
+		) {
+			return false;
+		}
+		const text =
+			`${transaction.description} ${transaction.originalDescription ?? ""}`
+				.normalize("NFD")
+				.replace(/[\u0300-\u036f]/g, "")
+				.toLowerCase();
+		return /\b(caixinha|resgate|aplicacao|aplicado|investimento|guardar dinheiro)\b/.test(
+			text,
+		);
+	});
 }
 
 const selectClass =

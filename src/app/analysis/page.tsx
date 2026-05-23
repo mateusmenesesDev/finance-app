@@ -47,7 +47,7 @@ import {
 	uncategorizedExpenseStats,
 } from "~/lib/analysis";
 import {
-	calculateMonthlyTotals,
+	calculateMonthlyTotalsByCashFlowRole,
 	getMonthPeriod,
 	listMonthOptions,
 	parseMonthPeriod,
@@ -131,8 +131,18 @@ export default async function AnalysisPage({
 			),
 	]);
 
-	const totals = calculateMonthlyTotals(allTransactions, period);
-	const totalSeries = monthlyTotalsSeries(allTransactions, comparisonWindow);
+	const totals = calculateMonthlyTotalsByCashFlowRole(
+		allTransactions,
+		allCategories,
+		allGroups,
+		period,
+	);
+	const totalSeries = monthlyTotalsSeries(
+		allTransactions,
+		comparisonWindow,
+		allCategories,
+		allGroups,
+	);
 	const incomeComparisons = buildComparisons(
 		totalSeries.map((row) => ({
 			monthKey: row.monthKey,
@@ -307,10 +317,10 @@ export default async function AnalysisPage({
 					</form>
 					<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
 						<StatCard
-							description={comparisonText(incomeComparisons.previousMonth)}
-							label="Receitas"
+							description={`${comparisonText(incomeComparisons.previousMonth)} · financeira: ${formatMoney(totals.financialIncomeCents)}`}
+							label="Receita principal"
 							tone="success"
-							value={formatMoney(totals.incomeCents)}
+							value={formatMoney(totals.mainIncomeCents)}
 						/>
 						<StatCard
 							description={comparisonText(expenseComparisons.previousMonth)}

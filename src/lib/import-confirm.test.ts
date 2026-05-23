@@ -76,6 +76,21 @@ describe("resolveConfirmRowCategory", () => {
 		});
 	});
 
+	test("transfer rows do not need category", () => {
+		expect(
+			resolveConfirmRowCategory({
+				movementType: "transfer",
+				rowCategoryId: null,
+				bulkCategoryId: null,
+				categoriesById,
+			}),
+		).toEqual({
+			kind: "ok",
+			category: { id: 0, name: "Transferência", kind: "transfer" },
+			usedBulk: false,
+		});
+	});
+
 	test("reports missing when neither pick resolves", () => {
 		expect(
 			resolveConfirmRowCategory({

@@ -136,6 +136,41 @@ describe("import category rules", () => {
 		expect(matchImportCategoryRule(row, [newRule, specific])?.id).toBe(3);
 	});
 
+	test("transfer rule wins over categorize and carries real endpoints", () => {
+		const transfer = {
+			...base,
+			id: 1,
+			action: "transfer" as const,
+			categoryId: null,
+			sourceAccountId: 20,
+			destinationAccountId: 10,
+			movementType: "income" as const,
+			normalizedDescription: "resgate caixinha",
+		};
+		const categorize = {
+			...base,
+			id: 2,
+			categoryId: 3,
+			movementType: "income" as const,
+			normalizedDescription: "resgate caixinha",
+			priority: 100,
+		};
+
+		const match = matchImportCategoryRule(
+			{
+				accountId: 10,
+				movementType: "income",
+				normalizedDescription: "resgate caixinha nubank",
+				amountCents: 1000,
+			},
+			[transfer, categorize],
+		);
+
+		expect(match?.id).toBe(1);
+		expect(match?.sourceAccountId).toBe(20);
+		expect(match?.destinationAccountId).toBe(10);
+	});
+
 	test("ignore rule wins over a categorize rule matching the same row", () => {
 		const categorize = {
 			...base,

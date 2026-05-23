@@ -167,7 +167,12 @@ const seedCategories = async (userId: string) => {
 	for (const group of groupPlan) {
 		const [createdGroup] = await db
 			.insert(categoryGroups)
-			.values({ userId, name: group.name, kind: group.kind })
+			.values({
+				userId,
+				name: group.name,
+				kind: group.kind,
+				cashFlowRole: group.cashFlowRole ?? "operational",
+			})
 			.returning();
 		const groupId = req(createdGroup, group.name).id;
 

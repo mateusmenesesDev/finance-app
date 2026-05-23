@@ -29,7 +29,10 @@ import {
 	pendingReviewSummary,
 	projectAccountBalances,
 } from "~/lib/cash-flow";
-import { calculateAccountBalances } from "~/lib/finance-rules";
+import {
+	calculateAccountBalances,
+	calculateWealthSummary,
+} from "~/lib/finance-rules";
 import { formatDate, formatMoney, formatPercent } from "~/lib/formatters";
 import { recurrencesToPlannedMovements } from "~/lib/recurrences";
 import { getSession } from "~/server/better-auth/server";
@@ -137,7 +140,8 @@ export default async function CashFlowPage({
 		(account) => !account.isArchived && account.isActive,
 	);
 	const normalAccounts = activeAccounts.filter(
-		(account) => account.type !== "credit_card",
+		(account) =>
+			account.type !== "credit_card" && account.type !== "investment",
 	);
 	const accountOptions = {
 		all: "Todas as contas",
@@ -194,6 +198,7 @@ export default async function CashFlowPage({
 	const comparison = comparePlannedVsRealized(aggregate.buckets).slice(-12);
 	const pending = pendingReviewSummary(allTransactions, rows);
 	const batchById = new Map(batches.map((batch) => [batch.id, batch]));
+	const wealth = calculateWealthSummary(activeAccounts, allTransactions);
 	const finalConsolidated =
 		timeline.at(-1)?.closingCents ??
 		consolidatedOpening(allAccounts, allTransactions);
@@ -312,7 +317,8 @@ export default async function CashFlowPage({
 					value={formatMoney(plannedExpense)}
 				/>
 				<StatCard
-					label="Saldo projetado consolidado"
+					description={`Investido: ${formatMoney(wealth.investmentCents)} · patrimônio: ${formatMoney(wealth.totalWealthCents)}`}
+					label="Disponível projetado"
 					tone={finalConsolidated >= 0 ? "success" : "destructive"}
 					value={formatMoney(finalConsolidated)}
 				/>
@@ -334,7 +340,11 @@ export default async function CashFlowPage({
 
 			<Card>
 				<CardHeader>
-					<CardTitle>Saldo projetado por conta</CardTitle>
+					<CardTitle>Saldo disponível projetado por conta</CardTitle>
+					<CardDescription>
+						Exclui contas de investimento; caixinhas aparecem no patrimônio, não
+						no caixa operacional.
+					</CardDescription>
 				</CardHeader>
 				<CardContent>
 					{accountProjections.length > 0 ? (
@@ -590,7 +600,7 @@ function consolidatedOpening(
 	const balances = calculateAccountBalances(accounts, allTransactions);
 	return accounts.reduce(
 		(total, account) =>
-			account.type === "credit_card"
+			account.type === "credit_card" || account.type === "investment"
 				? total
 				: total + (balances.get(account.id)?.normalBalanceCents ?? 0),
 		0,

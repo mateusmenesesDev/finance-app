@@ -39,7 +39,8 @@ import { aggregateCashFlow, computeFutureInvoices } from "~/lib/cash-flow";
 import {
 	buildBudgetUsage,
 	calculateAccountBalances,
-	calculateMonthlyTotals,
+	calculateMonthlyTotalsByCashFlowRole,
+	calculateWealthSummary,
 	getMonthPeriod,
 	parseMonthPeriod,
 	rankMonthlyCategories,
@@ -182,18 +183,19 @@ export default async function Home({ searchParams }: HomeProps) {
 		allAccounts.map((account) => [account.id, account]),
 	);
 	const balances = calculateAccountBalances(allAccounts, allTransactions);
-	const normalConsolidated = activeAccounts.reduce(
-		(total, account) =>
-			total + (balances.get(account.id)?.normalBalanceCents ?? 0),
-		0,
-	);
-	const cardDebt = activeAccounts.reduce(
-		(total, account) => total + (balances.get(account.id)?.cardDebtCents ?? 0),
-		0,
-	);
-	const monthlyTotals = calculateMonthlyTotals(allTransactions, period);
-	const previousTotals = calculateMonthlyTotals(
+	const wealth = calculateWealthSummary(activeAccounts, allTransactions);
+	const normalConsolidated = wealth.availableCashCents;
+	const cardDebt = wealth.cardDebtCents;
+	const monthlyTotals = calculateMonthlyTotalsByCashFlowRole(
 		allTransactions,
+		activeCategories,
+		activeGroups,
+		period,
+	);
+	const previousTotals = calculateMonthlyTotalsByCashFlowRole(
+		allTransactions,
+		activeCategories,
+		activeGroups,
 		previousPeriod,
 	);
 	const groupRanking = rankMonthlyGroups(
@@ -378,10 +380,11 @@ export default async function Home({ searchParams }: HomeProps) {
 
 			<section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
 				<StatCard
+					description={`Financeira: ${formatMoney(monthlyTotals.financialIncomeCents)} · total: ${formatMoney(monthlyTotals.incomeCents)}`}
 					icon={TrendingUp}
-					label="Receitas do mês"
+					label="Receita principal"
 					tone="success"
-					value={formatMoney(monthlyTotals.incomeCents)}
+					value={formatMoney(monthlyTotals.mainIncomeCents)}
 				/>
 				<StatCard
 					icon={TrendingDown}
@@ -556,9 +559,25 @@ export default async function Home({ searchParams }: HomeProps) {
 						<Separator />
 						<div className="grid gap-3 sm:grid-cols-2">
 							<div className="rounded-md bg-muted/30 px-3 py-2">
-								<p className="text-muted-foreground text-xs">Consolidado</p>
+								<p className="text-muted-foreground text-xs">Disponível</p>
 								<Money
-									cents={normalConsolidated}
+									cents={wealth.availableCashCents}
+									className="font-semibold text-base"
+								/>
+							</div>
+							<div className="rounded-md bg-muted/30 px-3 py-2">
+								<p className="text-muted-foreground text-xs">Investido</p>
+								<Money
+									cents={wealth.investmentCents}
+									className="font-semibold text-base"
+								/>
+							</div>
+							<div className="rounded-md bg-muted/30 px-3 py-2">
+								<p className="text-muted-foreground text-xs">
+									Patrimônio líquido
+								</p>
+								<Money
+									cents={wealth.totalWealthCents}
 									className="font-semibold text-base"
 								/>
 							</div>
@@ -1189,9 +1208,9 @@ function buildInsights({
 	budgetSummary: BudgetSummary;
 	categoryRanking: ReturnType<typeof rankMonthlyCategories>;
 	groupRanking: ReturnType<typeof rankMonthlyGroups>;
-	monthlyTotals: ReturnType<typeof calculateMonthlyTotals>;
+	monthlyTotals: ReturnType<typeof calculateMonthlyTotalsByCashFlowRole>;
 	pendingImportCount: number;
-	previousTotals: ReturnType<typeof calculateMonthlyTotals>;
+	previousTotals: ReturnType<typeof calculateMonthlyTotalsByCashFlowRole>;
 	uncategorizedCount: number;
 }) {
 	const insights: string[] = [];

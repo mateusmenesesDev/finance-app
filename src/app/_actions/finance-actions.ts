@@ -66,8 +66,9 @@ type TransactionStatus =
 	| "duplicate"
 	| "pending_review";
 type CategoryKind = "income" | "expense";
+type CashFlowRole = "operational" | "financial";
 type ImportRuleTextMatchMode = "contains" | "exact";
-type ImportRuleAction = "categorize" | "ignore";
+type ImportRuleAction = "categorize" | "ignore" | "transfer";
 type MonthlyBudgetScope = "month" | "category_group" | "category";
 type RecurrenceFrequency = "once" | "weekly" | "monthly" | "yearly";
 type TransactionSavedFilterSort = "date" | "value" | "category";
@@ -93,14 +94,20 @@ const transactionStatuses = new Set<TransactionStatus>([
 	"pending_review",
 ]);
 const categoryKinds = new Set<CategoryKind>(["income", "expense"]);
+const cashFlowRoles = new Set<CashFlowRole>(["operational", "financial"]);
 const importRuleTextMatchModes = new Set<ImportRuleTextMatchMode>([
 	"contains",
 	"exact",
 ]);
-const importRuleActions = new Set<ImportRuleAction>(["categorize", "ignore"]);
-const importMovementTypes = new Set<"income" | "expense">([
+const importRuleActions = new Set<ImportRuleAction>([
+	"categorize",
+	"ignore",
+	"transfer",
+]);
+const importMovementTypes = new Set<"income" | "expense" | "transfer">([
 	"income",
 	"expense",
+	"transfer",
 ]);
 const monthlyBudgetScopes = new Set<MonthlyBudgetScope>([
 	"month",
@@ -126,11 +133,19 @@ const defaultGroups = [
 	{
 		name: "Renda",
 		kind: "income" as const,
+		cashFlowRole: "operational" as const,
 		categories: ["Salário", "Outras receitas"],
+	},
+	{
+		name: "Rendimentos financeiros",
+		kind: "income" as const,
+		cashFlowRole: "financial" as const,
+		categories: ["Rendimentos", "Juros", "Dividendos"],
 	},
 	{
 		name: "Moradia",
 		kind: "expense" as const,
+		cashFlowRole: "operational" as const,
 		categories: ["Aluguel", "Condomínio", "Energia"],
 	},
 	{
@@ -396,7 +411,13 @@ async function ensureDefaultCategoryGroup(
 ) {
 	const [inserted] = await db
 		.insert(categoryGroups)
-		.values({ userId, name: group.name, kind: group.kind })
+		.values({
+			userId,
+			name: group.name,
+			kind: group.kind,
+			cashFlowRole:
+				"cashFlowRole" in group ? group.cashFlowRole : "operational",
+		})
 		.onConflictDoNothing({
 			target: [categoryGroups.userId, categoryGroups.kind, categoryGroups.name],
 		})
@@ -465,6 +486,7 @@ export async function createCategoryGroup(
 			userId,
 			name: requiredString(formData, "name"),
 			kind: enumField(formData, "kind", categoryKinds),
+			cashFlowRole: enumField(formData, "cashFlowRole", cashFlowRoles),
 		});
 		revalidatePath("/");
 		return { error: null };
@@ -481,7 +503,10 @@ export async function updateCategoryGroup(
 		const userId = await requireUserId();
 		await db
 			.update(categoryGroups)
-			.set({ name: requiredString(formData, "name") })
+			.set({
+				name: requiredString(formData, "name"),
+				cashFlowRole: enumField(formData, "cashFlowRole", cashFlowRoles),
+			})
 			.where(
 				and(
 					eq(categoryGroups.id, intField(formData, "id")),
@@ -1544,7 +1569,27 @@ async function activeImportRules(userId: string) {
 	return rules.filter((rule) => {
 		if (rule.accountId !== null && !accountIds.has(rule.accountId))
 			return false;
+		if (
+			rule.sourceAccountId !== null &&
+			!accountIds.has(rule.sourceAccountId)
+		) {
+			return false;
+		}
+		if (
+			rule.destinationAccountId !== null &&
+			!accountIds.has(rule.destinationAccountId)
+		) {
+			return false;
+		}
 		if (rule.action === "ignore") return true;
+		if (rule.action === "transfer") {
+			return (
+				(rule.movementType === "income" || rule.movementType === "expense") &&
+				rule.sourceAccountId !== null &&
+				rule.destinationAccountId !== null &&
+				rule.sourceAccountId !== rule.destinationAccountId
+			);
+		}
 		if (rule.categoryId === null) return false;
 		const category = categoryById.get(rule.categoryId);
 		return !!category && category.kind === rule.movementType;
@@ -1630,13 +1675,20 @@ async function reprocessReviewingImportRows(userId: string) {
 		await db
 			.update(importRows)
 			.set({
-				suggestedCategoryId: isIgnoreRule ? null : (rule?.categoryId ?? null),
+				suggestedCategoryId:
+					isIgnoreRule || rule?.action === "transfer"
+						? null
+						: (rule?.categoryId ?? null),
+				suggestedSourceAccountId:
+					rule?.action === "transfer" ? rule.sourceAccountId : null,
+				suggestedDestinationAccountId:
+					rule?.action === "transfer" ? rule.destinationAccountId : null,
 				suggestedRuleId: rule?.id ?? null,
 				suggestedDescription: isIgnoreRule
 					? null
 					: (rule?.descriptionOverride ?? null),
 				suggestionSource: rule ? (isIgnoreRule ? "rule_ignore" : "rule") : null,
-				...(isIgnoreRule
+				...(isIgnoreRule || rule?.action === "transfer"
 					? {
 							suggestedRecurrenceId: null,
 							suggestedRecurrenceOccurrenceOn: null,
@@ -1660,7 +1712,9 @@ async function createImportRuleIfMissing(input: {
 	action: ImportRuleAction;
 	categoryId: number | null;
 	accountId: number | null;
-	movementType: "income" | "expense" | null;
+	sourceAccountId: number | null;
+	destinationAccountId: number | null;
+	movementType: "income" | "expense" | "transfer" | null;
 	description: string;
 	textMatchMode: "contains" | "exact";
 	amountCents: number | null;
@@ -1680,6 +1734,8 @@ async function createImportRuleIfMissing(input: {
 				rule.action === input.action &&
 				rule.categoryId === input.categoryId &&
 				rule.accountId === input.accountId &&
+				rule.sourceAccountId === input.sourceAccountId &&
+				rule.destinationAccountId === input.destinationAccountId &&
 				rule.movementType === input.movementType &&
 				rule.textMatchMode === input.textMatchMode &&
 				rule.normalizedDescription === normalizedDescription &&
@@ -1695,6 +1751,8 @@ async function createImportRuleIfMissing(input: {
 		action: input.action,
 		categoryId: input.categoryId,
 		accountId: input.accountId,
+		sourceAccountId: input.sourceAccountId,
+		destinationAccountId: input.destinationAccountId,
 		movementType: input.movementType,
 		normalizedDescription,
 		textMatchMode: input.textMatchMode,
@@ -1735,43 +1793,95 @@ export async function createImportCategoryRule(formData: FormData) {
 	);
 	const priority = optionalIntField(formData, "priority") ?? 0;
 	let categoryId: number | null = null;
-	let movementType: "income" | "expense" | null = null;
+	let sourceAccountId: number | null = null;
+	let destinationAccountId: number | null = null;
+	let movementType: "income" | "expense" | "transfer" | null = null;
 	if (action === "categorize") {
 		categoryId = intField(formData, "categoryId");
-		movementType = enumField(formData, "movementType", importMovementTypes);
+		const rawMovementType = enumField(
+			formData,
+			"movementType",
+			importMovementTypes,
+		);
+		if (rawMovementType === "transfer")
+			throw new Error("Categoria não aceita transferência");
+		movementType = rawMovementType;
+	} else if (action === "transfer") {
+		sourceAccountId = intField(formData, "sourceAccountId");
+		destinationAccountId = intField(formData, "destinationAccountId");
+		const rawMovementType = enumField(
+			formData,
+			"movementType",
+			importMovementTypes,
+		);
+		if (rawMovementType === "transfer") {
+			throw new Error(
+				"Regra de transferência deve casar entrada ou saída do CSV",
+			);
+		}
+		movementType = rawMovementType;
 	} else {
 		const rawMovementType = optionalString(formData, "movementType");
 		if (rawMovementType && rawMovementType !== "any") {
-			if (!importMovementTypes.has(rawMovementType as "income" | "expense"))
+			if (
+				!importMovementTypes.has(
+					rawMovementType as "income" | "expense" | "transfer",
+				)
+			)
 				throw new Error("Tipo da linha inválido");
-			movementType = rawMovementType as "income" | "expense";
+			movementType = rawMovementType as "income" | "expense" | "transfer";
 		}
 	}
-	const [category, account] = await Promise.all([
-		categoryId
-			? db.query.categories.findFirst({
-					where: and(
-						eq(categories.id, categoryId),
-						eq(categories.userId, userId),
-						eq(categories.isArchived, false),
-					),
-				})
-			: Promise.resolve(null),
-		accountId
-			? db.query.financialAccounts.findFirst({
-					where: and(
-						eq(financialAccounts.id, accountId),
-						eq(financialAccounts.userId, userId),
-						eq(financialAccounts.isArchived, false),
-					),
-				})
-			: Promise.resolve(null),
-	]);
+	const [category, account, sourceAccount, destinationAccount] =
+		await Promise.all([
+			categoryId
+				? db.query.categories.findFirst({
+						where: and(
+							eq(categories.id, categoryId),
+							eq(categories.userId, userId),
+							eq(categories.isArchived, false),
+						),
+					})
+				: Promise.resolve(null),
+			accountId
+				? db.query.financialAccounts.findFirst({
+						where: and(
+							eq(financialAccounts.id, accountId),
+							eq(financialAccounts.userId, userId),
+							eq(financialAccounts.isArchived, false),
+						),
+					})
+				: Promise.resolve(null),
+			sourceAccountId
+				? db.query.financialAccounts.findFirst({
+						where: and(
+							eq(financialAccounts.id, sourceAccountId),
+							eq(financialAccounts.userId, userId),
+							eq(financialAccounts.isArchived, false),
+						),
+					})
+				: Promise.resolve(null),
+			destinationAccountId
+				? db.query.financialAccounts.findFirst({
+						where: and(
+							eq(financialAccounts.id, destinationAccountId),
+							eq(financialAccounts.userId, userId),
+							eq(financialAccounts.isArchived, false),
+						),
+					})
+				: Promise.resolve(null),
+		]);
 	if (action === "categorize") {
 		if (!category || category.kind !== movementType)
 			throw new Error("Categoria inválida");
 	}
 	if (accountId && !account) throw new Error("Conta inválida");
+	if (sourceAccountId && !sourceAccount)
+		throw new Error("Conta origem inválida");
+	if (destinationAccountId && !destinationAccount)
+		throw new Error("Conta destino inválida");
+	if (sourceAccountId && destinationAccountId === sourceAccountId)
+		throw new Error("Conta origem e destino devem ser diferentes");
 	const before = await db
 		.select({ id: importCategoryRules.id })
 		.from(importCategoryRules)
@@ -1781,6 +1891,8 @@ export async function createImportCategoryRule(formData: FormData) {
 		action,
 		categoryId,
 		accountId,
+		sourceAccountId,
+		destinationAccountId,
 		movementType,
 		description: normalizedDescription,
 		textMatchMode,
@@ -1993,6 +2105,7 @@ export async function createImportBatch(formData: FormData) {
 					);
 				}
 				const isIgnoreRule = suggestion?.action === "ignore";
+				const isTransferRule = suggestion?.action === "transfer";
 				return {
 					userId,
 					batchId: batch.id,
@@ -2006,9 +2119,16 @@ export async function createImportBatch(formData: FormData) {
 					normalizedDescription: row.normalizedDescription,
 					externalId: row.externalId,
 					bankCategory: row.bankCategory,
-					suggestedCategoryId: isIgnoreRule
-						? null
-						: (suggestion?.categoryId ?? null),
+					suggestedCategoryId:
+						isIgnoreRule || isTransferRule
+							? null
+							: (suggestion?.categoryId ?? null),
+					suggestedSourceAccountId: isTransferRule
+						? suggestion.sourceAccountId
+						: null,
+					suggestedDestinationAccountId: isTransferRule
+						? suggestion.destinationAccountId
+						: null,
 					suggestedRuleId: suggestion?.id ?? null,
 					suggestedRecurrenceId: null,
 					suggestedRecurrenceOccurrenceOn: null,
@@ -2193,10 +2313,12 @@ export async function confirmImportBatch(
 			?.toString();
 		if (
 			!movementTypeValue ||
-			!importMovementTypes.has(movementTypeValue as "income" | "expense")
+			!importMovementTypes.has(
+				movementTypeValue as "income" | "expense" | "transfer",
+			)
 		)
 			continue;
-		const movementType = movementTypeValue as "income" | "expense";
+		const movementType = movementTypeValue as "income" | "expense" | "transfer";
 		const rowCategoryId = optionalIntField(
 			formData,
 			`row-${row.id}-categoryId`,
@@ -2207,8 +2329,31 @@ export async function confirmImportBatch(
 			bulkCategoryId,
 			categoriesById: confirmCategoriesById,
 		});
-		if (resolved.kind === "ok") continue;
-		rowErrors[row.id] = formatConfirmCategoryError(resolved, movementType);
+		if (resolved.kind !== "ok") {
+			rowErrors[row.id] = formatConfirmCategoryError(resolved, movementType);
+			continue;
+		}
+		if (movementType === "transfer") {
+			const sourceAccountId = optionalIntField(
+				formData,
+				`row-${row.id}-accountId`,
+			);
+			const destinationAccountId = optionalIntField(
+				formData,
+				`row-${row.id}-destinationAccountId`,
+			);
+			if (!sourceAccountId || !accountsById.has(sourceAccountId)) {
+				rowErrors[row.id] = "Conta origem obrigatória para transferência.";
+				continue;
+			}
+			if (!destinationAccountId || !accountsById.has(destinationAccountId)) {
+				rowErrors[row.id] = "Conta destino obrigatória para transferência.";
+				continue;
+			}
+			if (sourceAccountId === destinationAccountId) {
+				rowErrors[row.id] = "Conta origem e destino devem ser diferentes.";
+			}
+		}
 	}
 	if (Object.keys(rowErrors).length > 0) {
 		return {
@@ -2263,6 +2408,8 @@ export async function confirmImportBatch(
 						action: "ignore",
 						categoryId: null,
 						accountId: row.accountId,
+						sourceAccountId: null,
+						destinationAccountId: null,
 						movementType:
 							row.movementType === "income" || row.movementType === "expense"
 								? row.movementType
@@ -2324,22 +2471,47 @@ export async function confirmImportBatch(
 			if (!accountsById.has(accountId)) {
 				throw new Error(`Conta inválida na linha ${row.rowNumber}`);
 			}
+			const destinationAccountId = optionalIntField(
+				formData,
+				`row-${row.id}-destinationAccountId`,
+			);
+			if (movementType === "transfer") {
+				if (!destinationAccountId || !accountsById.has(destinationAccountId)) {
+					throw new Error(
+						`Conta destino obrigatória na linha ${row.rowNumber}`,
+					);
+				}
+				if (destinationAccountId === accountId) {
+					throw new Error(
+						`Conta origem e destino devem ser diferentes na linha ${row.rowNumber}`,
+					);
+				}
+			}
 			const rowCategoryId = optionalIntField(
 				formData,
 				`row-${row.id}-categoryId`,
 			);
-			const categoryId = rowCategoryId ?? bulkCategoryId;
+			const categoryId =
+				movementType === "transfer" ? null : (rowCategoryId ?? bulkCategoryId);
 			const category = categoryId ? categoriesById.get(categoryId) : null;
-			if (!category)
+			if (movementType !== "transfer" && !category)
 				throw new Error(`Categoria obrigatória na linha ${row.rowNumber}`);
 			const acceptedRuleId =
-				row.suggestedCategoryId && category.id === row.suggestedCategoryId
+				row.suggestedRuleId &&
+				((movementType === "transfer" &&
+					row.suggestedSourceAccountId === accountId &&
+					row.suggestedDestinationAccountId === destinationAccountId) ||
+					(row.suggestedCategoryId && category?.id === row.suggestedCategoryId))
 					? row.suggestedRuleId
 					: null;
 			if (isIgnoreSuggestion) {
 				suggestionRejectedCount++;
 				countRuleSuggestion(row.suggestedRuleId, "rejected");
-			} else if (row.suggestedCategoryId) {
+			} else if (
+				row.suggestedCategoryId ||
+				row.suggestedSourceAccountId ||
+				row.suggestedDestinationAccountId
+			) {
 				if (acceptedRuleId) {
 					suggestionAcceptedCount++;
 					countRuleSuggestion(acceptedRuleId, "accepted");
@@ -2350,7 +2522,7 @@ export async function confirmImportBatch(
 					countRuleSuggestion(row.suggestedRuleId, "overridden");
 				}
 			}
-			if (category.kind !== movementType) {
+			if (category && category.kind !== movementType) {
 				throw new Error(`Categoria incompatível na linha ${row.rowNumber}`);
 			}
 			const description = maskSensitive(
@@ -2361,12 +2533,20 @@ export async function confirmImportBatch(
 					"Importação CSV",
 			);
 			if (formData.get(`row-${row.id}-createRule`) === "on") {
+				const ruleMovementType =
+					movementType === "transfer" &&
+					(row.movementType === "income" || row.movementType === "expense")
+						? row.movementType
+						: movementType;
 				rulesFromCorrections.push({
 					userId,
-					action: "categorize",
-					categoryId: category.id,
-					accountId,
-					movementType,
+					action: movementType === "transfer" ? "transfer" : "categorize",
+					categoryId: category?.id ?? null,
+					accountId: movementType === "transfer" ? row.accountId : accountId,
+					sourceAccountId: movementType === "transfer" ? accountId : null,
+					destinationAccountId:
+						movementType === "transfer" ? destinationAccountId : null,
+					movementType: ruleMovementType,
 					description,
 					textMatchMode: "contains",
 					amountCents: null,
@@ -2413,6 +2593,8 @@ export async function confirmImportBatch(
 			await tx.insert(transactions).values({
 				userId,
 				accountId,
+				destinationAccountId:
+					movementType === "transfer" ? destinationAccountId : null,
 				categoryId,
 				categoryRuleId: acceptedRuleId,
 				importBatchId: batch.id,
@@ -2431,10 +2613,14 @@ export async function confirmImportBatch(
 				.update(importRows)
 				.set({
 					status: "imported",
-					accountId,
+					accountId: movementType === "transfer" ? row.accountId : accountId,
 					occurredOn,
 					amountCents,
 					movementType,
+					suggestedSourceAccountId:
+						movementType === "transfer" ? accountId : null,
+					suggestedDestinationAccountId:
+						movementType === "transfer" ? destinationAccountId : null,
 					suggestedRecurrenceId: acceptedRecurrence?.recurrenceId ?? null,
 					suggestedRecurrenceOccurrenceOn:
 						acceptedRecurrence?.occurrenceOn ?? null,

@@ -44,9 +44,12 @@ export type RuleCategory = {
 	name: string;
 };
 
+export type CashFlowRole = "operational" | "financial";
+
 export type RuleCategoryGroup = {
 	id: number;
 	name: string;
+	cashFlowRole?: CashFlowRole;
 };
 
 export type BudgetScope = "month" | "category_group" | "category";
@@ -73,6 +76,36 @@ const normalAccountTypes = new Set<AccountKind>([
 	"cash",
 	"investment",
 ]);
+
+export function isInvestmentAccount(account: Pick<RuleAccount, "type">) {
+	return account.type === "investment";
+}
+
+export function calculateWealthSummary(
+	accounts: RuleAccount[],
+	transactions: RuleTransaction[],
+) {
+	const balances = calculateAccountBalances(accounts, transactions);
+	let availableCashCents = 0;
+	let investmentCents = 0;
+	let cardDebtCents = 0;
+	for (const account of accounts) {
+		const balance = balances.get(account.id);
+		if (!balance) continue;
+		if (account.type === "investment") {
+			investmentCents += balance.normalBalanceCents;
+		} else if (normalAccountTypes.has(account.type)) {
+			availableCashCents += balance.normalBalanceCents;
+		}
+		cardDebtCents += balance.cardDebtCents;
+	}
+	return {
+		availableCashCents,
+		investmentCents,
+		cardDebtCents,
+		totalWealthCents: availableCashCents + investmentCents - cardDebtCents,
+	};
+}
 
 export function affectsReports(transaction: RuleTransaction) {
 	return transaction.status === "confirmed" && !transaction.isArchived;
@@ -193,7 +226,35 @@ export function calculateMonthlyTotals(
 	transactions: RuleTransaction[],
 	period: Pick<MonthPeriod, "start" | "end">,
 ) {
-	let incomeCents = 0;
+	const totals = calculateMonthlyTotalsByCashFlowRole(
+		transactions,
+		[],
+		[],
+		period,
+	);
+	return {
+		incomeCents: totals.incomeCents,
+		expenseCents: totals.expenseCents,
+		netCents: totals.netCents,
+		transactionCount: totals.transactionCount,
+	};
+}
+
+export function calculateMonthlyTotalsByCashFlowRole(
+	transactions: RuleTransaction[],
+	categories: RuleCategory[],
+	groups: RuleCategoryGroup[],
+	period: Pick<MonthPeriod, "start" | "end">,
+) {
+	const groupRoleByCategory = new Map(
+		categories.map((category) => [
+			category.id,
+			groups.find((group) => group.id === category.groupId)?.cashFlowRole ??
+				"operational",
+		]),
+	);
+	let mainIncomeCents = 0;
+	let financialIncomeCents = 0;
 	let expenseCents = 0;
 	let transactionCount = 0;
 
@@ -202,13 +263,23 @@ export function calculateMonthlyTotals(
 
 		transactionCount++;
 		if (transaction.movementType === "income") {
-			incomeCents += transaction.amountCents;
+			if (
+				transaction.categoryId &&
+				groupRoleByCategory.get(transaction.categoryId) === "financial"
+			) {
+				financialIncomeCents += transaction.amountCents;
+			} else {
+				mainIncomeCents += transaction.amountCents;
+			}
 		} else {
 			expenseCents += transaction.amountCents;
 		}
 	}
 
+	const incomeCents = mainIncomeCents + financialIncomeCents;
 	return {
+		mainIncomeCents,
+		financialIncomeCents,
 		incomeCents,
 		expenseCents,
 		netCents: incomeCents - expenseCents,

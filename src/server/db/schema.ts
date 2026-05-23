@@ -34,6 +34,11 @@ export const categoryKind = pgEnum("finance_app_category_kind", [
 	"expense",
 ]);
 
+export const categoryGroupCashFlowRole = pgEnum(
+	"finance_app_category_group_cash_flow_role",
+	["operational", "financial"],
+);
+
 export const monthlyBudgetScope = pgEnum("finance_app_monthly_budget_scope", [
 	"month",
 	"category_group",
@@ -88,6 +93,7 @@ export const importRuleTextMatchMode = pgEnum(
 export const importRuleAction = pgEnum("finance_app_import_rule_action", [
 	"categorize",
 	"ignore",
+	"transfer",
 ]);
 
 export const assistantSuggestionKind = pgEnum(
@@ -240,6 +246,9 @@ export const categoryGroups = createFinanceTable(
 			.references(() => user.id, { onDelete: "cascade" }),
 		name: varchar({ length: 120 }).notNull(),
 		kind: categoryKind().notNull(),
+		cashFlowRole: categoryGroupCashFlowRole("cash_flow_role")
+			.notNull()
+			.default("operational"),
 		isArchived: boolean("is_archived").notNull().default(false),
 		createdAt: timestamp("created_at", { withTimezone: true })
 			.$defaultFn(() => new Date())
@@ -467,6 +476,8 @@ export const importRows = createFinanceTable(
 		externalId: varchar("external_id", { length: 255 }),
 		bankCategory: varchar("bank_category", { length: 120 }),
 		suggestedCategoryId: integer("suggested_category_id"),
+		suggestedSourceAccountId: integer("suggested_source_account_id"),
+		suggestedDestinationAccountId: integer("suggested_destination_account_id"),
 		suggestedRuleId: integer("suggested_rule_id"),
 		suggestedDescription: text("suggested_description"),
 		suggestedRecurrenceId: integer("suggested_recurrence_id"),
@@ -503,6 +514,16 @@ export const importRows = createFinanceTable(
 			name: "finance_app_import_rows_suggested_category_user_fk",
 		}),
 		foreignKey({
+			columns: [t.suggestedSourceAccountId, t.userId],
+			foreignColumns: [financialAccounts.id, financialAccounts.userId],
+			name: "finance_app_import_rows_suggested_source_account_user_fk",
+		}),
+		foreignKey({
+			columns: [t.suggestedDestinationAccountId, t.userId],
+			foreignColumns: [financialAccounts.id, financialAccounts.userId],
+			name: "finance_app_import_rows_suggested_destination_account_user_fk",
+		}),
+		foreignKey({
 			columns: [t.suggestedRecurrenceId, t.userId],
 			foreignColumns: [recurrences.id, recurrences.userId],
 			name: "finance_app_import_rows_suggested_recurrence_user_fk",
@@ -528,6 +549,8 @@ export const importCategoryRules = createFinanceTable(
 		action: importRuleAction("action").notNull().default("categorize"),
 		categoryId: integer("category_id"),
 		accountId: integer("account_id"),
+		sourceAccountId: integer("source_account_id"),
+		destinationAccountId: integer("destination_account_id"),
 		movementType: movementType("movement_type"),
 		normalizedDescription: text("normalized_description").notNull(),
 		textMatchMode: importRuleTextMatchMode("text_match_mode")
@@ -569,13 +592,23 @@ export const importCategoryRules = createFinanceTable(
 			foreignColumns: [financialAccounts.id, financialAccounts.userId],
 			name: "finance_app_import_category_rules_account_user_fk",
 		}),
+		foreignKey({
+			columns: [t.sourceAccountId, t.userId],
+			foreignColumns: [financialAccounts.id, financialAccounts.userId],
+			name: "finance_app_import_category_rules_source_account_user_fk",
+		}),
+		foreignKey({
+			columns: [t.destinationAccountId, t.userId],
+			foreignColumns: [financialAccounts.id, financialAccounts.userId],
+			name: "finance_app_import_category_rules_destination_account_user_fk",
+		}),
 		check(
 			"finance_app_import_category_rules_type_valid",
-			sql`${t.movementType} IS NULL OR ${t.movementType} IN ('income', 'expense')`,
+			sql`${t.movementType} IS NULL OR ${t.movementType} IN ('income', 'expense', 'transfer')`,
 		),
 		check(
 			"finance_app_import_category_rules_action_fields_valid",
-			sql`(${t.action} = 'categorize' AND ${t.categoryId} IS NOT NULL AND ${t.movementType} IS NOT NULL) OR (${t.action} = 'ignore' AND ${t.categoryId} IS NULL)`,
+			sql`(${t.action} = 'categorize' AND ${t.categoryId} IS NOT NULL AND ${t.sourceAccountId} IS NULL AND ${t.destinationAccountId} IS NULL AND ${t.movementType} IN ('income', 'expense')) OR (${t.action} = 'ignore' AND ${t.categoryId} IS NULL AND ${t.sourceAccountId} IS NULL AND ${t.destinationAccountId} IS NULL) OR (${t.action} = 'transfer' AND ${t.categoryId} IS NULL AND ${t.sourceAccountId} IS NOT NULL AND ${t.destinationAccountId} IS NOT NULL AND ${t.sourceAccountId} <> ${t.destinationAccountId} AND ${t.movementType} IN ('income', 'expense'))`,
 		),
 		check(
 			"finance_app_import_category_rules_amount_cents_positive",
@@ -970,6 +1003,14 @@ export const importRowRelations = relations(importRows, ({ one }) => ({
 		fields: [importRows.suggestedCategoryId],
 		references: [categories.id],
 	}),
+	suggestedSourceAccount: one(financialAccounts, {
+		fields: [importRows.suggestedSourceAccountId],
+		references: [financialAccounts.id],
+	}),
+	suggestedDestinationAccount: one(financialAccounts, {
+		fields: [importRows.suggestedDestinationAccountId],
+		references: [financialAccounts.id],
+	}),
 	suggestedRule: one(importCategoryRules, {
 		fields: [importRows.suggestedRuleId],
 		references: [importCategoryRules.id],
@@ -1007,6 +1048,14 @@ export const importCategoryRuleRelations = relations(
 		}),
 		account: one(financialAccounts, {
 			fields: [importCategoryRules.accountId],
+			references: [financialAccounts.id],
+		}),
+		sourceAccount: one(financialAccounts, {
+			fields: [importCategoryRules.sourceAccountId],
+			references: [financialAccounts.id],
+		}),
+		destinationAccount: one(financialAccounts, {
+			fields: [importCategoryRules.destinationAccountId],
 			references: [financialAccounts.id],
 		}),
 	}),

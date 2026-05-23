@@ -9,6 +9,7 @@ Aplicativo web PT-BR para controle de finanças pessoais.
 - Modelo financeiro em Drizzle com tabelas prefixadas por `finance_app_`.
 - Tabelas do Better Auth mantidas sem prefixo: `user`, `session`, `account`, `verification`.
 - Valores em BRL armazenados como centavos positivos; o tipo de movimentação define receita, despesa ou transferência.
+- Caixinhas/investimentos resgatáveis são contas de investimento; aportes/resgates são transferências, e rendimentos são receita financeira separada da receita principal.
 - Importação CSV modelada para revisão, sem armazenamento de CSV bruto por padrão.
 
 ## Documentos
@@ -64,7 +65,7 @@ O comando `bun run db:sanitize -- --email <email>` re-aplica as regras de mascar
 
 ## Relatórios
 
-A página `/reports` reúne relatórios por período com filtros de conta, grupo, categoria e tipo de transação. Ela exibe visualizações de receitas/despesas, categorias, grupos, contas, cartões, orçamento e fluxo de caixa.
+A página `/reports` reúne relatórios por período com filtros de conta, grupo, categoria e tipo de transação. Ela exibe visualizações de receitas/despesas, categorias, grupos, contas, cartões, orçamento e fluxo de caixa. Receitas podem ser separadas entre principal e financeira por papel do grupo de categoria.
 
 Cada painel pode ser exportado em CSV no formato BR: UTF-8 com BOM, separador `;`, datas `DD/MM/AAAA` e decimais com `,`.
 

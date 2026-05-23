@@ -63,11 +63,10 @@ export type CashFlowBucket = BucketDescriptor & {
 	invoiceOutflow: number;
 };
 
-const normalAccountTypes = new Set<AccountKind>([
+const availableAccountTypes = new Set<AccountKind>([
 	"checking",
 	"savings",
 	"cash",
-	"investment",
 ]);
 
 export function bucketKey(dateIso: string, granularity: Granularity) {
@@ -290,7 +289,7 @@ export function projectAccountBalances(input: {
 }) {
 	const balances = calculateAccountBalances(input.accounts, input.transactions);
 	const accounts = input.accounts.filter(
-		(account) => normalAccountTypes.has(account.type) && !account.isArchived,
+		(account) => availableAccountTypes.has(account.type) && !account.isArchived,
 	);
 	return accounts.map((account) => {
 		let running = balances.get(account.id)?.normalBalanceCents ?? 0;
@@ -336,7 +335,7 @@ export function consolidatedTimeline(input: {
 	const balances = calculateAccountBalances(input.accounts, input.transactions);
 	let running = input.accounts.reduce(
 		(total, account) =>
-			normalAccountTypes.has(account.type)
+			availableAccountTypes.has(account.type)
 				? total + (balances.get(account.id)?.normalBalanceCents ?? 0)
 				: total,
 		0,

@@ -15,6 +15,8 @@ Finance App é um app PT-BR para finanças pessoais. A moeda padrão é BRL.
 - O sentido financeiro vem de `movementType`, não do sinal do valor.
 - Compra no cartão de crédito é despesa.
 - Pagamento de fatura é conceito de transferência entre conta bancária e cartão, não nova despesa.
+- Caixinhas/investimentos resgatáveis são contas de investimento dentro do patrimônio. Aporte e resgate são transferências entre contas, não despesa/receita.
+- Rendimento de investimento é receita financeira, separada da receita principal por grupo de categoria.
 - CSV bruto não é armazenado por padrão; importações guardam apenas dados parseados necessários para revisão.
 - Orçamentos e recorrências são conceitos do produto, mas não entram na fundação executável da Fase 1.
 
@@ -26,7 +28,7 @@ Tipos suportados:
 - Conta poupança
 - Carteira/dinheiro
 - Cartão de crédito
-- Investimento, reservado para uso futuro
+- Investimento, incluindo caixinhas/reservas resgatáveis
 
 Bancos, carteiras e cartões são modelados como contas.
 
@@ -34,7 +36,9 @@ Bancos, carteiras e cartões são modelados como contas.
 
 Categorias ficam dentro de grupos. Grupos e categorias são separados entre receita e despesa.
 
-Exemplos de grupos: Moradia, Alimentação, Transporte, Saúde, Educação, Lazer, Assinaturas, Impostos, Renda, Investimentos e Outros.
+Exemplos de grupos: Moradia, Alimentação, Transporte, Saúde, Educação, Lazer, Assinaturas, Impostos, Renda, Rendimentos financeiros e Outros.
+
+Grupos de receita podem ser marcados como receita principal ou receita financeira. Essa marcação separa salário/freelas de juros/dividendos/rendimentos sem transformar aporte em despesa.
 
 ## Movimentações
 
@@ -45,6 +49,8 @@ Tipos:
 - Transferência
 - Pagamento de fatura de cartão
 - Ajuste de saldo
+
+Transferência usa origem e destino reais. Exemplo: depósito na caixinha é Nubank → Caixinha; resgate da caixinha é Caixinha → Nubank, mesmo quando a linha veio do extrato Nubank.
 
 Status de transação:
 
@@ -82,7 +88,7 @@ Garantias:
 
 ## Importação
 
-A importação CSV tem duas etapas: lote e linhas. Linhas importadas devem ser revisadas antes de virarem transações definitivas.
+A importação CSV tem duas etapas: lote e linhas. Linhas importadas devem ser revisadas antes de virarem transações definitivas. Na revisão, uma linha pode virar receita, despesa ou transferência. Regras de importação podem sugerir transferência com origem/destino reais para casos recorrentes como caixinhas Nubank.
 
 Status do lote: rascunho, em revisão, confirmado, cancelado e revertido.
 

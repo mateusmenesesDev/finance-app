@@ -1,7 +1,7 @@
 // Pure helpers used by the import confirmation server action and its review UI.
 // Kept dependency-free so they can be unit-tested without a database.
 
-export type ImportMovementType = "income" | "expense";
+export type ImportMovementType = "income" | "expense" | "transfer";
 
 export type ImportConfirmCategory = {
 	id: number;
@@ -32,6 +32,12 @@ export function resolveConfirmRowCategory(
 	input: ResolveCategoryInput,
 ): ResolveCategoryResult {
 	const { movementType, rowCategoryId, bulkCategoryId, categoriesById } = input;
+	if (movementType === "transfer")
+		return {
+			kind: "ok",
+			category: { id: 0, name: "Transferência", kind: "transfer" },
+			usedBulk: false,
+		};
 	if (rowCategoryId !== null) {
 		const category = categoriesById.get(rowCategoryId);
 		if (!category) return { kind: "missing" };
@@ -52,6 +58,7 @@ export function resolveConfirmRowCategory(
 const movementTypeLabel: Record<ImportMovementType, string> = {
 	income: "receita",
 	expense: "despesa",
+	transfer: "transferência",
 };
 
 export function formatConfirmCategoryError(

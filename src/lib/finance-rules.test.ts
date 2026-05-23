@@ -5,6 +5,8 @@ import {
 	buildBudgetUsage,
 	calculateAccountBalances,
 	calculateMonthlyTotals,
+	calculateMonthlyTotalsByCashFlowRole,
+	calculateWealthSummary,
 	classifyBudgetStatus,
 	getInvoiceForDate,
 	listMonthOptions,
@@ -41,17 +43,26 @@ const accounts: RuleAccount[] = [
 		creditCardClosingDay: null,
 		creditCardDueDay: null,
 	},
+	{
+		id: 4,
+		type: "investment",
+		initialBalanceCents: 200_00,
+		creditCardClosingDay: null,
+		creditCardDueDay: null,
+	},
 ];
 
 const categories: RuleCategory[] = [
 	{ id: 10, groupId: 100, name: "Mercado" },
 	{ id: 11, groupId: 101, name: "Salário" },
 	{ id: 12, groupId: 100, name: "Restaurante" },
+	{ id: 13, groupId: 102, name: "Rendimentos" },
 ];
 
 const groups: RuleCategoryGroup[] = [
 	{ id: 100, name: "Essenciais" },
-	{ id: 101, name: "Renda" },
+	{ id: 101, name: "Renda", cashFlowRole: "operational" },
+	{ id: 102, name: "Rendimentos financeiros", cashFlowRole: "financial" },
 ];
 
 function tx(overrides: Partial<RuleTransaction>): RuleTransaction {
@@ -101,6 +112,25 @@ describe("finance rules", () => {
 
 		expect(balances.get(1)?.normalBalanceCents).toBe(75_00);
 		expect(balances.get(3)?.normalBalanceCents).toBe(25_00);
+	});
+
+	test("wealth summary separates available cash from investments", () => {
+		const summary = calculateWealthSummary(accounts, [
+			tx({ movementType: "income", amountCents: 100_00 }),
+			tx({
+				movementType: "transfer",
+				amountCents: 50_00,
+				destinationAccountId: 4,
+			}),
+			tx({ accountId: 2, movementType: "expense", amountCents: 30_00 }),
+		]);
+
+		expect(summary).toEqual({
+			availableCashCents: 150_00,
+			investmentCents: 250_00,
+			cardDebtCents: 30_00,
+			totalWealthCents: 370_00,
+		});
 	});
 
 	test("credit card payment reduces bank balance and card debt without expense duplication", () => {
@@ -158,6 +188,32 @@ describe("finance rules", () => {
 			expenseCents: 120_00,
 			netCents: 180_00,
 			transactionCount: 2,
+		});
+	});
+
+	test("monthly totals can separate main and financial income", () => {
+		const period = parseMonthPeriod("2026-05");
+		if (period === null) throw new Error("invalid test period");
+
+		expect(
+			calculateMonthlyTotalsByCashFlowRole(
+				[
+					tx({ categoryId: 11, movementType: "income", amountCents: 300_00 }),
+					tx({ categoryId: 13, movementType: "income", amountCents: 20_00 }),
+					tx({ movementType: "expense", amountCents: 120_00 }),
+					tx({ movementType: "transfer", amountCents: 90_00 }),
+				],
+				categories,
+				groups,
+				period,
+			),
+		).toEqual({
+			mainIncomeCents: 300_00,
+			financialIncomeCents: 20_00,
+			incomeCents: 320_00,
+			expenseCents: 120_00,
+			netCents: 200_00,
+			transactionCount: 3,
 		});
 	});
 

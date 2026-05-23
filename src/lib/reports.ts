@@ -175,9 +175,25 @@ export function incomeExpenseSeries(
 	transactions: RuleTransaction[],
 	range: ReportRange,
 	granularity: Granularity,
+	categories: RuleCategory[] = [],
+	groups: RuleCategoryGroup[] = [],
 ) {
+	const groupRoleByCategory = new Map(
+		categories.map((category) => [
+			category.id,
+			groups.find((group) => group.id === category.groupId)?.cashFlowRole ??
+				"operational",
+		]),
+	);
 	const buckets = bucketRange(range.from, range.to, granularity).map(
-		(bucket) => ({ ...bucket, incomeCents: 0, expenseCents: 0, netCents: 0 }),
+		(bucket) => ({
+			...bucket,
+			mainIncomeCents: 0,
+			financialIncomeCents: 0,
+			incomeCents: 0,
+			expenseCents: 0,
+			netCents: 0,
+		}),
 	);
 	const byKey = new Map(buckets.map((bucket) => [bucket.key, bucket]));
 	for (const transaction of transactions) {
@@ -189,9 +205,19 @@ export function incomeExpenseSeries(
 			continue;
 		const bucket = byKey.get(bucketKeyFor(transaction.occurredOn, granularity));
 		if (!bucket) continue;
-		if (transaction.movementType === "income")
-			bucket.incomeCents += transaction.amountCents;
-		else bucket.expenseCents += transaction.amountCents;
+		if (transaction.movementType === "income") {
+			if (
+				transaction.categoryId &&
+				groupRoleByCategory.get(transaction.categoryId) === "financial"
+			) {
+				bucket.financialIncomeCents += transaction.amountCents;
+			} else {
+				bucket.mainIncomeCents += transaction.amountCents;
+			}
+			bucket.incomeCents = bucket.mainIncomeCents + bucket.financialIncomeCents;
+		} else {
+			bucket.expenseCents += transaction.amountCents;
+		}
 		bucket.netCents = bucket.incomeCents - bucket.expenseCents;
 	}
 	return buckets;

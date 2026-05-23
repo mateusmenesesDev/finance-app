@@ -779,10 +779,18 @@ function ImportRulePanel({
 					const account = rule.accountId
 						? accountById.get(rule.accountId)
 						: null;
+					const sourceAccount = rule.sourceAccountId
+						? accountById.get(rule.sourceAccountId)
+						: null;
+					const destinationAccount = rule.destinationAccountId
+						? accountById.get(rule.destinationAccountId)
+						: null;
 					const targetLabel =
 						rule.action === "ignore"
 							? "ignorar linha"
-							: (category?.name ?? "categoria arquivada");
+							: rule.action === "transfer"
+								? `${sourceAccount?.name ?? "origem"} → ${destinationAccount?.name ?? "destino"}`
+								: (category?.name ?? "categoria arquivada");
 					const typeLabel = rule.movementType
 						? (movementTypeLabels[rule.movementType] ?? rule.movementType)
 						: "qualquer tipo";
@@ -868,10 +876,14 @@ function BatchReview({
 		occurredOn: row.occurredOn,
 		amountCents: row.amountCents,
 		movementType:
-			row.movementType === "income" || row.movementType === "expense"
-				? row.movementType
-				: null,
+			row.suggestedSourceAccountId && row.suggestedDestinationAccountId
+				? "transfer"
+				: row.movementType === "income" || row.movementType === "expense"
+					? row.movementType
+					: null,
 		accountId: row.accountId,
+		suggestedSourceAccountId: row.suggestedSourceAccountId,
+		suggestedDestinationAccountId: row.suggestedDestinationAccountId,
 		originalDescription: row.originalDescription,
 		bankCategory: row.bankCategory,
 		parsedData: row.parsedData,

@@ -72,12 +72,14 @@ export async function GET(request: Request) {
 	let csv = "";
 	if (panel === "income_expense")
 		csv = serializeCsv(
-			incomeExpenseSeries(filtered, range, filters.granularity),
+			incomeExpenseSeries(filtered, range, filters.granularity, cats, groups),
 			[
 				columnText("Período", (r) => r.label),
 				columnDate("Início", (r) => r.start),
 				columnDate("Fim", (r) => r.end),
-				columnMoney("Receitas", (r) => r.incomeCents),
+				columnMoney("Receita principal", (r) => r.mainIncomeCents),
+				columnMoney("Receita financeira", (r) => r.financialIncomeCents),
+				columnMoney("Receitas totais", (r) => r.incomeCents),
 				columnMoney("Despesas", (r) => r.expenseCents),
 				columnMoney("Líquido", (r) => r.netCents),
 			],

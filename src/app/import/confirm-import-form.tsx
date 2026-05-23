@@ -12,12 +12,12 @@ import { Money } from "~/components/money";
 import { SubmitButton } from "~/components/submit-button";
 import { formatMoneyInput } from "~/lib/formatters";
 
-type MovementType = "income" | "expense";
+type MovementType = "income" | "expense" | "transfer";
 
 export type ConfirmFormCategory = {
 	id: number;
 	name: string;
-	kind: MovementType;
+	kind: "income" | "expense";
 };
 
 export type ConfirmFormAccount = {
@@ -40,6 +40,8 @@ export type ConfirmFormRow = {
 	validationError: string | null;
 	suggestedCategoryId: number | null;
 	suggestedCategoryName: string | null;
+	suggestedSourceAccountId: number | null;
+	suggestedDestinationAccountId: number | null;
 	suggestedRuleDescription: string | null;
 	suggestedDescription: string | null;
 	suggestionSource: string | null;
@@ -62,6 +64,7 @@ const inputClass =
 const movementTypeLabels: Record<MovementType, string> = {
 	income: "receita",
 	expense: "despesa",
+	transfer: "transferência",
 };
 
 const rowStatusLabels: Record<string, string> = {
@@ -95,7 +98,16 @@ export function ConfirmImportForm({
 				suggested && suggested.kind === movementType
 					? String(suggested.id)
 					: "";
-			map[row.id] = { movementType, categoryId };
+			map[row.id] = {
+				movementType,
+				categoryId,
+				sourceAccountId: row.suggestedSourceAccountId
+					? String(row.suggestedSourceAccountId)
+					: String(row.accountId),
+				destinationAccountId: row.suggestedDestinationAccountId
+					? String(row.suggestedDestinationAccountId)
+					: "",
+			};
 		}
 		return map;
 	}, [rows, categoriesById]);
@@ -135,6 +147,9 @@ export function ConfirmImportForm({
 						: null;
 					if (!selected || selected.kind !== next.movementType)
 						next = { ...next, categoryId: "" };
+					if (patch.movementType !== "transfer") {
+						next = { ...next, destinationAccountId: "" };
+					}
 				}
 				return { ...prev, [rowId]: next };
 			});
@@ -251,7 +266,12 @@ export function ConfirmImportForm({
 	);
 }
 
-type RowState = { movementType: MovementType; categoryId: string };
+type RowState = {
+	movementType: MovementType;
+	categoryId: string;
+	sourceAccountId: string;
+	destinationAccountId: string;
+};
 
 const initialConfirmState: ConfirmImportBatchState = {
 	rowErrors: {},
@@ -277,16 +297,28 @@ function RowBlock({
 }) {
 	if (!state) return null;
 	const movementType = state.movementType;
-	const filteredCategories = categories.filter(
-		(category) => category.kind === movementType,
-	);
+	const filteredCategories =
+		movementType === "transfer"
+			? []
+			: categories.filter((category) => category.kind === movementType);
 	const categoryErrorId = error ? `row-${row.id}-category-error` : undefined;
 	const isIgnoreSuggestion = row.suggestionSource === "rule_ignore";
 	const suggestionVisible =
+		movementType !== "transfer" &&
 		row.suggestedCategoryId &&
 		row.suggestedCategoryName &&
 		categories.find((category) => category.id === row.suggestedCategoryId)
 			?.kind === movementType;
+	const sourceAccount = accounts.find(
+		(account) => String(account.id) === state.sourceAccountId,
+	);
+	const destinationAccount = accounts.find(
+		(account) => String(account.id) === state.destinationAccountId,
+	);
+	const transferSuggestionVisible =
+		movementType === "transfer" &&
+		row.suggestedSourceAccountId &&
+		row.suggestedDestinationAccountId;
 	const bulkWillApply =
 		bulkCategory && !state.categoryId && bulkCategory.kind === movementType;
 	const bulkWillSkip =
@@ -302,7 +334,13 @@ function RowBlock({
 					value={
 						<Money
 							cents={row.amountCents ?? 0}
-							sign={movementType === "income" ? "credit" : "debit"}
+							sign={
+								movementType === "transfer"
+									? "neutral"
+									: movementType === "income"
+										? "credit"
+										: "debit"
+							}
 						/>
 					}
 				/>
@@ -341,6 +379,14 @@ function RowBlock({
 			{isIgnoreSuggestion ? (
 				<p className="text-sm text-warning">
 					Sugestão: ignorar esta linha
+					{row.suggestedRuleDescription
+						? ` — a partir da regra “${row.suggestedRuleDescription}”`
+						: ""}
+				</p>
+			) : transferSuggestionVisible ? (
+				<p className="text-primary text-sm">
+					Sugestão de transferência: <strong>{sourceAccount?.name}</strong> →{" "}
+					<strong>{destinationAccount?.name}</strong>
 					{row.suggestedRuleDescription
 						? ` — a partir da regra “${row.suggestedRuleDescription}”`
 						: ""}
@@ -419,13 +465,17 @@ function RowBlock({
 					>
 						<option value="income">Receita</option>
 						<option value="expense">Despesa</option>
+						<option value="transfer">Transferência</option>
 					</select>
 				</FieldLabel>
-				<FieldLabel label="Conta">
+				<FieldLabel label={movementType === "transfer" ? "Origem" : "Conta"}>
 					<select
 						className={inputClass}
-						defaultValue={row.accountId}
 						name={`row-${row.id}-accountId`}
+						onChange={(event) =>
+							onChange({ sourceAccountId: event.target.value })
+						}
+						value={state.sourceAccountId}
 					>
 						{accounts.map((account) => (
 							<option key={account.id} value={account.id}>
@@ -434,32 +484,54 @@ function RowBlock({
 						))}
 					</select>
 				</FieldLabel>
-				<FieldLabel
-					hint={
-						bulkWillApply
-							? `Em branco usa o lote: ${bulkCategory.name}.`
-							: bulkWillSkip
-								? `Lote (${bulkCategory.name}) não compatível; escolha uma categoria de ${movementTypeLabels[movementType]}.`
-								: "Obrigatória quando você importar a linha."
-					}
-					label="Categoria"
-				>
-					<select
-						aria-describedby={categoryErrorId}
-						aria-invalid={error ? true : undefined}
-						className={inputClass}
-						name={`row-${row.id}-categoryId`}
-						onChange={(event) => onChange({ categoryId: event.target.value })}
-						value={state.categoryId}
+				{movementType === "transfer" ? (
+					<FieldLabel label="Destino">
+						<select
+							className={inputClass}
+							name={`row-${row.id}-destinationAccountId`}
+							onChange={(event) =>
+								onChange({ destinationAccountId: event.target.value })
+							}
+							required
+							value={state.destinationAccountId}
+						>
+							<option value="">Selecione o destino</option>
+							{accounts.map((account) => (
+								<option key={account.id} value={account.id}>
+									{account.name}
+								</option>
+							))}
+						</select>
+					</FieldLabel>
+				) : null}
+				{movementType === "transfer" ? null : (
+					<FieldLabel
+						hint={
+							bulkWillApply
+								? `Em branco usa o lote: ${bulkCategory.name}.`
+								: bulkWillSkip
+									? `Lote (${bulkCategory.name}) não compatível; escolha uma categoria de ${movementTypeLabels[movementType]}.`
+									: "Obrigatória quando você importar a linha."
+						}
+						label="Categoria"
 					>
-						<option value="">Sem categoria</option>
-						{filteredCategories.map((category) => (
-							<option key={category.id} value={category.id}>
-								{category.name} · {movementTypeLabels[category.kind]}
-							</option>
-						))}
-					</select>
-				</FieldLabel>
+						<select
+							aria-describedby={categoryErrorId}
+							aria-invalid={error ? true : undefined}
+							className={inputClass}
+							name={`row-${row.id}-categoryId`}
+							onChange={(event) => onChange({ categoryId: event.target.value })}
+							value={state.categoryId}
+						>
+							<option value="">Sem categoria</option>
+							{filteredCategories.map((category) => (
+								<option key={category.id} value={category.id}>
+									{category.name} · {movementTypeLabels[category.kind]}
+								</option>
+							))}
+						</select>
+					</FieldLabel>
+				)}
 				<FieldLabel
 					hint={
 						row.suggestedDescription
@@ -501,8 +573,8 @@ function RowBlock({
 				)}
 			<label className="flex items-center gap-2 text-muted-foreground text-sm">
 				<input name={`row-${row.id}-createRule`} type="checkbox" /> Salvar a
-				decisão desta linha como nova regra (categorizar se importar; ignorar se
-				marcar como ignorar). Aplica em lotes futuros.
+				decisão desta linha como nova regra (categorizar, transferir ou
+				ignorar). Aplica em lotes futuros.
 			</label>
 		</div>
 	);

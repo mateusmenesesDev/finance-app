@@ -106,6 +106,33 @@ describe("reports", () => {
 		expect(rows.reduce((sum, row) => sum + row.expenseCents, 0)).toBe(300);
 	});
 
+	test("income expense buckets split financial income by category group role", () => {
+		const rows = incomeExpenseSeries(
+			[
+				tx({ categoryId: 2, movementType: "income", amountCents: 500 }),
+				tx({ categoryId: 3, movementType: "income", amountCents: 75 }),
+				tx({ movementType: "expense", amountCents: 300 }),
+				tx({ movementType: "transfer", amountCents: 900 }),
+			],
+			{ from: "2026-01-01", to: "2026-01-31" },
+			"month",
+			[
+				{ id: 2, groupId: 10, name: "Salário" },
+				{ id: 3, groupId: 11, name: "Rendimentos" },
+			],
+			[
+				{ id: 10, name: "Renda", cashFlowRole: "operational" },
+				{ id: 11, name: "Financeira", cashFlowRole: "financial" },
+			],
+		);
+
+		expect(rows[0]?.mainIncomeCents).toBe(500);
+		expect(rows[0]?.financialIncomeCents).toBe(75);
+		expect(rows[0]?.incomeCents).toBe(575);
+		expect(rows[0]?.expenseCents).toBe(300);
+		expect(rows[0]?.netCents).toBe(275);
+	});
+
 	test("combined filters include transfer destination and category group index", () => {
 		const filters = parseReportFilters(
 			{

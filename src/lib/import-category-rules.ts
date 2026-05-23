@@ -1,12 +1,14 @@
 export type ImportRuleMatchMode = "contains" | "exact";
-export type ImportRuleMovementType = "income" | "expense";
-export type ImportRuleAction = "categorize" | "ignore";
+export type ImportRuleMovementType = "income" | "expense" | "transfer";
+export type ImportRuleAction = "categorize" | "ignore" | "transfer";
 
 export type ImportCategoryRule = {
 	id: number;
 	action: ImportRuleAction;
 	categoryId: number | null;
 	accountId: number | null;
+	sourceAccountId?: number | null;
+	destinationAccountId?: number | null;
 	movementType: ImportRuleMovementType | string | null;
 	normalizedDescription: string;
 	textMatchMode: ImportRuleMatchMode;
@@ -54,15 +56,22 @@ export function ruleMatchesRow(rule: ImportCategoryRule, row: ImportRuleRow) {
 	return true;
 }
 
-// Ignore wins over categorize so users get a definitive "skip" signal even
-// when a competing categorize rule also matches.
+// Ignore wins over transfer/categorize so users get a definitive "skip" signal
+// even when another rule also matches. Transfer wins over categorize because it
+// changes accounting semantics, not only labels.
 function compareRules(a: ImportCategoryRule, b: ImportCategoryRule) {
-	if (a.action !== b.action) return a.action === "ignore" ? -1 : 1;
+	if (a.action !== b.action) return actionRank(a.action) - actionRank(b.action);
 	const specificity = ruleSpecificity(b) - ruleSpecificity(a);
 	if (specificity !== 0) return specificity;
 	const priority = b.priority - a.priority;
 	if (priority !== 0) return priority;
 	return b.createdAt.getTime() - a.createdAt.getTime();
+}
+
+function actionRank(action: ImportRuleAction) {
+	if (action === "ignore") return 0;
+	if (action === "transfer") return 1;
+	return 2;
 }
 
 function ruleSpecificity(rule: ImportCategoryRule) {
@@ -71,6 +80,13 @@ function ruleSpecificity(rule: ImportCategoryRule) {
 		rule.normalizedDescription.length +
 		(rule.movementType === null ? 0 : 10) +
 		(rule.accountId === null ? 0 : 20) +
+		(rule.sourceAccountId === null || rule.sourceAccountId === undefined
+			? 0
+			: 10) +
+		(rule.destinationAccountId === null ||
+		rule.destinationAccountId === undefined
+			? 0
+			: 10) +
 		(rule.amountCents === null ? 0 : 20)
 	);
 }

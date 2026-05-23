@@ -41,11 +41,16 @@ import type { CategoryActionState } from "~/lib/category-errors";
 const initialState: CategoryActionState = { error: null };
 
 const kindLabels = { income: "Receita", expense: "Despesa" };
+const cashFlowRoleLabels = {
+	operational: "Principal",
+	financial: "Financeira",
+};
 
 type CategoryGroup = {
 	id: number;
 	name: string;
 	kind: "income" | "expense";
+	cashFlowRole: "operational" | "financial";
 };
 
 type Category = {
@@ -241,6 +246,7 @@ function CreateGroupDialog({
 				<form action={action} className="grid gap-4" onSubmit={onSubmit}>
 					<Field label="Grupo" name="name" />
 					<KindSelect />
+					<CashFlowRoleSelect />
 					<DialogFooter>
 						<SubmitButton pendingLabel="Cadastrando...">
 							Cadastrar grupo
@@ -323,6 +329,11 @@ function GroupsCard({
 									>
 										{kindLabels[group.kind]}
 									</Badge>
+									{group.kind === "income" ? (
+										<Badge variant="outline">
+											{cashFlowRoleLabels[group.cashFlowRole]}
+										</Badge>
+									) : null}
 								</div>
 								<Money
 									cents={groupTotals[group.id] ?? 0}
@@ -462,6 +473,7 @@ function EditGroupDialog({
 				<form action={action} className="grid gap-4" onSubmit={onSubmit}>
 					<input name="id" type="hidden" value={group.id} />
 					<Field defaultValue={group.name} label="Grupo" name="name" />
+					<CashFlowRoleSelect defaultValue={group.cashFlowRole} />
 					<DialogFooter>
 						<SubmitButton>Salvar</SubmitButton>
 					</DialogFooter>
@@ -532,6 +544,30 @@ function KindSelect() {
 				<option value="income">Receita</option>
 				<option value="expense">Despesa</option>
 			</select>
+		</div>
+	);
+}
+
+function CashFlowRoleSelect({
+	defaultValue = "operational",
+}: {
+	defaultValue?: "operational" | "financial";
+}) {
+	return (
+		<div className="grid gap-2">
+			<Label htmlFor="category-cash-flow-role">Papel no fluxo</Label>
+			<select
+				className={selectClass}
+				defaultValue={defaultValue}
+				id="category-cash-flow-role"
+				name="cashFlowRole"
+			>
+				<option value="operational">Receita/despesa principal</option>
+				<option value="financial">Receita financeira</option>
+			</select>
+			<p className="text-muted-foreground text-xs">
+				Use “Receita financeira” para rendimentos de caixinhas/investimentos.
+			</p>
 		</div>
 	);
 }

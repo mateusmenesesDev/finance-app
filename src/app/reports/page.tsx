@@ -92,7 +92,13 @@ export default async function ReportsPage({ searchParams }: Props) {
 	);
 	const filtered = applyTransactionFilters(txs, filters, categoryIndex);
 	const range = { from: filters.from, to: filters.to };
-	const incomeRows = incomeExpenseSeries(filtered, range, filters.granularity);
+	const incomeRows = incomeExpenseSeries(
+		filtered,
+		range,
+		filters.granularity,
+		cats,
+		groups,
+	);
 	const categoryRows = categoryRanking(
 		filtered,
 		cats,
@@ -151,7 +157,17 @@ export default async function ReportsPage({ searchParams }: Props) {
 					<SimpleTable
 						columns={[
 							{ key: "label", label: "Período" },
-							{ key: "incomeCents", label: "Receitas", money: true },
+							{
+								key: "mainIncomeCents",
+								label: "Receita principal",
+								money: true,
+							},
+							{
+								key: "financialIncomeCents",
+								label: "Receita financeira",
+								money: true,
+							},
+							{ key: "incomeCents", label: "Receitas totais", money: true },
 							{ key: "expenseCents", label: "Despesas", money: true },
 							{ key: "netCents", label: "Líquido", money: true },
 						]}
