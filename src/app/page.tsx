@@ -1,15 +1,39 @@
 import { and, asc, desc, eq, isNotNull, sql } from "drizzle-orm";
+import {
+	AlertTriangle,
+	ArrowDownUp,
+	CreditCard,
+	FileSpreadsheet,
+	Info,
+	PiggyBank,
+	Sparkles,
+	TrendingDown,
+	TrendingUp,
+	Wallet,
+} from "lucide-react";
 import Link from "next/link";
 
 import { createDefaultCategories } from "~/app/_actions/finance-actions";
-import {
-	FinanceShell,
-	Panel,
-	SubmitButton,
-	SummaryCard,
-	TextInput,
-} from "~/app/_components/finance-ui";
 import { SignInForm } from "~/app/_components/sign-in-form";
+import { AppShell } from "~/components/app-shell";
+import { EmptyState } from "~/components/empty-state";
+import { Money } from "~/components/money";
+import { PageHeader } from "~/components/page-header";
+import { StatCard } from "~/components/stat-card";
+import { SubmitButton } from "~/components/submit-button";
+import { Badge } from "~/components/ui/badge";
+import { Button } from "~/components/ui/button";
+import {
+	Card,
+	CardContent,
+	CardDescription,
+	CardHeader,
+	CardTitle,
+} from "~/components/ui/card";
+import { Input } from "~/components/ui/input";
+import { Label } from "~/components/ui/label";
+import { Progress } from "~/components/ui/progress";
+import { Separator } from "~/components/ui/separator";
 import { summarizeMonthly } from "~/lib/assistant";
 import { aggregateCashFlow, computeFutureInvoices } from "~/lib/cash-flow";
 import {
@@ -33,6 +57,7 @@ import {
 	recurrencesToPlannedMovements,
 	subscriptionReviewSuggestions,
 } from "~/lib/recurrences";
+import { cn } from "~/lib/utils";
 import { getSession } from "~/server/better-auth/server";
 import { db } from "~/server/db";
 import {
@@ -149,6 +174,10 @@ export default async function Home({ searchParams }: HomeProps) {
 	const showFirstImportOnboarding =
 		activeAccounts.length > 0 && batches.length === 0;
 	const showCategoryOnboarding = activeCategories.length === 0;
+	const showOnboarding =
+		showFirstAccountOnboarding ||
+		showFirstImportOnboarding ||
+		showCategoryOnboarding;
 	const accountById = new Map(
 		allAccounts.map((account) => [account.id, account]),
 	);
@@ -268,435 +297,591 @@ export default async function Home({ searchParams }: HomeProps) {
 	});
 
 	return (
-		<FinanceShell
-			description="Visão mensal para entender rapidamente quanto entrou, quanto saiu, onde foi gasto e o que merece atenção."
-			eyebrow="Dashboard"
-			title={`Olá, ${session.user.name}`}
-		>
-			{showFirstAccountOnboarding ||
-			showFirstImportOnboarding ||
-			showCategoryOnboarding ? (
-				<section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-					{showFirstAccountOnboarding ? (
-						<div className="rounded-3xl border border-[color:var(--color-good-border)] bg-[color:var(--color-good-bg)] p-5">
-							<p className="font-semibold text-[color:var(--color-good)]">
-								Comece criando sua primeira conta
-							</p>
-							<p className="mt-2 text-[color:var(--color-text-muted)] text-sm">
-								Cadastre uma conta corrente, carteira ou cartão para liberar
-								saldos, importação e lançamentos.
-							</p>
-							<Link
-								className="mt-4 inline-block rounded-full bg-[color:var(--color-accent)] px-4 py-2 font-medium text-[color:var(--color-accent-text)] text-sm"
-								href="/accounts"
-							>
-								Criar conta
-							</Link>
-						</div>
-					) : null}
-					{showFirstImportOnboarding ? (
-						<div className="rounded-3xl border border-[color:var(--color-border-subtle)] bg-[color:var(--color-surface)] p-5">
-							<p className="font-semibold">Faça sua primeira importação CSV</p>
-							<p className="mt-2 text-[color:var(--color-text-muted)] text-sm">
-								Crie um modelo com as colunas do banco/cartão, envie o CSV e
-								revise cada linha antes de confirmar.
-							</p>
-							<Link
-								className="mt-4 inline-block rounded-full border border-[color:var(--color-border)] px-4 py-2 text-sm"
-								href="/import"
-							>
-								Ver guia de importação
-							</Link>
-						</div>
-					) : null}
-					{showCategoryOnboarding ? (
-						<div className="rounded-3xl border border-[color:var(--color-border-subtle)] bg-[color:var(--color-surface)] p-5">
-							<p className="font-semibold">Use categorias iniciais</p>
-							<p className="mt-2 text-[color:var(--color-text-muted)] text-sm">
-								Crie exemplos de renda, moradia, alimentação, transporte e
-								outros grupos para acelerar a organização.
-							</p>
-							<form
-								action={async (formData) => {
-									"use server";
-									await createDefaultCategories({ error: null }, formData);
-								}}
-								className="mt-4"
-							>
-								<SubmitButton
-									className="rounded-full"
-									pendingLabel="Criando..."
-									variant="secondary"
-								>
-									Criar categorias iniciais
-								</SubmitButton>
-							</form>
-						</div>
-					) : null}
-				</section>
-			) : null}
-
-			<section className="rounded-3xl border border-[color:var(--color-border-subtle)] bg-[color:var(--color-surface)] p-6">
-				<div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-					<div>
-						<p className="text-[color:var(--color-text-muted)] text-sm">
-							Mês analisado
-						</p>
-						<h2 className="mt-1 font-semibold text-2xl capitalize">
-							{formatMonthLabel(period)}
-						</h2>
-						<p className="mt-1 text-[color:var(--color-text-subtle)] text-sm">
-							{formatDate(period.start)} – {formatDate(period.end)}
-						</p>
-					</div>
-					<form className="flex flex-wrap items-end gap-3">
-						<label
-							className="grid gap-1 text-[color:var(--color-text-muted)] text-sm"
-							htmlFor="dashboard-month"
-						>
-							Mês
-							<TextInput
+		<AppShell user={{ name: session.user.name, email: session.user.email }}>
+			<PageHeader
+				actions={
+					<form className="flex items-end gap-2">
+						<div className="grid gap-1">
+							<Label className="text-xs" htmlFor="dashboard-month">
+								Mês
+							</Label>
+							<Input
+								className="h-9"
 								defaultValue={period.key}
 								id="dashboard-month"
 								name="month"
 								type="month"
 							/>
-						</label>
-						<SubmitButton pendingLabel="Atualizando...">Atualizar</SubmitButton>
+						</div>
+						<SubmitButton pendingLabel="Atualizando..." size="sm">
+							Atualizar
+						</SubmitButton>
 					</form>
-				</div>
+				}
+				description={`Visão de ${formatMonthLabel(period)} — entradas, saídas, alertas e o que merece atenção.`}
+				eyebrow="Dashboard"
+				title={`Olá, ${session.user.name}`}
+			/>
 
-				<div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-					<SummaryCard
-						label="Receitas do mês"
-						value={formatMoney(monthlyTotals.incomeCents)}
-						variant="good"
-					/>
-					<SummaryCard
-						label="Despesas do mês"
-						value={formatMoney(monthlyTotals.expenseCents)}
-						variant="bad"
-					/>
-					<SummaryCard
-						label="Saldo do mês"
-						value={formatMoney(monthlyTotals.netCents)}
-						variant={monthlyTotals.netCents >= 0 ? "good" : "bad"}
-					/>
-					<SummaryCard
-						description={budgetSummary.description}
-						label="Orçamento usado"
-						value={budgetSummary.label}
-						variant={budgetSummary.variant}
-					/>
-				</div>
+			{showOnboarding ? (
+				<section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+					{showFirstAccountOnboarding ? (
+						<OnboardingCard
+							action={
+								<Button asChild>
+									<Link href="/accounts">Criar conta</Link>
+								</Button>
+							}
+							description="Cadastre uma conta corrente, carteira ou cartão para liberar saldos, importação e lançamentos."
+							icon={Wallet}
+							title="Comece criando sua primeira conta"
+							tone="primary"
+						/>
+					) : null}
+					{showFirstImportOnboarding ? (
+						<OnboardingCard
+							action={
+								<Button asChild variant="outline">
+									<Link href="/import">Ver guia de importação</Link>
+								</Button>
+							}
+							description="Crie um modelo com as colunas do banco/cartão, envie o CSV e revise cada linha antes de confirmar."
+							icon={FileSpreadsheet}
+							title="Faça sua primeira importação CSV"
+						/>
+					) : null}
+					{showCategoryOnboarding ? (
+						<OnboardingCard
+							action={
+								<form
+									action={async (formData) => {
+										"use server";
+										await createDefaultCategories({ error: null }, formData);
+									}}
+								>
+									<SubmitButton
+										pendingLabel="Criando..."
+										size="sm"
+										variant="outline"
+									>
+										Criar categorias iniciais
+									</SubmitButton>
+								</form>
+							}
+							description="Crie exemplos de renda, moradia, alimentação, transporte e outros grupos para acelerar a organização."
+							icon={Sparkles}
+							title="Use categorias iniciais"
+						/>
+					) : null}
+				</section>
+			) : null}
+
+			<section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+				<StatCard
+					icon={TrendingUp}
+					label="Receitas do mês"
+					tone="success"
+					value={formatMoney(monthlyTotals.incomeCents)}
+				/>
+				<StatCard
+					icon={TrendingDown}
+					label="Despesas do mês"
+					tone="destructive"
+					value={formatMoney(monthlyTotals.expenseCents)}
+				/>
+				<StatCard
+					icon={ArrowDownUp}
+					label="Saldo do mês"
+					tone={monthlyTotals.netCents >= 0 ? "success" : "destructive"}
+					value={formatMoney(monthlyTotals.netCents)}
+				/>
+				<StatCard
+					description={budgetSummary.description}
+					icon={PiggyBank}
+					label="Orçamento usado"
+					tone={budgetTone(budgetSummary.variant)}
+					value={budgetSummary.label}
+				/>
 			</section>
 
-			<section className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
-				<Panel title="Alertas importantes">
-					{alerts.length > 0 ? (
-						<div className="grid gap-3">
-							{alerts.slice(0, 6).map((alert) => (
-								<AlertItem
-									alert={alert}
-									key={`${alert.title}-${alert.message}`}
+			<section className="grid gap-6 lg:grid-cols-[1fr_1fr]">
+				<Card>
+					<CardHeader>
+						<CardTitle>Alertas importantes</CardTitle>
+						<CardDescription>
+							Itens que pedem atenção até o fim do mês.
+						</CardDescription>
+					</CardHeader>
+					<CardContent>
+						{alerts.length > 0 ? (
+							<div className="grid gap-3">
+								{alerts.slice(0, 6).map((alert) => (
+									<AlertItem
+										alert={alert}
+										key={`${alert.title}-${alert.message}`}
+									/>
+								))}
+							</div>
+						) : (
+							<EmptyState
+								description="Nenhum alerta importante para este mês."
+								icon={Info}
+								title="Tudo em dia"
+							/>
+						)}
+					</CardContent>
+				</Card>
+
+				<Card>
+					<CardHeader>
+						<CardTitle>Insights principais</CardTitle>
+						<CardDescription>
+							Resumo automático a partir dos dados confirmados.
+						</CardDescription>
+					</CardHeader>
+					<CardContent>
+						{insights.length > 0 ? (
+							<ul className="grid gap-2 text-sm">
+								{insights.map((insight) => (
+									<li
+										className="rounded-md border bg-muted/20 px-3 py-2 text-muted-foreground"
+										key={insight}
+									>
+										{insight}
+									</li>
+								))}
+							</ul>
+						) : (
+							<EmptyState
+								description="Cadastre algumas transações para gerar análises."
+								title="Sem insights ainda"
+							/>
+						)}
+					</CardContent>
+				</Card>
+			</section>
+
+			<Card>
+				<CardHeader className="flex flex-row items-start justify-between gap-2">
+					<div>
+						<CardTitle>Assistente</CardTitle>
+						<CardDescription>
+							{pendingAssistantCount > 0
+								? `${pendingAssistantCount} sugestões aguardam revisão.`
+								: "Sem sugestões pendentes neste momento."}
+						</CardDescription>
+					</div>
+					<Button asChild size="sm" variant="ghost">
+						<Link href="/assistente">Abrir</Link>
+					</Button>
+				</CardHeader>
+				<CardContent>
+					<ul className="grid gap-2 text-sm">
+						{summarizeMonthly({
+							period,
+							totals: monthlyTotals,
+							previousNet: previousTotals.netCents,
+							pendingReviewCount: pendingImports.length,
+							uncategorizedCount,
+							openInvoicesCents: openInvoices.reduce(
+								(sum, inv) => sum + inv.remainingCents,
+								0,
+							),
+							alertsCount: alerts.length,
+						}).bullets.map((line) => (
+							<li
+								className="rounded-md border bg-muted/20 px-3 py-2 text-muted-foreground"
+								key={line}
+							>
+								{line}
+							</li>
+						))}
+					</ul>
+				</CardContent>
+			</Card>
+
+			<section className="grid gap-6 lg:grid-cols-2">
+				<Card>
+					<CardHeader>
+						<CardTitle>Saldo por conta</CardTitle>
+						<CardDescription>
+							Saldos atuais; cartões mostram a dívida em aberto.
+						</CardDescription>
+					</CardHeader>
+					<CardContent className="space-y-4">
+						{activeAccounts.length === 0 ? (
+							<EmptyState
+								action={
+									<Button asChild size="sm">
+										<Link href="/accounts">Criar conta</Link>
+									</Button>
+								}
+								description="Cadastre uma conta para acompanhar saldos."
+								icon={Wallet}
+								title="Sem contas cadastradas"
+							/>
+						) : (
+							<div className="grid gap-2">
+								{activeAccounts.map((account) => {
+									const balance = balances.get(account.id);
+									const value =
+										account.type === "credit_card"
+											? (balance?.cardDebtCents ?? 0)
+											: (balance?.normalBalanceCents ?? 0);
+									return (
+										<div
+											className="flex items-center justify-between gap-4 rounded-md border bg-muted/10 px-3 py-2"
+											key={account.id}
+										>
+											<div className="min-w-0">
+												<p className="truncate font-medium text-sm">
+													{account.name}
+												</p>
+												<p className="truncate text-muted-foreground text-xs">
+													{account.institution ?? "Sem instituição"}
+												</p>
+											</div>
+											<Money
+												cents={value}
+												className="font-semibold text-sm"
+												sign={
+													account.type === "credit_card" ? "debit" : "neutral"
+												}
+											/>
+										</div>
+									);
+								})}
+							</div>
+						)}
+						<Separator />
+						<div className="grid gap-3 sm:grid-cols-2">
+							<div className="rounded-md bg-muted/30 px-3 py-2">
+								<p className="text-muted-foreground text-xs">Consolidado</p>
+								<Money
+									cents={normalConsolidated}
+									className="font-semibold text-base"
 								/>
-							))}
+							</div>
+							<div className="rounded-md bg-muted/30 px-3 py-2">
+								<p className="text-muted-foreground text-xs">
+									Dívida em cartões
+								</p>
+								<Money
+									cents={cardDebt}
+									className="font-semibold text-base"
+									sign={cardDebt > 0 ? "debit" : "neutral"}
+								/>
+							</div>
+						</div>
+					</CardContent>
+				</Card>
+
+				<Card>
+					<CardHeader>
+						<CardTitle>Fluxo previsto até o fim do mês</CardTitle>
+						<CardDescription>
+							Inclui transações previstas, recorrências e faturas futuras de
+							cartão.
+						</CardDescription>
+					</CardHeader>
+					<CardContent>
+						<div className="grid gap-3 sm:grid-cols-2">
+							<MiniStat
+								label="Entradas previstas"
+								tone="success"
+								value={formatMoney(projectedIncomeCents)}
+							/>
+							<MiniStat
+								label="Saídas previstas"
+								tone="destructive"
+								value={formatMoney(projectedExpenseCents)}
+							/>
+							<MiniStat
+								label="Saldo atual"
+								value={formatMoney(normalConsolidated)}
+							/>
+							<MiniStat
+								label="Saldo projetado"
+								tone={projectedBalanceCents >= 0 ? "success" : "destructive"}
+								value={formatMoney(projectedBalanceCents)}
+							/>
+						</div>
+					</CardContent>
+				</Card>
+			</section>
+
+			<Card>
+				<CardHeader>
+					<CardTitle>Assinaturas e gastos fixos</CardTitle>
+					<CardDescription>
+						Recorrências que mais comprometem o orçamento mensal.
+					</CardDescription>
+				</CardHeader>
+				<CardContent>
+					{fixedExpenseRanking.length > 0 ? (
+						<div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+							{fixedExpenseRanking.map((item) => {
+								const suggestion = reviewSuggestions.get(item.recurrenceId);
+								return (
+									<div
+										className="rounded-md border bg-muted/20 p-3"
+										key={item.recurrenceId}
+									>
+										<div className="flex items-start justify-between gap-2">
+											<div className="min-w-0">
+												<p className="truncate font-medium text-sm">
+													{item.name}
+												</p>
+												<p className="text-muted-foreground text-xs">
+													{item.isSubscription ? "Assinatura" : "Gasto fixo"}
+													{item.isBill ? " · conta" : ""}
+												</p>
+											</div>
+											{suggestion ? (
+												<Badge variant="secondary">Revisar</Badge>
+											) : null}
+										</div>
+										<Money
+											cents={item.monthlyAmountCents}
+											className="mt-2 block font-semibold"
+											sign="debit"
+										/>
+										<p className="text-muted-foreground text-xs">por mês</p>
+									</div>
+								);
+							})}
 						</div>
 					) : (
-						<EmptyState text="Nenhum alerta importante para este mês." />
+						<EmptyState
+							description="Cadastre recorrências para ver gastos fixos."
+							title="Sem recorrências"
+						/>
 					)}
-				</Panel>
-
-				<Panel title="Insights principais do mês">
-					{insights.length > 0 ? (
-						<ul className="grid gap-3 text-[color:var(--color-text-muted)] text-sm">
-							{insights.map((insight) => (
-								<li
-									className="rounded-2xl border border-[color:var(--color-border-subtle)] bg-[color:var(--color-surface-muted)] p-4"
-									key={insight}
-								>
-									{insight}
-								</li>
-							))}
-						</ul>
-					) : (
-						<EmptyState text="Ainda não há transações suficientes para gerar insights." />
-					)}
-				</Panel>
-			</section>
-
-			<Panel
-				description={
-					pendingAssistantCount > 0
-						? `${pendingAssistantCount} sugestões aguardam revisão.`
-						: "Sem sugestões pendentes neste momento."
-				}
-				title="Assistente"
-			>
-				<ul className="grid gap-2 text-[color:var(--color-text-muted)] text-sm">
-					{summarizeMonthly({
-						period,
-						totals: monthlyTotals,
-						previousNet: previousTotals.netCents,
-						pendingReviewCount: pendingImports.length,
-						uncategorizedCount,
-						openInvoicesCents: openInvoices.reduce(
-							(sum, inv) => sum + inv.remainingCents,
-							0,
-						),
-						alertsCount: alerts.length,
-					}).bullets.map((line) => (
-						<li
-							className="rounded-2xl border border-[color:var(--color-border-subtle)] bg-[color:var(--color-surface-muted)] p-3"
-							key={line}
-						>
-							{line}
-						</li>
-					))}
-				</ul>
-				<Link
-					className="mt-4 inline-block text-[color:var(--color-accent)] text-sm hover:underline"
-					href="/assistente"
-				>
-					Abrir assistente
-				</Link>
-			</Panel>
+				</CardContent>
+			</Card>
 
 			<section className="grid gap-6 lg:grid-cols-2">
-				<Panel title="Saldo por conta">
-					<div className="grid gap-3">
-						{activeAccounts.map((account) => {
-							const balance = balances.get(account.id);
-							const value =
-								account.type === "credit_card"
-									? (balance?.cardDebtCents ?? 0)
-									: (balance?.normalBalanceCents ?? 0);
-							return (
-								<div
-									className="flex items-center justify-between gap-4 rounded-2xl border border-[color:var(--color-border-subtle)] bg-[color:var(--color-surface-muted)] p-4"
-									key={account.id}
-								>
-									<div>
-										<p className="font-medium">{account.name}</p>
-										<p className="text-[color:var(--color-text-subtle)] text-xs">
-											{account.institution ?? "Sem instituição"}
-										</p>
-									</div>
-									<p
-										className={
-											account.type === "credit_card"
-												? "font-semibold text-[color:var(--color-bad)]"
-												: "font-semibold text-[color:var(--color-text)]"
-										}
+				<Card>
+					<CardHeader>
+						<CardTitle>Gasto por grupo</CardTitle>
+					</CardHeader>
+					<CardContent>
+						<Ranking
+							rows={groupRanking.map((row) => ({
+								amountCents: row.amountCents,
+								count: row.transactionCount,
+								label: row.groupName,
+							}))}
+						/>
+					</CardContent>
+				</Card>
+				<Card>
+					<CardHeader>
+						<CardTitle>Maiores categorias de despesa</CardTitle>
+					</CardHeader>
+					<CardContent>
+						<Ranking
+							rows={categoryRanking.map((row) => ({
+								amountCents: row.amountCents,
+								count: row.transactionCount,
+								label: row.categoryName,
+							}))}
+						/>
+					</CardContent>
+				</Card>
+			</section>
+
+			<section className="grid gap-6 lg:grid-cols-2">
+				<Card>
+					<CardHeader>
+						<CardTitle>Faturas abertas de cartão</CardTitle>
+						<CardDescription>
+							Estimadas pelas compras no cartão; pagamento de fatura segue como
+							transferência.
+						</CardDescription>
+					</CardHeader>
+					<CardContent>
+						{openInvoices.length > 0 ? (
+							<div className="grid gap-2">
+								{openInvoices.slice(0, 6).map((invoice) => (
+									<div
+										className="flex items-start justify-between gap-3 rounded-md border bg-muted/10 p-3"
+										key={`${invoice.accountId}-${invoice.key}`}
 									>
-										{formatMoney(value)}
-									</p>
-								</div>
-							);
-						})}
-						{activeAccounts.length === 0 ? (
-							<EmptyState text="Cadastre uma conta para acompanhar saldos." />
-						) : null}
-					</div>
-					<div className="mt-4 grid gap-4 sm:grid-cols-2">
-						<SummaryCard
-							label="Consolidado sem cartões"
-							value={formatMoney(normalConsolidated)}
-						/>
-						<SummaryCard
-							label="Dívida aberta em cartões"
-							value={formatMoney(cardDebt)}
-							variant={cardDebt > 0 ? "bad" : "default"}
-						/>
-					</div>
-				</Panel>
-
-				<Panel title="Fluxo previsto até o fim do mês">
-					<div className="grid gap-4 sm:grid-cols-2">
-						<SummaryCard
-							label="Entradas previstas"
-							value={formatMoney(projectedIncomeCents)}
-							variant="good"
-						/>
-						<SummaryCard
-							label="Saídas previstas"
-							value={formatMoney(projectedExpenseCents)}
-							variant="bad"
-						/>
-						<SummaryCard
-							label="Saldo atual considerado"
-							value={formatMoney(normalConsolidated)}
-						/>
-						<SummaryCard
-							label="Saldo projetado"
-							value={formatMoney(projectedBalanceCents)}
-							variant={projectedBalanceCents >= 0 ? "good" : "bad"}
-						/>
-					</div>
-					<p className="mt-4 text-[color:var(--color-text-subtle)] text-xs">
-						Inclui transações previstas, recorrências e faturas futuras de
-						cartão.
-					</p>
-				</Panel>
-			</section>
-
-			<Panel title="Assinaturas e gastos fixos">
-				{fixedExpenseRanking.length > 0 ? (
-					<div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-						{fixedExpenseRanking.map((item) => {
-							const suggestion = reviewSuggestions.get(item.recurrenceId);
-							return (
-								<div
-									className="rounded-2xl border border-[color:var(--color-border-subtle)] bg-[color:var(--color-surface-muted)] p-4"
-									key={item.recurrenceId}
-								>
-									<div className="flex items-start justify-between gap-3">
-										<div>
-											<p className="font-medium">{item.name}</p>
-											<p className="text-[color:var(--color-text-subtle)] text-xs">
-												{item.isSubscription ? "Assinatura" : "Gasto fixo"}
-												{item.isBill ? " · conta" : ""}
+										<div className="min-w-0">
+											<p className="truncate font-medium text-sm">
+												{invoice.accountName}
 											</p>
-										</div>
-										{suggestion ? (
-											<span className="rounded-full bg-[color:var(--color-warn-bg)] px-2 py-1 font-medium text-[color:var(--color-warn)] text-xs">
-												Revisar
-											</span>
-										) : null}
-									</div>
-									<p className="mt-3 font-semibold text-[color:var(--color-bad)]">
-										{formatMoney(item.monthlyAmountCents)} / mês
-									</p>
-								</div>
-							);
-						})}
-					</div>
-				) : (
-					<EmptyState text="Cadastre recorrências para ver gastos fixos." />
-				)}
-			</Panel>
-
-			<section className="grid gap-6 lg:grid-cols-2">
-				<Panel title="Gasto por grupo de categoria">
-					<Ranking
-						rows={groupRanking.map((row) => ({
-							amountCents: row.amountCents,
-							count: row.transactionCount,
-							label: row.groupName,
-						}))}
-					/>
-				</Panel>
-				<Panel title="Maiores categorias de despesa">
-					<Ranking
-						rows={categoryRanking.map((row) => ({
-							amountCents: row.amountCents,
-							count: row.transactionCount,
-							label: row.categoryName,
-						}))}
-					/>
-				</Panel>
-			</section>
-
-			<section className="grid gap-6 lg:grid-cols-2">
-				<Panel
-					description="Estimadas pelas compras no cartão; pagamento de fatura segue como transferência."
-					title="Faturas abertas de cartão"
-				>
-					{openInvoices.length > 0 ? (
-						<div className="grid gap-3">
-							{openInvoices.slice(0, 6).map((invoice) => (
-								<div
-									className="rounded-2xl border border-[color:var(--color-border-subtle)] bg-[color:var(--color-surface-muted)] p-4"
-									key={`${invoice.accountId}-${invoice.key}`}
-								>
-									<div className="flex items-start justify-between gap-4">
-										<div>
-											<p className="font-medium">{invoice.accountName}</p>
-											<p className="text-[color:var(--color-text-subtle)] text-xs">
+											<p className="text-muted-foreground text-xs">
 												Fecha {formatDate(invoice.closingDate)} · vence{" "}
 												{formatDate(invoice.dueDate)}
 											</p>
 										</div>
-										<p className="font-semibold text-[color:var(--color-bad)]">
-											{formatMoney(invoice.remainingCents)}
-										</p>
+										<Money
+											cents={invoice.remainingCents}
+											className="font-semibold text-sm"
+											sign="debit"
+										/>
 									</div>
-								</div>
-							))}
-						</div>
-					) : (
-						<EmptyState text="Nenhuma fatura aberta estimada." />
-					)}
-				</Panel>
+								))}
+							</div>
+						) : (
+							<EmptyState
+								description="Nenhuma fatura aberta estimada."
+								icon={CreditCard}
+								title="Sem faturas em aberto"
+							/>
+						)}
+					</CardContent>
+				</Card>
 
-				<Panel title="Importações pendentes de revisão">
-					{pendingImports.length > 0 ? (
-						<div className="grid gap-3">
-							{pendingImports.slice(0, 6).map((batch) => (
-								<Link
-									className="rounded-2xl border border-[color:var(--color-border-subtle)] bg-[color:var(--color-surface-muted)] p-4 transition hover:border-[color:var(--color-border)]"
-									href={`/import?batchId=${batch.id}`}
-									key={batch.id}
-								>
-									<div className="flex items-start justify-between gap-4">
-										<div>
-											<p className="font-medium">{batch.originalFileName}</p>
-											<p className="text-[color:var(--color-text-subtle)] text-xs">
+				<Card>
+					<CardHeader>
+						<CardTitle>Importações pendentes</CardTitle>
+						<CardDescription>
+							Lotes em rascunho ou revisão aguardando confirmação.
+						</CardDescription>
+					</CardHeader>
+					<CardContent>
+						{pendingImports.length > 0 ? (
+							<div className="grid gap-2">
+								{pendingImports.slice(0, 6).map((batch) => (
+									<Link
+										className="flex items-start justify-between gap-3 rounded-md border bg-muted/10 p-3 transition hover:border-primary/50 hover:bg-muted/30"
+										href={`/import?batchId=${batch.id}`}
+										key={batch.id}
+									>
+										<div className="min-w-0">
+											<p className="truncate font-medium text-sm">
+												{batch.originalFileName}
+											</p>
+											<p className="truncate text-muted-foreground text-xs">
 												{accountById.get(batch.accountId)?.name ??
 													"Conta removida"}{" "}
 												· {batch.rowCount} linha(s)
 											</p>
 										</div>
-										<span className="rounded-full border border-[color:var(--color-warn-border)] px-3 py-1 text-[color:var(--color-warn)] text-xs">
+										<Badge
+											variant={batch.status === "draft" ? "outline" : "default"}
+										>
 											{batch.status === "draft" ? "rascunho" : "em revisão"}
-										</span>
-									</div>
-								</Link>
-							))}
-						</div>
-					) : (
-						<EmptyState text="Nenhuma importação pendente." />
-					)}
-				</Panel>
+										</Badge>
+									</Link>
+								))}
+							</div>
+						) : (
+							<EmptyState
+								description="Nenhuma importação aguardando revisão."
+								icon={FileSpreadsheet}
+								title="Sem importações pendentes"
+							/>
+						)}
+					</CardContent>
+				</Card>
 			</section>
-		</FinanceShell>
+		</AppShell>
 	);
 }
 
 function PublicHome() {
 	return (
-		<main className="min-h-screen bg-[color:var(--color-bg)] px-6 py-10 text-[color:var(--color-text)]">
-			<div className="mx-auto flex w-full max-w-[96rem] flex-col gap-10">
-				<header className="border-[color:var(--color-border-subtle)] border-b pb-8">
-					<p className="font-medium text-[color:var(--color-accent)] text-sm uppercase tracking-[0.3em]">
+		<main className="min-h-screen bg-background px-4 py-10 text-foreground sm:px-6">
+			<div className="mx-auto flex w-full max-w-6xl flex-col gap-10">
+				<header className="border-b pb-8">
+					<p className="font-medium text-primary text-sm uppercase tracking-wider">
 						Finanças pessoais
 					</p>
 					<h1 className="mt-3 font-semibold text-4xl tracking-tight">
 						Finance App
 					</h1>
-					<p className="mt-3 max-w-2xl text-[color:var(--color-text-muted)]">
+					<p className="mt-3 max-w-2xl text-muted-foreground">
 						Controle contas, categorias, transações e faturas em BRL.
 					</p>
 				</header>
 				<section className="grid gap-8 md:grid-cols-[1fr_420px] md:items-start">
-					<div className="rounded-3xl border border-[color:var(--color-border-subtle)] bg-[color:var(--color-surface)] p-8">
-						<h2 className="font-semibold text-2xl">
-							Base simples para controle financeiro
-						</h2>
-						<p className="mt-4 text-[color:var(--color-text-muted)]">
-							Entre com email e senha para acessar seu painel financeiro isolado
-							por usuário.
-						</p>
-						<div className="mt-6 grid gap-3 text-[color:var(--color-text-muted)] text-sm">
+					<Card>
+						<CardHeader>
+							<CardTitle className="text-2xl">
+								Base simples para controle financeiro
+							</CardTitle>
+							<CardDescription>
+								Entre com email e senha para acessar seu painel financeiro
+								isolado por usuário.
+							</CardDescription>
+						</CardHeader>
+						<CardContent className="grid gap-2 text-muted-foreground text-sm">
 							<p>• Compras no cartão são despesas.</p>
 							<p>• Pagamento de fatura é transferência para o cartão.</p>
 							<p>• Transações arquivadas não entram nos saldos padrão.</p>
-						</div>
-					</div>
+						</CardContent>
+					</Card>
 					<SignInForm />
 				</section>
 			</div>
 		</main>
+	);
+}
+
+function MiniStat({
+	label,
+	value,
+	tone,
+}: {
+	label: string;
+	value: string;
+	tone?: "success" | "destructive";
+}) {
+	const toneClass =
+		tone === "success"
+			? "text-success"
+			: tone === "destructive"
+				? "text-destructive"
+				: "text-foreground";
+	return (
+		<div className="rounded-md bg-muted/30 px-3 py-2">
+			<p className="text-muted-foreground text-xs">{label}</p>
+			<p className={cn("font-semibold tabular-nums", toneClass)}>{value}</p>
+		</div>
+	);
+}
+
+function OnboardingCard({
+	icon: Icon,
+	title,
+	description,
+	action,
+	tone = "default",
+}: {
+	icon: typeof Wallet;
+	title: string;
+	description: string;
+	action: React.ReactNode;
+	tone?: "default" | "primary";
+}) {
+	return (
+		<Card
+			className={
+				tone === "primary" ? "border-primary/40 bg-primary/5" : undefined
+			}
+		>
+			<CardHeader>
+				<div className="flex items-center gap-2">
+					<span
+						className={cn(
+							"flex size-8 items-center justify-center rounded-md",
+							tone === "primary"
+								? "bg-primary/15 text-primary"
+								: "bg-muted text-muted-foreground",
+						)}
+					>
+						<Icon className="size-4" />
+					</span>
+					<CardTitle className="text-base">{title}</CardTitle>
+				</div>
+				<CardDescription>{description}</CardDescription>
+			</CardHeader>
+			<CardContent>{action}</CardContent>
+		</Card>
 	);
 }
 
@@ -707,34 +892,30 @@ function Ranking({
 }) {
 	const max = Math.max(...rows.map((row) => row.amountCents), 0);
 	if (rows.length === 0)
-		return <EmptyState text="Sem despesas confirmadas neste mês." />;
+		return (
+			<EmptyState
+				description="Sem despesas confirmadas neste mês."
+				title="Sem despesas confirmadas"
+			/>
+		);
 
 	return (
 		<div className="grid gap-3">
 			{rows.map((row) => (
-				<div
-					className="rounded-2xl border border-[color:var(--color-border-subtle)] bg-[color:var(--color-surface-muted)] p-4"
-					key={row.label}
-				>
-					<div className="flex items-start justify-between gap-4 text-sm">
-						<div>
-							<p className="font-medium text-[color:var(--color-text)]">
-								{row.label}
-							</p>
-							<p className="text-[color:var(--color-text-subtle)] text-xs">
+				<div key={row.label}>
+					<div className="flex items-start justify-between gap-3 text-sm">
+						<div className="min-w-0">
+							<p className="truncate font-medium">{row.label}</p>
+							<p className="text-muted-foreground text-xs">
 								{row.count} transação(ões)
 							</p>
 						</div>
-						<p className="font-semibold">{formatMoney(row.amountCents)}</p>
+						<Money cents={row.amountCents} className="font-semibold" />
 					</div>
-					<div className="mt-3 h-2 overflow-hidden rounded-full bg-[color:var(--color-surface-muted)]">
-						<div
-							className="h-full rounded-full bg-[color:var(--color-accent)]"
-							style={{
-								width: `${max ? Math.max(4, (row.amountCents / max) * 100) : 0}%`,
-							}}
-						/>
-					</div>
+					<Progress
+						className="mt-2 h-1.5"
+						value={max ? Math.max(4, (row.amountCents / max) * 100) : 0}
+					/>
 				</div>
 			))}
 		</div>
@@ -742,28 +923,42 @@ function Ranking({
 }
 
 function AlertItem({ alert }: { alert: DashboardAlert }) {
-	const className = {
-		danger:
-			"border-[color:var(--color-bad-border)] bg-[color:var(--color-bad-bg)] text-[color:var(--color-bad)]",
-		info: "border-[color:var(--color-info-border)] bg-[color:var(--color-info-bg)] text-[color:var(--color-info)]",
-		warning:
-			"border-[color:var(--color-warn-border)] bg-[color:var(--color-warn-bg)] text-[color:var(--color-warn)]",
+	const variant = {
+		danger: "border-destructive/40 bg-destructive/5 text-destructive",
+		warning: "border-warning/40 bg-warning/5 text-warning",
+		info: "border-info/40 bg-info/5 text-info",
+	}[alert.kind];
+
+	const Icon = {
+		danger: AlertTriangle,
+		warning: AlertTriangle,
+		info: Info,
 	}[alert.kind];
 
 	return (
-		<div className={`rounded-2xl border p-4 ${className}`}>
-			<p className="font-medium">{alert.title}</p>
-			<p className="mt-1 text-sm opacity-80">{alert.message}</p>
+		<div className={cn("flex gap-3 rounded-md border p-3", variant)}>
+			<Icon className="mt-0.5 size-4 shrink-0" />
+			<div className="min-w-0">
+				<p className="font-medium text-sm">{alert.title}</p>
+				<p className="mt-0.5 text-foreground/80 text-sm">{alert.message}</p>
+			</div>
 		</div>
 	);
 }
 
-function EmptyState({ text }: { text: string }) {
-	return (
-		<p className="rounded-2xl border border-[color:var(--color-border-subtle)] bg-[color:var(--color-surface-muted)] p-4 text-[color:var(--color-text-muted)] text-sm">
-			{text}
-		</p>
-	);
+function budgetTone(
+	variant: BudgetSummary["variant"],
+): "default" | "success" | "warning" | "destructive" {
+	switch (variant) {
+		case "good":
+			return "success";
+		case "warn":
+			return "warning";
+		case "bad":
+			return "destructive";
+		default:
+			return "default";
+	}
 }
 
 type DashboardAlert = {
