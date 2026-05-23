@@ -33,7 +33,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import {
 	defaultTemplateConfig,
 	normalizeImportTemplateConfig,
-} from "~/lib/import-rules";
+} from "~/features/imports/csv-domain";
 import { getSession } from "~/server/better-auth/server";
 import { db } from "~/server/db";
 import {

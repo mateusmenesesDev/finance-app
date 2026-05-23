@@ -5,8 +5,9 @@ import {
 	duplicateKey,
 	maskSensitive,
 	normalizeDescription,
+	normalizeImportTemplateConfig,
 	parseImportCsv,
-} from "./import-rules";
+} from "./csv-domain";
 
 const signedTemplate = {
 	...defaultTemplateConfig,
@@ -154,6 +155,56 @@ describe("import rules", () => {
 		expect(rows[2]?.validationError).toBe(null);
 		expect(rows[3]?.amountCents).toBe(null);
 		expect(rows[3]?.validationError?.includes("valor inválido")).toBe(true);
+	});
+
+	test("normalizes template config without trusting malformed optional fields", () => {
+		const config = normalizeImportTemplateConfig({
+			delimiter: "tab",
+			dateFormat: "mm/dd/yyyy",
+			decimalSeparator: "x",
+			amountMode: "separate",
+			dateColumn: "  Data lançamento  ",
+			descriptionColumn: "",
+			amountColumn: " valor ignorado ",
+			incomeTokens: ["  crédito ", "", 42],
+			expenseTokens: [],
+			invertSign: "yes",
+		});
+
+		expect(config).toEqual({
+			...defaultTemplateConfig,
+			delimiter: "auto",
+			dateFormat: "dd/mm/yyyy",
+			decimalSeparator: "auto",
+			amountMode: "separate",
+			dateColumn: "Data lançamento",
+			descriptionColumn: defaultTemplateConfig.descriptionColumn,
+			amountColumn: "valor ignorado",
+			incomeTokens: ["crédito"],
+			expenseTokens: defaultTemplateConfig.expenseTokens,
+			invertSign: false,
+		});
+	});
+
+	test("keeps external id in duplicate key before date and description", () => {
+		const withExternalId = duplicateKey({
+			accountId: 1,
+			occurredOn: "2026-05-05",
+			amountCents: 999,
+			movementType: "expense",
+			normalizedDescription: "mesma descricao",
+			externalId: "ABC-123",
+		});
+		const withoutExternalId = duplicateKey({
+			accountId: 1,
+			occurredOn: "2026-05-05",
+			amountCents: 999,
+			movementType: "expense",
+			normalizedDescription: "mesma descricao",
+		});
+
+		expect(withExternalId).not.toBe(withoutExternalId);
+		expect(withExternalId).toContain("abc-123");
 	});
 
 	test("normalizes duplicate keys with masked long numbers", () => {

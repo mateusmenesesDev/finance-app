@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { matchImportCategoryRule } from "./import-category-rules";
+import { matchImportCategoryRule } from "./category-rules";
 
 const base = {
 	action: "categorize" as const,

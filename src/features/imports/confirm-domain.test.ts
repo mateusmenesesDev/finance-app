@@ -4,7 +4,7 @@ import {
 	formatConfirmCategoryError,
 	type ImportConfirmCategory,
 	resolveConfirmRowCategory,
-} from "./import-confirm";
+} from "./confirm-domain";
 
 const expenseCategory: ImportConfirmCategory = {
 	id: 1,

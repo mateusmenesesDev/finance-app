@@ -4,7 +4,6 @@ import { nextCookies } from "better-auth/next-js";
 
 import { env } from "~/env";
 import { db } from "~/server/db";
-import { sendTransactionalEmail } from "~/server/email";
 
 export const auth = betterAuth({
 	baseURL: env.BETTER_AUTH_URL,
@@ -35,12 +34,14 @@ export const auth = betterAuth({
 			`;
 
 			// Não aguardar: evita timing attacks que diferenciem email existente.
-			void sendTransactionalEmail({
-				to: user.email,
-				subject,
-				text,
-				html,
-			});
+			void import("~/server/email").then(({ sendTransactionalEmail }) =>
+				sendTransactionalEmail({
+					to: user.email,
+					subject,
+					text,
+					html,
+				}),
+			);
 		},
 	},
 	plugins: [nextCookies()],

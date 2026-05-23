@@ -532,7 +532,7 @@ Princípios:
   - [ ] `accounts`
   - [ ] `categories`
   - [ ] `transactions`
-  - [ ] `imports`
+  - [x] `imports`
   - [ ] `dashboard`
   - [ ] `budgets`, `cash-flow`, `recurrences` e `reports` quando essas fases forem implementadas
 - [ ] Dentro de cada feature, usar nomes diretos e poucos arquivos: `components`, `actions`, `queries`, `use-cases`, `schemas`, `types` e `domain` apenas quando necessários.
@@ -570,7 +570,7 @@ Princípios:
 - [ ] Não reescrever telas só para mudar pastas; cada movimento deve reduzir complexidade observável.
 - [ ] Preservar URLs, contratos de formulário, dados existentes e comportamento visual salvo quando a mudança for intencional.
 - [ ] Atualizar imports e remover arquivos mortos a cada etapa.
-- [ ] Documentar no README ou em `docs/architecture.md` a estrutura escolhida, regras de dependência e exemplos de onde colocar código novo.
+- [x] Documentar no README ou em `docs/architecture.md` a estrutura escolhida, regras de dependência e exemplos de onde colocar código novo.
 
 ### Testes e validação técnica
 

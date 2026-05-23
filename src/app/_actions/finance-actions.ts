@@ -4,26 +4,25 @@ import { and, eq, inArray, or, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-import {
-	type CategoryActionState,
-	categoryActionError,
-} from "~/lib/category-errors";
-import { matchImportCategoryRule } from "~/lib/import-category-rules";
+import { buildImportBatchRows } from "~/features/imports/batch-domain";
+import { matchImportCategoryRule } from "~/features/imports/category-rules";
 import {
 	formatConfirmCategoryError,
 	type ImportConfirmCategory,
 	resolveConfirmRowCategory,
-} from "~/lib/import-confirm";
+} from "~/features/imports/confirm-domain";
 import {
 	defaultTemplateConfig,
-	duplicateKey,
 	type ImportTemplateConfig,
 	normalizeDescription,
 	normalizeImportTemplateConfig,
 	parseImportCsv,
-} from "~/lib/import-rules";
+} from "~/features/imports/csv-domain";
+import {
+	type CategoryActionState,
+	categoryActionError,
+} from "~/lib/category-errors";
 import { MAX_AMOUNT_CENTS, moneyToCents } from "~/lib/money";
-import { matchImportedRowToRecurrence } from "~/lib/recurrences";
 import { maskSensitive } from "~/lib/sensitive-data";
 import { regenerateAssistantSuggestionsForUser } from "~/server/assistant";
 import {
@@ -1971,25 +1970,6 @@ export async function createImportBatch(formData: FormData) {
 				eq(transactions.isArchived, false),
 			),
 		);
-	const existingKeys = new Set(
-		existingTransactions
-			.filter(
-				(row) =>
-					row.movementType === "income" || row.movementType === "expense",
-			)
-			.map((row) =>
-				duplicateKey({
-					accountId: row.accountId,
-					occurredOn: row.occurredOn,
-					amountCents: row.amountCents,
-					movementType: row.movementType as "income" | "expense",
-					externalId: row.externalId,
-					normalizedDescription: normalizeDescription(
-						row.originalDescription ?? row.description,
-					),
-				}),
-			),
-	);
 	const previousActiveBatches = await db
 		.select({ id: importBatches.id })
 		.from(importBatches)
@@ -2021,29 +2001,6 @@ export async function createImportBatch(formData: FormData) {
 		.where(
 			and(eq(importRows.userId, userId), eq(importRows.accountId, accountId)),
 		);
-	const previousImportKeys = new Set(
-		previousImportRows
-			.filter(
-				(row) =>
-					previousActiveBatchIds.has(row.batchId) &&
-					row.status !== "ignored" &&
-					row.status !== "invalid" &&
-					row.occurredOn &&
-					row.amountCents &&
-					(row.movementType === "income" || row.movementType === "expense"),
-			)
-			.map((row) =>
-				duplicateKey({
-					accountId: row.accountId,
-					occurredOn: row.occurredOn ?? "",
-					amountCents: row.amountCents ?? 0,
-					movementType: row.movementType as "income" | "expense",
-					externalId: row.externalId,
-					normalizedDescription: row.normalizedDescription ?? "",
-				}),
-			),
-	);
-	const fileKeys = new Set<string>();
 	const [rules, recurrenceContext] = await Promise.all([
 		activeImportRules(userId),
 		activeRecurrencesAndConfirmedOccurrences(userId),
@@ -2066,157 +2023,19 @@ export async function createImportBatch(formData: FormData) {
 		.returning();
 	if (!batch) throw new Error("Não foi possível criar importação");
 
-	let suggestionCount = 0;
-	const suggestedRuleMatchCounts = new Map<number, number>();
-	if (parsedRows.length > 0) {
-		const rowValues: (typeof importRows.$inferInsert)[] = parsedRows.map(
-			(row) => {
-				let rowStatus: "invalid" | "duplicate" | "pending_review" =
-					row.validationError ? "invalid" : "pending_review";
-				let duplicateReason: string | null = null;
-				if (row.occurredOn && row.amountCents && row.movementType) {
-					const key = duplicateKey({
-						accountId,
-						occurredOn: row.occurredOn,
-						amountCents: row.amountCents,
-						movementType: row.movementType,
-						externalId: row.externalId,
-						normalizedDescription: row.normalizedDescription,
-					});
-					if (fileKeys.has(key))
-						duplicateReason = "possível duplicidade no arquivo";
-					else if (existingKeys.has(key)) {
-						duplicateReason = "possível duplicidade com transação existente";
-					} else if (previousImportKeys.has(key)) {
-						duplicateReason = "possível duplicidade com importação anterior";
-					}
-					fileKeys.add(key);
-				}
-				if (duplicateReason) rowStatus = "duplicate";
-				const suggestion =
-					rowStatus === "pending_review"
-						? matchImportCategoryRule({ ...row, accountId }, rules)
-						: null;
-				if (suggestion) {
-					suggestionCount++;
-					suggestedRuleMatchCounts.set(
-						suggestion.id,
-						(suggestedRuleMatchCounts.get(suggestion.id) ?? 0) + 1,
-					);
-				}
-				const isIgnoreRule = suggestion?.action === "ignore";
-				const isTransferRule = suggestion?.action === "transfer";
-				return {
-					userId,
-					batchId: batch.id,
-					accountId,
-					rowNumber: row.rowNumber,
-					status: rowStatus,
-					occurredOn: row.occurredOn,
-					amountCents: row.amountCents,
-					movementType: row.movementType,
-					originalDescription: row.originalDescription,
-					normalizedDescription: row.normalizedDescription,
-					externalId: row.externalId,
-					bankCategory: row.bankCategory,
-					suggestedCategoryId:
-						isIgnoreRule || isTransferRule
-							? null
-							: (suggestion?.categoryId ?? null),
-					suggestedSourceAccountId: isTransferRule
-						? suggestion.sourceAccountId
-						: null,
-					suggestedDestinationAccountId: isTransferRule
-						? suggestion.destinationAccountId
-						: null,
-					suggestedRuleId: suggestion?.id ?? null,
-					suggestedRecurrenceId: null,
-					suggestedRecurrenceOccurrenceOn: null,
-					suggestionSource: suggestion
-						? isIgnoreRule
-							? "rule_ignore"
-							: "rule"
-						: null,
-					validationError:
-						[row.validationError, duplicateReason].filter(Boolean).join("; ") ||
-						null,
-					parsedData: row.parsedData,
-				};
-			},
-		);
-		const suggestedOccurrences = [...recurrenceContext.confirmedOccurrences];
-		const rankedRecurrenceRows = rowValues
-			.map((row, index) => {
-				const amountCents = row.amountCents;
-				const match =
-					row.status === "pending_review" &&
-					row.suggestionSource !== "rule_ignore" &&
-					row.occurredOn &&
-					amountCents &&
-					(row.movementType === "income" || row.movementType === "expense")
-						? matchImportedRowToRecurrence(
-								{
-									accountId: row.accountId,
-									movementType: row.movementType,
-									amountCents,
-									occurredOn: row.occurredOn,
-								},
-								recurrenceContext.activeRecurrences,
-								recurrenceContext.confirmedOccurrences,
-								row.occurredOn,
-							)
-						: null;
-				const occurrence = match
-					? recurrenceContext.activeRecurrences.find(
-							(recurrence) => recurrence.id === match.recurrenceId,
-						)
-					: null;
-				if (!match || !occurrence || !amountCents) return null;
-				return {
-					index,
-					dayDelta: Math.abs(
-						Date.parse(`${row.occurredOn}T00:00:00Z`) -
-							Date.parse(`${match.occurrenceOn}T00:00:00Z`),
-					),
-					valueDelta: Math.abs(amountCents - occurrence.amountCents),
-				};
-			})
-			.filter((row) => row !== null)
-			.sort(
-				(left, right) =>
-					left.dayDelta - right.dayDelta ||
-					left.valueDelta - right.valueDelta ||
-					(rowValues[left.index]?.rowNumber ?? 0) -
-						(rowValues[right.index]?.rowNumber ?? 0),
-			);
-		for (const ranked of rankedRecurrenceRows) {
-			const row = rowValues[ranked.index];
-			if (!row) continue;
-			const amountCents = row.amountCents;
-			const recurrenceSuggestion =
-				row.occurredOn &&
-				amountCents &&
-				(row.movementType === "income" || row.movementType === "expense")
-					? matchImportedRowToRecurrence(
-							{
-								accountId: row.accountId,
-								movementType: row.movementType,
-								amountCents,
-								occurredOn: row.occurredOn,
-							},
-							recurrenceContext.activeRecurrences,
-							suggestedOccurrences,
-							row.occurredOn,
-						)
-					: null;
-			if (!recurrenceSuggestion) continue;
-			row.suggestedRecurrenceId = recurrenceSuggestion.recurrenceId;
-			row.suggestedRecurrenceOccurrenceOn = recurrenceSuggestion.occurrenceOn;
-			suggestedOccurrences.push({
-				recurrenceId: recurrenceSuggestion.recurrenceId,
-				occurrenceOn: recurrenceSuggestion.occurrenceOn,
-			});
-		}
+	const { rowValues, suggestionCount, suggestedRuleMatchCounts } =
+		buildImportBatchRows({
+			userId,
+			batchId: batch.id,
+			accountId,
+			parsedRows,
+			existingTransactions,
+			previousImportRows,
+			previousActiveBatchIds,
+			rules,
+			recurrenceContext,
+		});
+	if (rowValues.length > 0) {
 		await db.insert(importRows).values(rowValues);
 	}
 	if (suggestionCount > 0) {
