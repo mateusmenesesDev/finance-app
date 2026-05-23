@@ -1,13 +1,16 @@
 "use client";
 
-import { useActionState, useMemo, useState } from "react";
+import type { ColumnDef } from "@tanstack/react-table";
+import { useActionState, useCallback, useMemo, useState } from "react";
 
 import {
 	type ConfirmImportBatchState,
 	confirmImportBatch,
 } from "~/app/_actions/finance-actions";
-import { SubmitButton } from "~/app/_components/pending-submit-button";
-import { formatMoney, formatMoneyInput } from "~/lib/formatters";
+import { DataTable } from "~/components/data-table";
+import { Money } from "~/components/money";
+import { SubmitButton } from "~/components/submit-button";
+import { formatMoneyInput } from "~/lib/formatters";
 
 type MovementType = "income" | "expense";
 
@@ -54,7 +57,7 @@ type Props = {
 };
 
 const inputClass =
-	"rounded-xl border border-[color:var(--color-border)] bg-[color:var(--color-bg)] px-3 py-2 text-sm text-[color:var(--color-text)]";
+	"flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50";
 
 const movementTypeLabels: Record<MovementType, string> = {
 	income: "receita",
@@ -119,29 +122,59 @@ export function ConfirmImportForm({
 			}).length
 		: 0;
 
-	function updateRow(rowId: number, patch: Partial<RowState>) {
-		setRowStates((prev) => {
-			const current = prev[rowId];
-			if (!current) return prev;
-			let next: RowState = { ...current, ...patch };
-			if (patch.movementType && patch.movementType !== current.movementType) {
-				// Drop a category whose kind no longer matches the new Tipo.
-				const selected = next.categoryId
-					? categoriesById.get(Number(next.categoryId))
-					: null;
-				if (!selected || selected.kind !== next.movementType)
-					next = { ...next, categoryId: "" };
-			}
-			return { ...prev, [rowId]: next };
-		});
-	}
+	const updateRow = useCallback(
+		(rowId: number, patch: Partial<RowState>) => {
+			setRowStates((prev) => {
+				const current = prev[rowId];
+				if (!current) return prev;
+				let next: RowState = { ...current, ...patch };
+				if (patch.movementType && patch.movementType !== current.movementType) {
+					// Drop a category whose kind no longer matches the new Tipo.
+					const selected = next.categoryId
+						? categoriesById.get(Number(next.categoryId))
+						: null;
+					if (!selected || selected.kind !== next.movementType)
+						next = { ...next, categoryId: "" };
+				}
+				return { ...prev, [rowId]: next };
+			});
+		},
+		[categoriesById],
+	);
+
+	const columns = useMemo<ColumnDef<ConfirmFormRow, unknown>[]>(
+		() => [
+			{
+				accessorKey: "rowNumber",
+				header: "Linha",
+				cell: ({ row }) => row.original.rowNumber,
+				size: 72,
+			},
+			{
+				accessorKey: "originalDescription",
+				header: "Decisão",
+				cell: ({ row }) => (
+					<RowBlock
+						accounts={accounts}
+						bulkCategory={bulkCategory}
+						categories={categories}
+						error={state.rowErrors[row.original.id] ?? null}
+						onChange={(patch) => updateRow(row.original.id, patch)}
+						row={row.original}
+						state={rowStates[row.original.id]}
+					/>
+				),
+			},
+		],
+		[accounts, bulkCategory, categories, rowStates, state.rowErrors, updateRow],
+	);
 
 	return (
 		<form action={action} className="mt-5 grid gap-4">
 			<input name="batchId" type="hidden" value={batchId} />
 
-			<div className="rounded-2xl border border-[color:var(--color-border-subtle)] p-4">
-				<label className="grid gap-2 text-[color:var(--color-text-muted)] text-sm sm:grid-cols-[1fr_2fr] sm:items-center">
+			<div className="rounded-md border border p-4">
+				<label className="grid gap-2 text-muted-foreground text-sm sm:grid-cols-[1fr_2fr] sm:items-center">
 					<span>Aplicar uma categoria em todas as linhas sem categoria</span>
 					<select
 						className={inputClass}
@@ -157,12 +190,12 @@ export function ConfirmImportForm({
 						))}
 					</select>
 				</label>
-				<p className="mt-2 text-[color:var(--color-text-subtle)] text-xs">
+				<p className="mt-2 text-muted-foreground text-xs">
 					Linhas que você já escolheu categoria individual ficam intactas. O
 					lote só preenche linhas cujo tipo coincide com a categoria escolhida.
 				</p>
 				{bulkCategory && bulkIncompatibleCount > 0 && (
-					<p className="mt-2 text-[color:var(--color-warn)] text-sm">
+					<p className="mt-2 text-sm text-warning">
 						{bulkIncompatibleCount} linha(s) sem categoria têm tipo diferente de
 						“{bulkCategory.name}” ({movementTypeLabels[bulkCategory.kind]}) e
 						não serão preenchidas pelo lote — escolha uma categoria por linha ou
@@ -172,7 +205,7 @@ export function ConfirmImportForm({
 			</div>
 
 			{invalidCount > 0 && (
-				<div className="rounded-2xl border border-[color:var(--color-bad-border)] bg-[color:var(--color-bad-bg)] p-4 text-[color:var(--color-bad)] text-sm">
+				<div className="rounded-md border border-destructive/40 bg-destructive/10 p-4 text-destructive text-sm">
 					<p className="font-medium">
 						{invalidCount} linha(s) inválida(s) marcadas como ignoradas por
 						padrão.
@@ -188,7 +221,7 @@ export function ConfirmImportForm({
 
 			{state.globalError && (
 				<div
-					className="rounded-2xl border border-[color:var(--color-bad-border)] bg-[color:var(--color-bad-bg)] p-4 text-[color:var(--color-bad)] text-sm"
+					className="rounded-md border border-destructive/40 bg-destructive/10 p-4 text-destructive text-sm"
 					role="alert"
 				>
 					<p className="font-medium">{state.globalError}</p>
@@ -199,21 +232,17 @@ export function ConfirmImportForm({
 				</div>
 			)}
 
-			{rows.map((row) => (
-				<RowBlock
-					accounts={accounts}
-					bulkCategory={bulkCategory}
-					categories={categories}
-					error={state.rowErrors[row.id] ?? null}
-					key={row.id}
-					onChange={(patch) => updateRow(row.id, patch)}
-					row={row}
-					state={rowStates[row.id]}
-				/>
-			))}
+			<DataTable
+				columns={columns}
+				data={rows}
+				density="compact"
+				emptyMessage="Nenhuma linha para revisar."
+				enableColumnToggle={false}
+				enablePagination={false}
+			/>
 
 			<SubmitButton
-				className="bg-[color:var(--color-accent)] py-3 font-semibold"
+				className="bg-primary py-3 font-semibold"
 				pendingLabel="Confirmando..."
 			>
 				Confirmar decisões do lote
@@ -264,11 +293,19 @@ function RowBlock({
 		bulkCategory && !state.categoryId && bulkCategory.kind !== movementType;
 
 	return (
-		<div className="grid gap-3 rounded-2xl border border-[color:var(--color-border-subtle)] p-4">
+		<div className="grid gap-3 rounded-md border border p-4">
 			<div className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
 				<RowFact label="Linha" value={row.rowNumber} />
 				<RowFact label="Data" value={row.occurredOn ?? "sem data"} />
-				<RowFact label="Valor" value={formatMoney(row.amountCents ?? 0)} />
+				<RowFact
+					label="Valor"
+					value={
+						<Money
+							cents={row.amountCents ?? 0}
+							sign={movementType === "income" ? "credit" : "debit"}
+						/>
+					}
+				/>
 				<RowFact
 					label="Tipo"
 					value={
@@ -283,35 +320,33 @@ function RowBlock({
 					value={rowStatusLabels[row.status] ?? row.status}
 				/>
 			</div>
-			<div className="rounded-xl bg-[color:var(--color-surface-muted)] p-3 text-sm">
-				<p className="text-[color:var(--color-text-muted)] text-xs">
-					Descrição importada
-				</p>
-				<p className="text-[color:var(--color-text)]">
+			<div className="rounded-md bg-muted/50 p-3 text-sm">
+				<p className="text-muted-foreground text-xs">Descrição importada</p>
+				<p className="text-foreground">
 					{row.originalDescription || "sem descrição"}
 				</p>
 			</div>
 			<ParsedDataPreview parsedData={row.parsedData} />
 			{row.bankCategory && (
-				<p className="text-[color:var(--color-text-muted)] text-sm">
+				<p className="text-muted-foreground text-sm">
 					Categoria do banco: {row.bankCategory}
 				</p>
 			)}
 			{row.hadSensitiveData && (
-				<p className="text-[color:var(--color-warn)] text-sm">
+				<p className="text-sm text-warning">
 					Dados sensíveis (CPF, cartão, etc.) detectados e mascarados antes de
 					salvar.
 				</p>
 			)}
 			{isIgnoreSuggestion ? (
-				<p className="text-[color:var(--color-warn)] text-sm">
+				<p className="text-sm text-warning">
 					Sugestão: ignorar esta linha
 					{row.suggestedRuleDescription
 						? ` — a partir da regra “${row.suggestedRuleDescription}”`
 						: ""}
 				</p>
 			) : suggestionVisible ? (
-				<p className="text-[color:var(--color-accent)] text-sm">
+				<p className="text-primary text-sm">
 					Sugestão de categoria: <strong>{row.suggestedCategoryName}</strong>
 					{row.suggestedRuleDescription
 						? ` — a partir da regra “${row.suggestedRuleDescription}”`
@@ -321,7 +356,7 @@ function RowBlock({
 			{!isIgnoreSuggestion &&
 				row.suggestedRecurrenceId &&
 				row.suggestedRecurrenceOccurrenceOn && (
-					<p className="text-[color:var(--color-info)] text-sm">
+					<p className="text-info text-sm">
 						Parece ser a recorrência{" "}
 						<strong>
 							{row.suggestedRecurrenceName ?? `#${row.suggestedRecurrenceId}`}
@@ -330,11 +365,11 @@ function RowBlock({
 					</p>
 				)}
 			{row.validationError && (
-				<div className="rounded-xl border border-[color:var(--color-bad-border)] bg-[color:var(--color-bad-bg)] p-3 text-sm">
-					<p className="font-medium text-[color:var(--color-bad)]">
+				<div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm">
+					<p className="font-medium text-destructive">
 						Problema na linha: {row.validationError}
 					</p>
-					<p className="mt-1 text-[color:var(--color-bad)]">
+					<p className="mt-1 text-destructive">
 						{actionableImportError(row.validationError)}
 					</p>
 				</div>
@@ -445,7 +480,7 @@ function RowBlock({
 			</div>
 			{error && (
 				<p
-					className="rounded-xl border border-[color:var(--color-bad-border)] bg-[color:var(--color-bad-bg)] p-3 text-[color:var(--color-bad)] text-sm"
+					className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-destructive text-sm"
 					id={categoryErrorId}
 					role="alert"
 				>
@@ -455,7 +490,7 @@ function RowBlock({
 			{!isIgnoreSuggestion &&
 				row.suggestedRecurrenceId &&
 				suggestionVisible && (
-					<label className="flex items-center gap-2 text-[color:var(--color-info)] text-sm">
+					<label className="flex items-center gap-2 text-info text-sm">
 						<input
 							defaultChecked
 							name={`row-${row.id}-acceptRecurrence`}
@@ -464,7 +499,7 @@ function RowBlock({
 						Confirmar como ocorrência desta recorrência
 					</label>
 				)}
-			<label className="flex items-center gap-2 text-[color:var(--color-text-muted)] text-sm">
+			<label className="flex items-center gap-2 text-muted-foreground text-sm">
 				<input name={`row-${row.id}-createRule`} type="checkbox" /> Salvar a
 				decisão desta linha como nova regra (categorizar se importar; ignorar se
 				marcar como ignorar). Aplica em lotes futuros.
@@ -486,14 +521,12 @@ function FieldLabel({
 }) {
 	return (
 		<div
-			className={`grid gap-1 text-[color:var(--color-text-muted)] text-sm ${wrapperClassName ?? ""}`}
+			className={`grid gap-1 text-muted-foreground text-sm ${wrapperClassName ?? ""}`}
 		>
 			<span>{label}</span>
 			{children}
 			{hint ? (
-				<span className="text-[color:var(--color-text-subtle)] text-xs">
-					{hint}
-				</span>
+				<span className="text-muted-foreground text-xs">{hint}</span>
 			) : null}
 		</div>
 	);
@@ -510,8 +543,8 @@ function RowFact({
 }) {
 	return (
 		<div>
-			<p className="text-[color:var(--color-text-muted)] text-xs">{label}</p>
-			<p className={className ?? "text-[color:var(--color-text)]"}>{value}</p>
+			<p className="text-muted-foreground text-xs">{label}</p>
+			<p className={className ?? "text-foreground"}>{value}</p>
 		</div>
 	);
 }
@@ -523,23 +556,21 @@ function ParsedDataPreview({ parsedData }: { parsedData: unknown }) {
 	if (entries.length === 0) return null;
 
 	return (
-		<details className="rounded-xl border border-[color:var(--color-border-subtle)] p-3 text-sm">
-			<summary className="cursor-pointer font-medium text-[color:var(--color-text-muted)] hover:text-[color:var(--color-text)]">
+		<details className="rounded-md border border p-3 text-sm">
+			<summary className="cursor-pointer font-medium text-muted-foreground hover:text-foreground">
 				Valores lidos direto do CSV
 			</summary>
 			<dl className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
 				{entries.map(([key, value]) => (
 					<div key={key}>
-						<dt className="text-[color:var(--color-text-muted)] text-xs">
+						<dt className="text-muted-foreground text-xs">
 							{parsedDataLabel(key)}
 						</dt>
-						<dd className="break-words text-[color:var(--color-text)]">
-							{value || "—"}
-						</dd>
+						<dd className="break-words text-foreground">{value || "—"}</dd>
 					</div>
 				))}
 			</dl>
-			<p className="mt-2 text-[color:var(--color-text-subtle)] text-xs">
+			<p className="mt-2 text-muted-foreground text-xs">
 				Compare com a coluna esperada no modelo. Valor estranho aqui geralmente
 				significa coluna trocada.
 			</p>
@@ -566,10 +597,10 @@ function parsedDataLabel(key: string) {
 }
 
 function rowStatusClass(status: string) {
-	if (status === "duplicate") return "text-[color:var(--color-warn)]";
-	if (status === "invalid") return "text-[color:var(--color-bad)]";
-	if (status === "imported") return "text-[color:var(--color-accent)]";
-	return "text-[color:var(--color-text-muted)]";
+	if (status === "duplicate") return "text-warning";
+	if (status === "invalid") return "text-destructive";
+	if (status === "imported") return "text-primary";
+	return "text-muted-foreground";
 }
 
 function defaultDecisionFor(status: string, suggestionSource: string | null) {
