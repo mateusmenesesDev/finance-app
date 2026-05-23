@@ -1,8 +1,9 @@
 import { asc, desc, eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
 
-import { FinanceShell } from "~/app/_components/finance-ui";
 import { CategoriesClient } from "~/app/categories/categories-client";
+import { AppShell } from "~/components/app-shell";
+import { PageHeader } from "~/components/page-header";
 import { getCurrentMonthPeriod } from "~/lib/finance-rules";
 import { getSession } from "~/server/better-auth/server";
 import { db } from "~/server/db";
@@ -65,17 +66,18 @@ export default async function CategoriesPage() {
 	}
 
 	return (
-		<FinanceShell
-			description="Organize receitas e despesas em grupos e categorias. Arquivar preserva histórico."
-			eyebrow="Categorias"
-			title="Grupos e categorias"
-		>
+		<AppShell user={{ name: session.user.name, email: session.user.email }}>
+			<PageHeader
+				description="Organize receitas e despesas em grupos e categorias. Arquivar preserva histórico."
+				eyebrow="Categorias"
+				title="Grupos e categorias"
+			/>
 			<CategoriesClient
 				activeCategories={activeCategories}
 				activeGroups={activeGroups}
 				categoryTotals={Object.fromEntries(categoryTotals)}
 				groupTotals={Object.fromEntries(groupTotals)}
 			/>
-		</FinanceShell>
+		</AppShell>
 	);
 }

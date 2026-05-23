@@ -1,14 +1,6 @@
 import { and, asc, desc, eq, isNotNull } from "drizzle-orm";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-
-import {
-	FinanceShell,
-	Panel,
-	SubmitButton,
-	SummaryCard,
-	TextInput,
-} from "~/app/_components/finance-ui";
 import {
 	comparisonText,
 	Empty,
@@ -19,6 +11,21 @@ import {
 	sourceLabel,
 	TotalsTable,
 } from "~/app/analysis/_components";
+import { AppShell } from "~/components/app-shell";
+import { Money } from "~/components/money";
+import { PageHeader } from "~/components/page-header";
+import { StatCard } from "~/components/stat-card";
+import { SubmitButton } from "~/components/submit-button";
+import { Button } from "~/components/ui/button";
+import {
+	Card,
+	CardContent,
+	CardDescription,
+	CardHeader,
+	CardTitle,
+} from "~/components/ui/card";
+import { Input } from "~/components/ui/input";
+import { Label } from "~/components/ui/label";
 import {
 	buildComparisons,
 	buildMonthWindow,
@@ -265,57 +272,61 @@ export default async function AnalysisPage({
 	const monthOptions = listMonthOptions(new Date(), 18, 1);
 
 	return (
-		<FinanceShell
-			description="Rankings, tendências e alertas para entender para onde o dinheiro está indo."
-			eyebrow="Análise"
-			title="Análise de gastos"
-		>
-			<Panel
-				description="Selecione o mês analisado e compare com o mês anterior."
-				title="Resumo do mês"
-			>
-				<form className="mb-4 flex flex-wrap items-end gap-3">
-					<label
-						className="flex flex-col gap-1 text-[color:var(--color-text-muted)] text-sm"
-						htmlFor="analysis-month"
-					>
-						Mês
-						<TextInput
-							defaultValue={period.key}
-							id="analysis-month"
-							list="analysis-months"
-							name="month"
-							type="month"
+		<AppShell user={{ name: session.user.name, email: session.user.email }}>
+			<PageHeader
+				description="Rankings, tendências e alertas para entender para onde o dinheiro está indo."
+				eyebrow="Análise"
+				title="Análise de gastos"
+			/>
+
+			<Card>
+				<CardHeader>
+					<CardTitle>Resumo do mês</CardTitle>
+					<CardDescription>
+						Selecione o mês analisado e compare com o mês anterior.
+					</CardDescription>
+				</CardHeader>
+				<CardContent className="space-y-4">
+					<form className="flex flex-wrap items-end gap-3">
+						<div className="grid gap-2">
+							<Label htmlFor="analysis-month">Mês</Label>
+							<Input
+								defaultValue={period.key}
+								id="analysis-month"
+								list="analysis-months"
+								name="month"
+								type="month"
+							/>
+						</div>
+						<datalist id="analysis-months">
+							{monthOptions.map((option) => (
+								<option key={option.key} value={option.key} />
+							))}
+						</datalist>
+						<SubmitButton pendingLabel="Aplicando...">Aplicar</SubmitButton>
+					</form>
+					<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+						<StatCard
+							description={comparisonText(incomeComparisons.previousMonth)}
+							label="Receitas"
+							tone="success"
+							value={formatMoney(totals.incomeCents)}
 						/>
-					</label>
-					<datalist id="analysis-months">
-						{monthOptions.map((option) => (
-							<option key={option.key} value={option.key} />
-						))}
-					</datalist>
-					<SubmitButton pendingLabel="Aplicando...">Aplicar</SubmitButton>
-				</form>
-				<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-					<SummaryCard
-						description={comparisonText(incomeComparisons.previousMonth)}
-						label="Receitas"
-						value={formatMoney(totals.incomeCents)}
-						variant="good"
-					/>
-					<SummaryCard
-						description={comparisonText(expenseComparisons.previousMonth)}
-						label="Despesas"
-						value={formatMoney(totals.expenseCents)}
-						variant="bad"
-					/>
-					<SummaryCard
-						description={comparisonText(netComparisons.previousMonth)}
-						label="Saldo do mês"
-						value={formatMoney(totals.netCents)}
-						variant={totals.netCents >= 0 ? "good" : "bad"}
-					/>
-				</div>
-			</Panel>
+						<StatCard
+							description={comparisonText(expenseComparisons.previousMonth)}
+							label="Despesas"
+							tone="destructive"
+							value={formatMoney(totals.expenseCents)}
+						/>
+						<StatCard
+							description={comparisonText(netComparisons.previousMonth)}
+							label="Saldo do mês"
+							tone={totals.netCents >= 0 ? "success" : "destructive"}
+							value={formatMoney(totals.netCents)}
+						/>
+					</div>
+				</CardContent>
+			</Card>
 
 			<section className="grid gap-4 lg:grid-cols-2">
 				<RankingPanel
@@ -358,139 +369,161 @@ export default async function AnalysisPage({
 					}))}
 					title="Assinaturas"
 				/>
-				<Panel title="Maiores transações">
-					{largestExpenses.length === 0 ? (
-						<Empty />
-					) : (
-						<div className="space-y-3">
-							{largestExpenses.map((row) => (
-								<div
-									className="rounded-2xl bg-[color:var(--color-surface-muted)] p-3"
-									key={`${row.date}-${row.description}-${row.amountCents}`}
-								>
-									<div className="flex justify-between gap-3">
-										<div>
-											<p className="font-medium">{row.description}</p>
-											<p className="text-[color:var(--color-text-muted)] text-xs">
-												{formatDate(row.date)} · {row.accountName} ·{" "}
-												{row.categoryName}
-											</p>
+				<Card>
+					<CardHeader>
+						<CardTitle>Maiores transações</CardTitle>
+					</CardHeader>
+					<CardContent>
+						{largestExpenses.length === 0 ? (
+							<Empty />
+						) : (
+							<div className="space-y-3">
+								{largestExpenses.map((row) => (
+									<div
+										className="rounded-md border bg-muted/20 p-3"
+										key={`${row.date}-${row.description}-${row.amountCents}`}
+									>
+										<div className="flex justify-between gap-3">
+											<div>
+												<p className="font-medium">{row.description}</p>
+												<p className="text-muted-foreground text-xs">
+													{formatDate(row.date)} · {row.accountName} ·{" "}
+													{row.categoryName}
+												</p>
+											</div>
+											<Money
+												cents={row.amountCents}
+												className="font-semibold"
+												sign="debit"
+											/>
 										</div>
-										<p className="font-semibold text-[color:var(--color-bad)]">
-											{formatMoney(row.amountCents)}
-										</p>
 									</div>
-								</div>
-							))}
-						</div>
-					)}
-				</Panel>
+								))}
+							</div>
+						)}
+					</CardContent>
+				</Card>
 			</section>
 
-			<Panel
-				description="Série dos últimos 6 meses e comparação dos principais grupos e categorias."
-				title="Tendências"
-			>
-				{availableTrendMonths < 6 ? (
-					<p className="mb-4 text-[color:var(--color-warn)] text-sm">
-						Análises de tendência usam {availableTrendMonths} de 6 meses
-						disponíveis.
-					</p>
-				) : null}
-				<TotalsTable rows={trendTotals} />
-				<div className="mt-6 grid gap-4 lg:grid-cols-2">
-					<SeriesTable
-						period={period}
-						rows={categorySeries}
-						title="Top 5 categorias"
-					/>
-					<SeriesTable
-						period={period}
-						rows={groupSeries}
-						title="Top 5 grupos"
-					/>
-				</div>
-			</Panel>
+			<Card>
+				<CardHeader>
+					<CardTitle>Tendências</CardTitle>
+					<CardDescription>
+						Série dos últimos 6 meses e comparação dos principais grupos e
+						categorias.
+					</CardDescription>
+				</CardHeader>
+				<CardContent>
+					{availableTrendMonths < 6 ? (
+						<p className="mb-4 text-sm text-warning">
+							Análises de tendência usam {availableTrendMonths} de 6 meses
+							disponíveis.
+						</p>
+					) : null}
+					<TotalsTable rows={trendTotals} />
+					<div className="mt-6 grid gap-4 lg:grid-cols-2">
+						<SeriesTable
+							period={period}
+							rows={categorySeries}
+							title="Top 5 categorias"
+						/>
+						<SeriesTable
+							period={period}
+							rows={groupSeries}
+							title="Top 5 grupos"
+						/>
+					</div>
+				</CardContent>
+			</Card>
 
-			<Panel
-				description="Sinais automáticos para investigar antes de cortar gastos."
-				title="Insights"
-			>
-				{availableTrendMonths < 6 ? (
-					<p className="mb-4 text-[color:var(--color-warn)] text-sm">
-						Análises de tendência usam {availableTrendMonths} de 6 meses
-						disponíveis.
-					</p>
-				) : null}
-				<div className="grid gap-4 lg:grid-cols-2">
-					<InsightList
-						rows={growers.map((row) => ({
-							label: `${row.categoryName} · ${row.groupName}`,
-							value: `${formatMoney(row.deltaCents)} (${safePercent(row.percent)})`,
-							detail: `${formatMoney(row.baselineCents)} → ${formatMoney(row.currentCents)}`,
-						}))}
-						title="Mais cresceram"
-					/>
-					<InsightList
-						rows={reducers.map((row) => ({
-							label: `${row.categoryName} · ${row.groupName}`,
-							value: `${formatMoney(row.deltaCents)} (${safePercent(row.percent)})`,
-							detail: `${formatMoney(row.baselineCents)} → ${formatMoney(row.currentCents)}`,
-						}))}
-						title="Mais reduziram"
-					/>
-					<InsightList
-						rows={anomalies.map((row) => ({
-							label: `${row.categoryName} · ${row.groupName}`,
-							value: formatMoney(row.currentCents),
-							detail: `Média ${formatMoney(row.meanCents)} · limite ${formatMoney(row.thresholdCents)}`,
-						}))}
-						title="Anomalias"
-					/>
-					<Panel title="Concentração">
-						<p className="text-[color:var(--color-text-muted)] text-sm">
-							Maior grupo: {safePercent(concentration.topGroupShare)} · Top 3:{" "}
-							{safePercent(concentration.topThreeShare)}.
+			<Card>
+				<CardHeader>
+					<CardTitle>Insights</CardTitle>
+					<CardDescription>
+						Sinais automáticos para investigar antes de cortar gastos.
+					</CardDescription>
+				</CardHeader>
+				<CardContent>
+					{availableTrendMonths < 6 ? (
+						<p className="mb-4 text-sm text-warning">
+							Análises de tendência usam {availableTrendMonths} de 6 meses
+							disponíveis.
 						</p>
-						<p
-							className={`mt-2 text-sm ${concentration.isConcentrated ? "text-[color:var(--color-warn)]" : "text-[color:var(--color-accent)]"}`}
-						>
-							{concentration.isConcentrated
-								? "Gastos concentrados: vale revisar dependência dos maiores grupos."
-								: "Sem concentração relevante pelos limites definidos."}
+					) : null}
+					<div className="grid gap-4 lg:grid-cols-2">
+						<InsightList
+							rows={growers.map((row) => ({
+								label: `${row.categoryName} · ${row.groupName}`,
+								value: `${formatMoney(row.deltaCents)} (${safePercent(row.percent)})`,
+								detail: `${formatMoney(row.baselineCents)} → ${formatMoney(row.currentCents)}`,
+							}))}
+							title="Mais cresceram"
+						/>
+						<InsightList
+							rows={reducers.map((row) => ({
+								label: `${row.categoryName} · ${row.groupName}`,
+								value: `${formatMoney(row.deltaCents)} (${safePercent(row.percent)})`,
+								detail: `${formatMoney(row.baselineCents)} → ${formatMoney(row.currentCents)}`,
+							}))}
+							title="Mais reduziram"
+						/>
+						<InsightList
+							rows={anomalies.map((row) => ({
+								label: `${row.categoryName} · ${row.groupName}`,
+								value: formatMoney(row.currentCents),
+								detail: `Média ${formatMoney(row.meanCents)} · limite ${formatMoney(row.thresholdCents)}`,
+							}))}
+							title="Anomalias"
+						/>
+						<Card>
+							<CardHeader>
+								<CardTitle>Concentração</CardTitle>
+							</CardHeader>
+							<CardContent>
+								<p className="text-muted-foreground text-sm">
+									Maior grupo: {safePercent(concentration.topGroupShare)} · Top
+									3: {safePercent(concentration.topThreeShare)}.
+								</p>
+								<p
+									className={`mt-2 text-sm ${concentration.isConcentrated ? "text-warning" : "text-primary"}`}
+								>
+									{concentration.isConcentrated
+										? "Gastos concentrados: vale revisar dependência dos maiores grupos."
+										: "Sem concentração relevante pelos limites definidos."}
+								</p>
+							</CardContent>
+						</Card>
+						<InsightList
+							rows={smallRecurring.map((row) => ({
+								label: row.label,
+								value: formatMoney(row.totalCents),
+								detail: `${row.occurrenceCount} ocorrências · média ${formatMoney(row.averageCents)}`,
+							}))}
+							title="Pequenos recorrentes"
+						/>
+						<InsightList
+							rows={opportunities.map((row) => ({
+								label: row.label,
+								value: formatMoney(row.amountCents),
+								detail: row.sources.map(sourceLabel).join(", "),
+							}))}
+							title="Oportunidades de economia"
+						/>
+					</div>
+					<div className="mt-4 rounded-md border bg-muted/20 p-4">
+						<p className="font-medium">Despesas sem categoria</p>
+						<p className="mt-1 text-muted-foreground text-sm">
+							{uncategorized.count} transações ·{" "}
+							{formatMoney(uncategorized.amountCents)}
 						</p>
-					</Panel>
-					<InsightList
-						rows={smallRecurring.map((row) => ({
-							label: row.label,
-							value: formatMoney(row.totalCents),
-							detail: `${row.occurrenceCount} ocorrências · média ${formatMoney(row.averageCents)}`,
-						}))}
-						title="Pequenos recorrentes"
-					/>
-					<InsightList
-						rows={opportunities.map((row) => ({
-							label: row.label,
-							value: formatMoney(row.amountCents),
-							detail: row.sources.map(sourceLabel).join(", "),
-						}))}
-						title="Oportunidades de economia"
-					/>
-				</div>
-				<div className="mt-4 rounded-2xl border border-[color:var(--color-border-subtle)] bg-[color:var(--color-surface-muted)] p-4">
-					<p className="font-medium">Despesas sem categoria</p>
-					<p className="mt-1 text-[color:var(--color-text-muted)] text-sm">
-						{uncategorized.count} transações ·{" "}
-						{formatMoney(uncategorized.amountCents)}
-					</p>
-					<Link
-						className="mt-2 inline-block text-[color:var(--color-accent)] text-sm hover:underline"
-						href={`/transactions?month=${period.key}`}
-					>
-						Revisar transações
-					</Link>
-				</div>
-			</Panel>
-		</FinanceShell>
+						<Button asChild className="mt-2" size="sm" variant="link">
+							<Link href={`/transactions?month=${period.key}`}>
+								Revisar transações
+							</Link>
+						</Button>
+					</div>
+				</CardContent>
+			</Card>
+		</AppShell>
 	);
 }

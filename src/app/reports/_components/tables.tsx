@@ -1,50 +1,42 @@
-import { formatMoney } from "~/lib/formatters";
+"use client";
+
+import type { ColumnDef } from "@tanstack/react-table";
+
+import { DataTable } from "~/components/data-table";
+import { Money } from "~/components/money";
+
+type ReportRow = Record<string, unknown>;
+
+type ReportColumn = { key: string; label: string; money?: boolean };
 
 export function SimpleTable({
 	columns,
 	rows,
 }: {
-	columns: { key: string; label: string; money?: boolean }[];
-	rows: Record<string, unknown>[];
+	columns: ReportColumn[];
+	rows: ReportRow[];
 }) {
-	if (rows.length === 0)
-		return (
-			<p className="mt-4 text-[color:var(--color-text-subtle)] text-sm">
-				Sem linhas para exibir.
-			</p>
-		);
+	const tableColumns: ColumnDef<ReportRow, unknown>[] = columns.map(
+		(column) => ({
+			accessorKey: column.key,
+			header: column.label,
+			cell: ({ row }) => {
+				const value = row.original[column.key];
+				if (column.money) return <Money cents={Number(value ?? 0)} />;
+				return String(value ?? "");
+			},
+		}),
+	);
+
 	return (
-		<div className="mt-4 overflow-x-auto">
-			<table className="w-full text-left text-sm">
-				<thead className="text-[color:var(--color-text-muted)]">
-					<tr>
-						{columns.map((column) => (
-							<th
-								className="border-[color:var(--color-border-subtle)] border-b py-2 pr-4"
-								key={column.key}
-							>
-								{column.label}
-							</th>
-						))}
-					</tr>
-				</thead>
-				<tbody>
-					{rows.map((row) => (
-						<tr
-							className="border-[color:var(--color-border-subtle)] border-b"
-							key={JSON.stringify(row)}
-						>
-							{columns.map((column) => (
-								<td className="py-2 pr-4" key={column.key}>
-									{column.money
-										? formatMoney(Number(row[column.key] ?? 0))
-										: String(row[column.key] ?? "")}
-								</td>
-							))}
-						</tr>
-					))}
-				</tbody>
-			</table>
-		</div>
+		<DataTable
+			className="mt-4"
+			columns={tableColumns}
+			data={rows}
+			density="compact"
+			emptyMessage="Sem linhas para exibir."
+			enableColumnToggle={false}
+			pageSize={10}
+		/>
 	);
 }

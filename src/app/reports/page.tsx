@@ -1,8 +1,7 @@
 import { asc, desc, eq } from "drizzle-orm";
+import { AlertTriangle } from "lucide-react";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
-
-import { FinanceShell, Panel, SummaryCard } from "~/app/_components/finance-ui";
 import {
 	AccountMovementChart,
 	BudgetVsActualChart,
@@ -14,6 +13,11 @@ import {
 } from "~/app/reports/_components/charts";
 import { ReportFilterForm } from "~/app/reports/_components/filter-form";
 import { SimpleTable } from "~/app/reports/_components/tables";
+import { AppShell } from "~/components/app-shell";
+import { PageHeader } from "~/components/page-header";
+import { StatCard } from "~/components/stat-card";
+import { Button } from "~/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import {
 	accountMovement,
 	applyTransactionFilters,
@@ -34,7 +38,6 @@ import {
 	categoryGroups,
 	financialAccounts,
 	monthlyBudgets,
-	recurrences,
 	transactions,
 } from "~/server/db/schema";
 
@@ -83,10 +86,6 @@ export default async function ReportsPage({ searchParams }: Props) {
 			.from(monthlyBudgets)
 			.where(eq(monthlyBudgets.userId, session.user.id))
 			.orderBy(asc(monthlyBudgets.monthKey)),
-		db
-			.select()
-			.from(recurrences)
-			.where(eq(recurrences.userId, session.user.id)),
 	]);
 	const categoryIndex = new Map(
 		cats.map((category) => [category.id, category.groupId]),
@@ -125,11 +124,12 @@ export default async function ReportsPage({ searchParams }: Props) {
 		`/api/reports/export?panel=${panel}&${qs.toString()}`;
 	const warning = granularityWarning(range, filters.granularity);
 	return (
-		<FinanceShell
-			description="Cruze período, contas, categorias e tipos para analisar seus dados financeiros."
-			eyebrow="RELATÓRIOS"
-			title="Relatórios e visualizações"
-		>
+		<AppShell user={{ name: session.user.name, email: session.user.email }}>
+			<PageHeader
+				description="Cruze período, contas, categorias e tipos para analisar seus dados financeiros."
+				eyebrow="RELATÓRIOS"
+				title="Relatórios e visualizações"
+			/>
 			<ReportFilterForm
 				accounts={accounts}
 				categories={cats}
@@ -137,11 +137,12 @@ export default async function ReportsPage({ searchParams }: Props) {
 				groups={groups}
 			/>
 			{warning ? (
-				<SummaryCard
+				<StatCard
 					description={warning}
+					icon={AlertTriangle}
 					label="Aviso"
+					tone="warning"
 					value="Granularidade"
-					variant="warn"
 				/>
 			) : null}
 			<div className="grid gap-6">
@@ -236,7 +237,7 @@ export default async function ReportsPage({ searchParams }: Props) {
 					/>
 				</ReportPanel>
 			</div>
-		</FinanceShell>
+		</AppShell>
 	);
 }
 function ReportPanel({
@@ -249,19 +250,27 @@ function ReportPanel({
 	children: React.ReactNode;
 }) {
 	return (
-		<Suspense fallback={<Panel title={titles[id]}>Carregando…</Panel>}>
-			<Panel title={titles[id]}>
-				<div className="mb-4">
-					<a
-						className="rounded-xl border border-[color:var(--color-border)] px-3 py-2 text-sm hover:bg-[color:var(--color-surface-muted)]"
-						download
-						href={href}
-					>
-						Exportar CSV
-					</a>
-				</div>
-				{children}
-			</Panel>
+		<Suspense
+			fallback={
+				<Card>
+					<CardHeader>
+						<CardTitle>{titles[id]}</CardTitle>
+					</CardHeader>
+					<CardContent>Carregando…</CardContent>
+				</Card>
+			}
+		>
+			<Card>
+				<CardHeader className="flex flex-row items-start justify-between gap-3">
+					<CardTitle>{titles[id]}</CardTitle>
+					<Button asChild size="sm" variant="outline">
+						<a download href={href}>
+							Exportar CSV
+						</a>
+					</Button>
+				</CardHeader>
+				<CardContent>{children}</CardContent>
+			</Card>
 		</Suspense>
 	);
 }

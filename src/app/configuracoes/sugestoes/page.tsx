@@ -2,7 +2,17 @@ import { and, desc, eq, gte, type SQL } from "drizzle-orm";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { Panel } from "~/app/_components/finance-ui";
+import { EmptyState } from "~/components/empty-state";
+import { Badge } from "~/components/ui/badge";
+import { Button } from "~/components/ui/button";
+import {
+	Card,
+	CardContent,
+	CardDescription,
+	CardHeader,
+	CardTitle,
+} from "~/components/ui/card";
+import { Label } from "~/components/ui/label";
 import { formatDateTime } from "~/lib/formatters";
 import { getSession } from "~/server/better-auth/server";
 import { db } from "~/server/db";
@@ -100,11 +110,12 @@ export default async function SugestoesPage({
 		.limit(pageSize);
 
 	return (
-		<div className="flex flex-col gap-6">
-			<Panel
-				description={`Últimas ${pageSize} sugestões com aceite, rejeição e contexto. As decisões registram quando ocorreram.`}
-				title="Sugestões da IA"
-			>
+		<Card>
+			<CardHeader>
+				<CardTitle>Sugestões da IA</CardTitle>
+				<CardDescription>{`Últimas ${pageSize} sugestões com aceite, rejeição e contexto. As decisões registram quando ocorreram.`}</CardDescription>
+			</CardHeader>
+			<CardContent>
 				<form
 					action="/configuracoes/sugestoes"
 					className="mb-6 flex flex-wrap items-end gap-3"
@@ -127,37 +138,29 @@ export default async function SugestoesPage({
 						name="period"
 						options={periodOptions}
 					/>
-					<button
-						className="rounded-xl border border-[color:var(--color-border)] px-4 py-2 font-medium text-[color:var(--color-text)] text-sm hover:border-[color:var(--color-border)]"
-						type="submit"
-					>
+					<Button type="submit" variant="outline">
 						Filtrar
-					</button>
-					<Link
-						className="rounded-xl border border-[color:var(--color-border-subtle)] px-4 py-2 font-medium text-[color:var(--color-text-muted)] text-sm hover:border-[color:var(--color-border)]"
-						href="/configuracoes/sugestoes"
-					>
-						Limpar
-					</Link>
+					</Button>
+					<Button asChild variant="ghost">
+						<Link href="/configuracoes/sugestoes">Limpar</Link>
+					</Button>
 				</form>
 
 				{suggestions.length === 0 ? (
-					<p className="text-[color:var(--color-text-muted)] text-sm">
-						Nenhuma sugestão encontrada para os filtros aplicados.
-					</p>
+					<EmptyState title="Nenhuma sugestão encontrada para os filtros aplicados." />
 				) : (
 					<ul className="flex flex-col gap-3">
 						{suggestions.map((suggestion) => (
 							<li
-								className="rounded-2xl border border-[color:var(--color-border-subtle)] bg-[color:var(--color-surface-muted)] p-4"
+								className="rounded-md border bg-muted/20 p-4"
 								key={suggestion.id}
 							>
-								<div className="flex flex-wrap items-center justify-between gap-2 text-[color:var(--color-text-muted)] text-xs">
-									<span>
-										{kindLabels[suggestion.kind] ?? suggestion.kind} ·{" "}
-										<span className={statusColor(suggestion.status)}>
+								<div className="flex flex-wrap items-center justify-between gap-2 text-muted-foreground text-xs">
+									<span className="flex flex-wrap items-center gap-2">
+										{kindLabels[suggestion.kind] ?? suggestion.kind}
+										<Badge variant={statusVariant(suggestion.status)}>
 											{statusLabels[suggestion.status] ?? suggestion.status}
-										</span>
+										</Badge>
 									</span>
 									<span>
 										Criada {formatDateTime(suggestion.createdAt)}
@@ -166,14 +169,12 @@ export default async function SugestoesPage({
 											: ""}
 									</span>
 								</div>
-								<p className="mt-2 text-[color:var(--color-text)] text-sm">
-									{suggestion.reason}
-								</p>
+								<p className="mt-2 text-sm">{suggestion.reason}</p>
 								<details className="mt-2">
-									<summary className="cursor-pointer text-[color:var(--color-accent)] text-xs">
+									<summary className="cursor-pointer text-primary text-xs">
 										Ver payload
 									</summary>
-									<pre className="mt-2 overflow-x-auto rounded-xl bg-black/40 p-3 font-mono text-[color:var(--color-text)] text-xs">
+									<pre className="mt-2 overflow-x-auto rounded-md bg-muted p-3 font-mono text-xs">
 										{JSON.stringify(suggestion.payload, null, 2)}
 									</pre>
 								</details>
@@ -181,8 +182,8 @@ export default async function SugestoesPage({
 						))}
 					</ul>
 				)}
-			</Panel>
-		</div>
+			</CardContent>
+		</Card>
 	);
 }
 
@@ -198,11 +199,14 @@ function FilterSelect({
 	defaultValue: string;
 }) {
 	return (
-		<label className="flex flex-col gap-1 text-[color:var(--color-text-muted)] text-xs">
-			{label}
+		<div className="grid gap-1">
+			<Label className="text-xs" htmlFor={name}>
+				{label}
+			</Label>
 			<select
-				className="rounded-xl border border-[color:var(--color-border)] bg-[color:var(--color-bg)] px-3 py-2 text-[color:var(--color-text)] text-sm"
+				className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
 				defaultValue={defaultValue}
+				id={name}
 				name={name}
 			>
 				{options.map((opt) => (
@@ -211,20 +215,22 @@ function FilterSelect({
 					</option>
 				))}
 			</select>
-		</label>
+		</div>
 	);
 }
 
-function statusColor(status: string) {
+function statusVariant(
+	status: string,
+): "default" | "secondary" | "outline" | "destructive" {
 	switch (status) {
 		case "accepted":
-			return "text-[color:var(--color-accent)]";
+			return "default";
 		case "rejected":
-			return "text-[color:var(--color-bad)]";
+			return "destructive";
 		case "superseded":
-			return "text-[color:var(--color-text-muted)]";
+			return "secondary";
 		default:
-			return "text-[color:var(--color-warn)]";
+			return "outline";
 	}
 }
 

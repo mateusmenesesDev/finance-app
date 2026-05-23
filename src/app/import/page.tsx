@@ -12,15 +12,24 @@ import {
 	updateImportTemplate,
 } from "~/app/_actions/finance-actions";
 import {
-	DangerSubmitButton,
-	FinanceShell,
-	SubmitButton,
-} from "~/app/_components/finance-ui";
-import {
 	type ConfirmFormRow,
 	ConfirmImportForm,
 } from "~/app/import/confirm-import-form";
 import { ImportRuleForm } from "~/app/import/import-rule-form";
+import { AppShell } from "~/components/app-shell";
+import { Money } from "~/components/money";
+import { PageHeader } from "~/components/page-header";
+import { DangerSubmitButton, SubmitButton } from "~/components/submit-button";
+import {
+	Card,
+	CardContent,
+	CardDescription,
+	CardHeader,
+	CardTitle,
+} from "~/components/ui/card";
+import { Input } from "~/components/ui/input";
+import { Label } from "~/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import {
 	defaultTemplateConfig,
 	normalizeImportTemplateConfig,
@@ -42,7 +51,7 @@ type ImportPageProps = {
 };
 
 const inputClass =
-	"rounded-xl border border-[color:var(--color-border)] bg-[color:var(--color-bg)] px-3 py-2 text-sm text-[color:var(--color-text)]";
+	"flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:font-medium file:text-foreground file:text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50";
 
 const statusLabels = {
 	draft: "rascunho",
@@ -129,374 +138,399 @@ export default async function ImportPage({ searchParams }: ImportPageProps) {
 	);
 
 	return (
-		<FinanceShell
-			description="CSV pequeno/médio, uma conta por lote, modelos reutilizáveis, revisão manual e sem armazenar arquivo bruto."
-			eyebrow="Importação"
-			title="Centro de importação CSV"
-		>
-			<Panel title="Ajuda CSV">
-				<details>
-					<summary className="flex cursor-pointer items-center justify-between gap-3 text-[color:var(--color-text-muted)] text-sm hover:text-[color:var(--color-text)]">
-						<span>
-							Como o app lê seu CSV — abra antes de criar o primeiro modelo.
-						</span>
-						<span className="text-[color:var(--color-text-subtle)] text-xs">
-							mostrar/ocultar
-						</span>
-					</summary>
-					<ul className="mt-4 list-disc space-y-1 pl-5 text-[color:var(--color-text-muted)] text-sm">
-						<li>
-							No modelo, você digita o <strong>texto do cabeçalho</strong> de
-							cada coluna do CSV (ex.: <code>Data</code>, <code>Valor</code>) —
-							não a posição (<code>coluna 1</code>, <code>2</code>).
-						</li>
-						<li>
-							Valor pode vir em uma coluna única com sinal (positivo/negativo)
-							ou em duas colunas separadas para entrada e saída.
-						</li>
-						<li>
-							O arquivo bruto <strong>não</strong> é salvo. Apenas as linhas já
-							parseadas e mascaradas ficam no lote para revisão.
-						</li>
-						<li>
-							A prévia de cada linha mostra os valores lidos do CSV ao lado dos
-							normalizados — use isso para detectar coluna trocada.
-						</li>
-					</ul>
-					<Link
-						className="mt-3 inline-block text-[color:var(--color-accent)] text-sm hover:underline"
-						href="/import/help"
-					>
-						Abrir guia completo de exportação CSV →
-					</Link>
-				</details>
-			</Panel>
-
-			<section className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
-				<Panel title="Novo modelo reutilizável">
-					<details>
-						<summary className="cursor-pointer rounded-2xl border border-[color:var(--color-border)] px-4 py-3 font-medium text-sm hover:bg-[color:var(--color-surface-muted)]">
-							Abrir configuração de modelo
-						</summary>
-						<form action={createImportTemplate} className="mt-4 grid gap-4">
-							<div className="rounded-2xl border border-[color:var(--color-warn-border)] bg-[color:var(--color-warn-bg)] p-3 text-[color:var(--color-warn)] text-sm">
-								<p className="font-medium">
-									Preencha cada campo com o texto da coluna no cabeçalho.
-								</p>
-								<p className="mt-1">
-									Ex.: se o CSV começa com{" "}
-									<code>Data;Descrição;Valor;Identificador</code>, digite{" "}
-									<code>Data</code>, <code>Descrição</code>, <code>Valor</code>{" "}
-									e <code>Identificador</code> abaixo. Não use posição (1, 2,
-									3...).
-								</p>
-							</div>
-							<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-								<LabelledInput
-									hint="Como você vai chamar este modelo na lista de lotes."
-									label="Nome do modelo"
-									name="name"
-									placeholder="Ex.: Nubank conta"
-									required
-								/>
-								<LabelledInput
-									hint="Banco, corretora ou cartão de onde vem o CSV. Opcional."
-									label="Origem"
-									name="sourceLabel"
-									placeholder="Ex.: Nubank"
-								/>
-								<LabelledSelect
-									defaultValue={defaultTemplateConfig.amountMode}
-									hint="Como o valor aparece no CSV."
-									label="Formato do valor"
-									name="amountMode"
-									options={{
-										signed: "Uma coluna, com sinal (+/-)",
-										separate: "Duas colunas (entrada e saída)",
-									}}
-								/>
-							</div>
-							<div className="grid gap-2">
-								<h3 className="font-medium text-sm">Colunas obrigatórias</h3>
-								<p className="text-[color:var(--color-text-subtle)] text-xs">
-									Data e descrição são sempre necessárias. Para valor, preencha
-									“valor único” ou use entrada/saída abaixo.
-								</p>
-								<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-									<LabelledInput
-										defaultValue={defaultTemplateConfig.dateColumn}
-										label="Data"
-										name="dateColumn"
-										placeholder="Data"
-										required
-									/>
-									<LabelledInput
-										defaultValue={defaultTemplateConfig.descriptionColumn}
-										label="Descrição"
-										name="descriptionColumn"
-										placeholder="Descrição"
-										required
-									/>
-									<LabelledInput
-										defaultValue={defaultTemplateConfig.amountColumn}
-										hint="Use só quando o valor vem em uma coluna única."
-										label="Valor (coluna única)"
-										name="amountColumn"
-										placeholder="Valor"
-									/>
-								</div>
-							</div>
-							<div className="grid gap-2">
-								<h3 className="font-medium text-sm">Colunas opcionais</h3>
-								<p className="text-[color:var(--color-text-subtle)] text-xs">
-									Deixe vazio o que seu CSV não tiver.
-								</p>
-								<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-									<LabelledInput
-										hint="Coluna que diz se a linha é receita ou despesa."
-										label="Tipo / sinal"
-										name="kindColumn"
-										placeholder="Tipo"
-									/>
-									<LabelledInput
-										hint="Use só com valor em duas colunas."
-										label="Entrada"
-										name="incomeAmountColumn"
-										placeholder="Entrada"
-									/>
-									<LabelledInput
-										hint="Use só com valor em duas colunas."
-										label="Saída"
-										name="expenseAmountColumn"
-										placeholder="Saída"
-									/>
-									<LabelledInput
-										hint="Categoria que o banco já sugere."
-										label="Categoria do banco"
-										name="categoryColumn"
-										placeholder="Categoria"
-									/>
-									<LabelledInput
-										hint="ID único da transação no banco. Evita duplicar."
-										label="Identificador externo"
-										name="externalIdColumn"
-										placeholder="Identificador"
-									/>
-									<LabelledInput
-										label="Observação"
-										name="notesColumn"
-										placeholder="Observação"
-									/>
-								</div>
-							</div>
-							<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-								<LabelledSelect
-									defaultValue={defaultTemplateConfig.dateFormat}
-									label="Formato da data"
-									name="dateFormat"
-									options={{
-										"dd/mm/yyyy": "dd/mm/aaaa",
-										"dd-mm-yyyy": "dd-mm-aaaa",
-										"yyyy-mm-dd": "aaaa-mm-dd",
-									}}
-								/>
-								<LabelledSelect
-									defaultValue={defaultTemplateConfig.delimiter}
-									hint="O que separa as colunas no CSV."
-									label="Separador de colunas"
-									name="delimiter"
-									options={{
-										auto: "Detectar automaticamente",
-										",": "Vírgula ( , )",
-										";": "Ponto e vírgula ( ; )",
-									}}
-								/>
-								<LabelledSelect
-									defaultValue={defaultTemplateConfig.decimalSeparator}
-									hint="O que separa centavos do inteiro."
-									label="Separador decimal"
-									name="decimalSeparator"
-									options={{
-										auto: "Detectar automaticamente",
-										",": "Vírgula (1.234,56)",
-										".": "Ponto (1,234.56)",
-									}}
-								/>
-							</div>
-							<div className="grid gap-3 sm:grid-cols-2">
-								<LabelledInput
-									defaultValue={defaultTemplateConfig.incomeTokens.join(", ")}
-									hint="Texto na coluna 'tipo' que indica receita. Separe por vírgula."
-									label="Palavras que indicam receita"
-									name="incomeTokens"
-									placeholder="receita, crédito, entrada"
-								/>
-								<LabelledInput
-									defaultValue={defaultTemplateConfig.expenseTokens.join(", ")}
-									hint="Texto na coluna 'tipo' que indica despesa. Separe por vírgula."
-									label="Palavras que indicam despesa"
-									name="expenseTokens"
-									placeholder="despesa, débito, saída"
-								/>
-							</div>
-							<label className="flex items-center gap-2 text-[color:var(--color-text-muted)] text-sm">
-								<input name="invertSign" type="checkbox" /> Inverter sinal do
-								valor
-							</label>
-							<SubmitButton
-								className="bg-[color:var(--color-accent)] font-semibold"
-								pendingLabel="Salvando..."
-							>
-								Salvar modelo
-							</SubmitButton>
-						</form>
-					</details>
-				</Panel>
-
-				<Panel title="Novo lote">
-					<form action={createImportBatch} className="grid gap-3">
-						<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-							<FieldLabel
-								hint="Todas as linhas vão para esta conta."
-								label="Conta de destino"
-							>
-								<select className={inputClass} name="accountId" required>
-									<option value="">Escolha uma conta</option>
-									{usableAccounts.map((account) => (
-										<option key={account.id} value={account.id}>
-											{account.name}
-										</option>
-									))}
-								</select>
-							</FieldLabel>
-							<FieldLabel
-								hint="Define como o CSV vai ser interpretado."
-								label="Modelo de importação"
-							>
-								<select className={inputClass} name="templateId" required>
-									<option value="">Escolha um modelo salvo</option>
-									{activeTemplates.map((template) => (
-										<option key={template.id} value={template.id}>
-											{templateOptionLabel(template)}
-										</option>
-									))}
-								</select>
-							</FieldLabel>
-							<FieldLabel
-								hint="Só arquivos .csv. O conteúdo bruto não é salvo."
-								label="Arquivo CSV"
-							>
-								<input
-									accept=".csv,text/csv"
-									className={inputClass}
-									name="csvFile"
-									required
-									type="file"
-								/>
-							</FieldLabel>
-						</div>
-						<label className="flex items-center gap-2 text-[color:var(--color-text-muted)] text-sm">
-							<input disabled name="rawFileStored" type="checkbox" /> Guardar
-							arquivo original (desativado por privacidade)
-						</label>
-						<p className="text-[color:var(--color-text-subtle)] text-xs">
-							O CSV é lido em memória; só as linhas já parseadas e mascaradas
-							ficam salvas para revisão.
-						</p>
-						<SubmitButton
-							className="bg-[color:var(--color-accent)] font-semibold"
-							pendingLabel="Enviando..."
-						>
-							Enviar para revisão
-						</SubmitButton>
-					</form>
-
-					<div className="mt-6 grid gap-2">
-						<h3 className="font-medium">Modelos salvos</h3>
-						{activeTemplates.map((template) => (
-							<TemplateCard key={template.id} template={template} />
-						))}
-						{activeTemplates.length === 0 && (
-							<p className="text-[color:var(--color-text-muted)] text-sm">
-								Nenhum modelo salvo ainda. Use o bloco ao lado para criar o
-								primeiro.
-							</p>
-						)}
-					</div>
-				</Panel>
-			</section>
-
-			<ImportRulePanel
-				accountById={accountById}
-				categoryById={categoryById}
-				ruleAccounts={usableAccounts}
-				ruleCategories={usableCategories}
-				rules={rules}
+		<AppShell user={{ name: session.user.name, email: session.user.email }}>
+			<PageHeader
+				description="CSV pequeno/médio, uma conta por lote, modelos reutilizáveis, revisão manual e sem armazenar arquivo bruto."
+				eyebrow="Importação"
+				title="Centro de importação CSV"
 			/>
-
-			<section className="grid gap-6 lg:grid-cols-[0.4fr_0.6fr]">
-				<Panel title="Histórico de lotes">
-					<div className="grid gap-2">
-						{batches.map((batch) => (
+			<Tabs className="space-y-4" defaultValue="batches">
+				<TabsList className="flex h-auto flex-wrap justify-start">
+					<TabsTrigger value="batches">Lotes</TabsTrigger>
+					<TabsTrigger value="templates">Modelos</TabsTrigger>
+					<TabsTrigger value="rules">Regras</TabsTrigger>
+					<TabsTrigger value="help">Ajuda</TabsTrigger>
+				</TabsList>
+				<TabsContent className="space-y-6" value="help">
+					<Panel title="Ajuda CSV">
+						<details>
+							<summary className="flex cursor-pointer items-center justify-between gap-3 text-muted-foreground text-sm hover:text-foreground">
+								<span>
+									Como o app lê seu CSV — abra antes de criar o primeiro modelo.
+								</span>
+								<span className="text-muted-foreground text-xs">
+									mostrar/ocultar
+								</span>
+							</summary>
+							<ul className="mt-4 list-disc space-y-1 pl-5 text-muted-foreground text-sm">
+								<li>
+									No modelo, você digita o <strong>texto do cabeçalho</strong>{" "}
+									de cada coluna do CSV (ex.: <code>Data</code>,{" "}
+									<code>Valor</code>) — não a posição (<code>coluna 1</code>,{" "}
+									<code>2</code>).
+								</li>
+								<li>
+									Valor pode vir em uma coluna única com sinal
+									(positivo/negativo) ou em duas colunas separadas para entrada
+									e saída.
+								</li>
+								<li>
+									O arquivo bruto <strong>não</strong> é salvo. Apenas as linhas
+									já parseadas e mascaradas ficam no lote para revisão.
+								</li>
+								<li>
+									A prévia de cada linha mostra os valores lidos do CSV ao lado
+									dos normalizados — use isso para detectar coluna trocada.
+								</li>
+							</ul>
 							<Link
-								className={`rounded-2xl border p-4 text-sm ${selectedBatch?.id === batch.id ? "border-[color:var(--color-good-border)] bg-[color:var(--color-good-bg)]" : "border-[color:var(--color-border-subtle)]"}`}
-								href={`/import?batchId=${batch.id}`}
-								key={batch.id}
+								className="mt-3 inline-block text-primary text-sm hover:underline"
+								href="/import/help"
 							>
-								<p className="truncate font-medium">
-									<span className="text-[color:var(--color-text-subtle)]">
-										#{batch.id}
-									</span>{" "}
-									{batch.originalFileName}
-								</p>
-								<p className="text-[color:var(--color-text-muted)] text-xs">
-									{formatDateTime(batch.createdAt)} ·{" "}
-									{statusLabels[batch.status]} · {batch.rowCount} linha(s)
-								</p>
-								<p className="mt-1 text-[color:var(--color-text-muted)] text-xs">
-									Conta: {accountById.get(batch.accountId)?.name ?? "—"} ·
-									Modelo:{" "}
-									{batch.importTemplateId
-										? (templateById.get(batch.importTemplateId)?.name ??
-											"arquivado")
-										: "—"}
-								</p>
+								Abrir guia completo de exportação CSV →
 							</Link>
-						))}
-						{batches.length === 0 && (
-							<p className="text-[color:var(--color-text-muted)] text-sm">
-								Nenhum lote enviado ainda. Crie um modelo e envie um CSV para
-								começar.
-							</p>
-						)}
-					</div>
-				</Panel>
+						</details>
+					</Panel>
+				</TabsContent>
 
-				<Panel
-					title={
-						selectedBatch ? `Revisão do lote #${selectedBatch.id}` : "Revisão"
-					}
-				>
-					{selectedBatch ? (
-						<BatchReview
-							reviewAccounts={usableAccounts}
-							reviewCategories={usableCategories}
-							reviewRecurrences={suggestedRecurrences.filter((recurrence) =>
-								suggestedRecurrenceIds.includes(recurrence.id),
+				<TabsContent className="space-y-6" value="templates">
+					<section className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
+						<Panel title="Novo modelo reutilizável">
+							<details>
+								<summary className="cursor-pointer rounded-md border border px-4 py-3 font-medium text-sm hover:bg-muted/50">
+									Abrir configuração de modelo
+								</summary>
+								<form action={createImportTemplate} className="mt-4 grid gap-4">
+									<div className="rounded-md border border-warning/40 bg-warning/10 p-3 text-sm text-warning">
+										<p className="font-medium">
+											Preencha cada campo com o texto da coluna no cabeçalho.
+										</p>
+										<p className="mt-1">
+											Ex.: se o CSV começa com{" "}
+											<code>Data;Descrição;Valor;Identificador</code>, digite{" "}
+											<code>Data</code>, <code>Descrição</code>,{" "}
+											<code>Valor</code> e <code>Identificador</code> abaixo.
+											Não use posição (1, 2, 3...).
+										</p>
+									</div>
+									<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+										<LabelledInput
+											hint="Como você vai chamar este modelo na lista de lotes."
+											label="Nome do modelo"
+											name="name"
+											placeholder="Ex.: Nubank conta"
+											required
+										/>
+										<LabelledInput
+											hint="Banco, corretora ou cartão de onde vem o CSV. Opcional."
+											label="Origem"
+											name="sourceLabel"
+											placeholder="Ex.: Nubank"
+										/>
+										<LabelledSelect
+											defaultValue={defaultTemplateConfig.amountMode}
+											hint="Como o valor aparece no CSV."
+											label="Formato do valor"
+											name="amountMode"
+											options={{
+												signed: "Uma coluna, com sinal (+/-)",
+												separate: "Duas colunas (entrada e saída)",
+											}}
+										/>
+									</div>
+									<div className="grid gap-2">
+										<h3 className="font-medium text-sm">
+											Colunas obrigatórias
+										</h3>
+										<p className="text-muted-foreground text-xs">
+											Data e descrição são sempre necessárias. Para valor,
+											preencha “valor único” ou use entrada/saída abaixo.
+										</p>
+										<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+											<LabelledInput
+												defaultValue={defaultTemplateConfig.dateColumn}
+												label="Data"
+												name="dateColumn"
+												placeholder="Data"
+												required
+											/>
+											<LabelledInput
+												defaultValue={defaultTemplateConfig.descriptionColumn}
+												label="Descrição"
+												name="descriptionColumn"
+												placeholder="Descrição"
+												required
+											/>
+											<LabelledInput
+												defaultValue={defaultTemplateConfig.amountColumn}
+												hint="Use só quando o valor vem em uma coluna única."
+												label="Valor (coluna única)"
+												name="amountColumn"
+												placeholder="Valor"
+											/>
+										</div>
+									</div>
+									<div className="grid gap-2">
+										<h3 className="font-medium text-sm">Colunas opcionais</h3>
+										<p className="text-muted-foreground text-xs">
+											Deixe vazio o que seu CSV não tiver.
+										</p>
+										<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+											<LabelledInput
+												hint="Coluna que diz se a linha é receita ou despesa."
+												label="Tipo / sinal"
+												name="kindColumn"
+												placeholder="Tipo"
+											/>
+											<LabelledInput
+												hint="Use só com valor em duas colunas."
+												label="Entrada"
+												name="incomeAmountColumn"
+												placeholder="Entrada"
+											/>
+											<LabelledInput
+												hint="Use só com valor em duas colunas."
+												label="Saída"
+												name="expenseAmountColumn"
+												placeholder="Saída"
+											/>
+											<LabelledInput
+												hint="Categoria que o banco já sugere."
+												label="Categoria do banco"
+												name="categoryColumn"
+												placeholder="Categoria"
+											/>
+											<LabelledInput
+												hint="ID único da transação no banco. Evita duplicar."
+												label="Identificador externo"
+												name="externalIdColumn"
+												placeholder="Identificador"
+											/>
+											<LabelledInput
+												label="Observação"
+												name="notesColumn"
+												placeholder="Observação"
+											/>
+										</div>
+									</div>
+									<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+										<LabelledSelect
+											defaultValue={defaultTemplateConfig.dateFormat}
+											label="Formato da data"
+											name="dateFormat"
+											options={{
+												"dd/mm/yyyy": "dd/mm/aaaa",
+												"dd-mm-yyyy": "dd-mm-aaaa",
+												"yyyy-mm-dd": "aaaa-mm-dd",
+											}}
+										/>
+										<LabelledSelect
+											defaultValue={defaultTemplateConfig.delimiter}
+											hint="O que separa as colunas no CSV."
+											label="Separador de colunas"
+											name="delimiter"
+											options={{
+												auto: "Detectar automaticamente",
+												",": "Vírgula ( , )",
+												";": "Ponto e vírgula ( ; )",
+											}}
+										/>
+										<LabelledSelect
+											defaultValue={defaultTemplateConfig.decimalSeparator}
+											hint="O que separa centavos do inteiro."
+											label="Separador decimal"
+											name="decimalSeparator"
+											options={{
+												auto: "Detectar automaticamente",
+												",": "Vírgula (1.234,56)",
+												".": "Ponto (1,234.56)",
+											}}
+										/>
+									</div>
+									<div className="grid gap-3 sm:grid-cols-2">
+										<LabelledInput
+											defaultValue={defaultTemplateConfig.incomeTokens.join(
+												", ",
+											)}
+											hint="Texto na coluna 'tipo' que indica receita. Separe por vírgula."
+											label="Palavras que indicam receita"
+											name="incomeTokens"
+											placeholder="receita, crédito, entrada"
+										/>
+										<LabelledInput
+											defaultValue={defaultTemplateConfig.expenseTokens.join(
+												", ",
+											)}
+											hint="Texto na coluna 'tipo' que indica despesa. Separe por vírgula."
+											label="Palavras que indicam despesa"
+											name="expenseTokens"
+											placeholder="despesa, débito, saída"
+										/>
+									</div>
+									<label className="flex items-center gap-2 text-muted-foreground text-sm">
+										<input name="invertSign" type="checkbox" /> Inverter sinal
+										do valor
+									</label>
+									<SubmitButton
+										className="bg-primary font-semibold"
+										pendingLabel="Salvando..."
+									>
+										Salvar modelo
+									</SubmitButton>
+								</form>
+							</details>
+						</Panel>
+
+						<Panel title="Novo lote">
+							<form action={createImportBatch} className="grid gap-3">
+								<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+									<FieldLabel
+										hint="Todas as linhas vão para esta conta."
+										label="Conta de destino"
+									>
+										<select className={inputClass} name="accountId" required>
+											<option value="">Escolha uma conta</option>
+											{usableAccounts.map((account) => (
+												<option key={account.id} value={account.id}>
+													{account.name}
+												</option>
+											))}
+										</select>
+									</FieldLabel>
+									<FieldLabel
+										hint="Define como o CSV vai ser interpretado."
+										label="Modelo de importação"
+									>
+										<select className={inputClass} name="templateId" required>
+											<option value="">Escolha um modelo salvo</option>
+											{activeTemplates.map((template) => (
+												<option key={template.id} value={template.id}>
+													{templateOptionLabel(template)}
+												</option>
+											))}
+										</select>
+									</FieldLabel>
+									<FieldLabel
+										hint="Só arquivos .csv. O conteúdo bruto não é salvo."
+										label="Arquivo CSV"
+									>
+										<input
+											accept=".csv,text/csv"
+											className={inputClass}
+											name="csvFile"
+											required
+											type="file"
+										/>
+									</FieldLabel>
+								</div>
+								<label className="flex items-center gap-2 text-muted-foreground text-sm">
+									<input disabled name="rawFileStored" type="checkbox" />{" "}
+									Guardar arquivo original (desativado por privacidade)
+								</label>
+								<p className="text-muted-foreground text-xs">
+									O CSV é lido em memória; só as linhas já parseadas e
+									mascaradas ficam salvas para revisão.
+								</p>
+								<SubmitButton
+									className="bg-primary font-semibold"
+									pendingLabel="Enviando..."
+								>
+									Enviar para revisão
+								</SubmitButton>
+							</form>
+
+							<div className="mt-6 grid gap-2">
+								<h3 className="font-medium">Modelos salvos</h3>
+								{activeTemplates.map((template) => (
+									<TemplateCard key={template.id} template={template} />
+								))}
+								{activeTemplates.length === 0 && (
+									<p className="text-muted-foreground text-sm">
+										Nenhum modelo salvo ainda. Use o bloco ao lado para criar o
+										primeiro.
+									</p>
+								)}
+							</div>
+						</Panel>
+					</section>
+				</TabsContent>
+
+				<TabsContent className="space-y-6" value="rules">
+					<ImportRulePanel
+						accountById={accountById}
+						categoryById={categoryById}
+						ruleAccounts={usableAccounts}
+						ruleCategories={usableCategories}
+						rules={rules}
+					/>
+				</TabsContent>
+
+				<TabsContent className="space-y-6" value="batches">
+					<section className="grid gap-6 lg:grid-cols-[0.4fr_0.6fr]">
+						<Panel title="Histórico de lotes">
+							<div className="grid gap-2">
+								{batches.map((batch) => (
+									<Link
+										className={`rounded-md border p-4 text-sm ${selectedBatch?.id === batch.id ? "border-success/40 bg-success/10" : "border"}`}
+										href={`/import?batchId=${batch.id}`}
+										key={batch.id}
+									>
+										<p className="truncate font-medium">
+											<span className="text-muted-foreground">#{batch.id}</span>{" "}
+											{batch.originalFileName}
+										</p>
+										<p className="text-muted-foreground text-xs">
+											{formatDateTime(batch.createdAt)} ·{" "}
+											{statusLabels[batch.status]} · {batch.rowCount} linha(s)
+										</p>
+										<p className="mt-1 text-muted-foreground text-xs">
+											Conta: {accountById.get(batch.accountId)?.name ?? "—"} ·
+											Modelo:{" "}
+											{batch.importTemplateId
+												? (templateById.get(batch.importTemplateId)?.name ??
+													"arquivado")
+												: "—"}
+										</p>
+									</Link>
+								))}
+								{batches.length === 0 && (
+									<p className="text-muted-foreground text-sm">
+										Nenhum lote enviado ainda. Crie um modelo e envie um CSV
+										para começar.
+									</p>
+								)}
+							</div>
+						</Panel>
+
+						<Panel
+							title={
+								selectedBatch
+									? `Revisão do lote #${selectedBatch.id}`
+									: "Revisão"
+							}
+						>
+							{selectedBatch ? (
+								<BatchReview
+									reviewAccounts={usableAccounts}
+									reviewCategories={usableCategories}
+									reviewRecurrences={suggestedRecurrences.filter((recurrence) =>
+										suggestedRecurrenceIds.includes(recurrence.id),
+									)}
+									reviewRules={rules}
+									rows={rows}
+									selectedBatch={selectedBatch}
+								/>
+							) : (
+								<p className="text-muted-foreground text-sm">
+									Selecione um lote no histórico ou envie um novo CSV para
+									começar a revisão.
+								</p>
 							)}
-							reviewRules={rules}
-							rows={rows}
-							selectedBatch={selectedBatch}
-						/>
-					) : (
-						<p className="text-[color:var(--color-text-muted)] text-sm">
-							Selecione um lote no histórico ou envie um novo CSV para começar a
-							revisão.
-						</p>
-					)}
-				</Panel>
-			</section>
-		</FinanceShell>
+						</Panel>
+					</section>
+				</TabsContent>
+			</Tabs>
+		</AppShell>
 	);
 }
 
@@ -507,15 +541,15 @@ function TemplateCard({
 }) {
 	const config = normalizeImportTemplateConfig(template.config);
 	return (
-		<div className="rounded-2xl border border-[color:var(--color-border-subtle)] p-3 text-sm">
+		<div className="rounded-md border border p-3 text-sm">
 			<details>
 				<summary className="cursor-pointer list-none">
 					<span className="font-medium">{template.name}</span>
-					<span className="ml-2 text-[color:var(--color-text-muted)]">
+					<span className="ml-2 text-muted-foreground">
 						{template.sourceLabel ?? "sem origem"} ·{" "}
 						{config.amountMode === "signed" ? "valor único" : "entrada/saída"}
 					</span>
-					<span className="block text-[color:var(--color-text-subtle)]">
+					<span className="block text-muted-foreground">
 						{config.dateColumn}, {config.descriptionColumn},{" "}
 						{config.amountColumn ??
 							`${config.incomeAmountColumn}/${config.expenseAmountColumn}`}
@@ -523,10 +557,8 @@ function TemplateCard({
 				</summary>
 				<form action={updateImportTemplate} className="mt-3 grid gap-4">
 					<input name="id" type="hidden" value={template.id} />
-					<div className="rounded-xl border border-[color:var(--color-border-subtle)] p-3 text-[color:var(--color-text-muted)] text-xs">
-						<p className="font-medium text-[color:var(--color-text)]">
-							Mapeamento atual
-						</p>
+					<div className="rounded-md border border p-3 text-muted-foreground text-xs">
+						<p className="font-medium text-foreground">Mapeamento atual</p>
 						<p className="mt-1">{templateMappingText(config)}</p>
 					</div>
 					<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -653,7 +685,7 @@ function TemplateCard({
 							name="expenseTokens"
 						/>
 					</div>
-					<label className="flex items-center gap-2 text-[color:var(--color-text-muted)]">
+					<label className="flex items-center gap-2 text-muted-foreground">
 						<input
 							defaultChecked={config.invertSign}
 							name="invertSign"
@@ -663,7 +695,7 @@ function TemplateCard({
 					</label>
 					<div className="flex gap-2">
 						<SubmitButton
-							className="bg-[color:var(--color-accent)] px-3 font-semibold"
+							className="bg-primary px-3 font-semibold"
 							pendingLabel="Salvando..."
 						>
 							Salvar alterações
@@ -723,7 +755,7 @@ function ImportRulePanel({
 	const activeRules = rules.filter((rule) => !rule.isArchived);
 	return (
 		<Panel title="Regras de categorização">
-			<p className="-mt-2 mb-4 text-[color:var(--color-text-muted)] text-sm">
+			<p className="-mt-2 mb-4 text-muted-foreground text-sm">
 				Regras casam pelo texto do CSV. Em “Sugerir categoria” o app pré-marca a
 				categoria na revisão; em “Ignorar linha” já pré-marca a linha como
 				ignorada. Você pode trocar a decisão antes de confirmar o lote.
@@ -756,19 +788,19 @@ function ImportRulePanel({
 						: "qualquer tipo";
 					return (
 						<div
-							className="flex flex-wrap items-start justify-between gap-3 rounded-2xl border border-[color:var(--color-border-subtle)] p-4 text-sm"
+							className="flex flex-wrap items-start justify-between gap-3 rounded-md border border p-4 text-sm"
 							key={rule.id}
 						>
 							<div className="min-w-0 flex-1">
-								<p className="font-medium text-[color:var(--color-text)]">
+								<p className="font-medium text-foreground">
 									“{rule.normalizedDescription}” → {targetLabel}
 								</p>
 								{rule.descriptionOverride ? (
-									<p className="mt-1 text-[color:var(--color-text-muted)] text-xs">
+									<p className="mt-1 text-muted-foreground text-xs">
 										descrição final: “{rule.descriptionOverride}”
 									</p>
 								) : null}
-								<p className="mt-1 text-[color:var(--color-text-muted)] text-xs">
+								<p className="mt-1 text-muted-foreground text-xs">
 									{rule.textMatchMode === "contains" ? "contém" : "igual"} ·{" "}
 									{typeLabel} · {account?.name ?? "qualquer conta"} · prioridade{" "}
 									{rule.priority}
@@ -797,7 +829,7 @@ function ImportRulePanel({
 					);
 				})}
 				{activeRules.length === 0 && (
-					<p className="text-[color:var(--color-text-muted)] text-sm">
+					<p className="text-muted-foreground text-sm">
 						Nenhuma regra ativa. Crie uma acima para acelerar a categorização
 						dos próximos lotes.
 					</p>
@@ -886,8 +918,8 @@ function BatchReview({
 		<>
 			<div className="flex flex-wrap items-start justify-between gap-4">
 				<div className="min-w-0 flex-1">
-					<p className="truncate text-[color:var(--color-text-muted)] text-sm">
-						<span className="font-medium text-[color:var(--color-text)]">
+					<p className="truncate text-muted-foreground text-sm">
+						<span className="font-medium text-foreground">
 							{selectedBatch.originalFileName}
 						</span>{" "}
 						· arquivo bruto{" "}
@@ -900,7 +932,7 @@ function BatchReview({
 						<SubmitButton
 							className="px-3"
 							pendingLabel="Cancelando..."
-							variant="danger"
+							variant="destructive"
 						>
 							Descartar lote
 						</SubmitButton>
@@ -912,7 +944,7 @@ function BatchReview({
 						<SubmitButton
 							className="px-3"
 							pendingLabel="Revertendo..."
-							variant="danger"
+							variant="destructive"
 						>
 							Reverter transações
 						</SubmitButton>
@@ -923,18 +955,18 @@ function BatchReview({
 				<StatChip
 					label="Receitas"
 					tone="good"
-					value={formatMoney(totals.income)}
+					value={<Money cents={totals.income} sign="credit" />}
 				/>
 				<StatChip
 					label="Despesas"
 					tone="bad"
-					value={formatMoney(totals.expense)}
+					value={<Money cents={totals.expense} sign="debit" />}
 				/>
 				{totals.transfer > 0 ? (
 					<StatChip
 						label="Transferências"
 						tone="info"
-						value={formatMoney(totals.transfer)}
+						value={<Money cents={totals.transfer} />}
 					/>
 				) : null}
 				{totals.invalid > 0 ? (
@@ -973,10 +1005,7 @@ function BatchReview({
 			) : (
 				<div className="mt-5 grid gap-2 text-sm">
 					{rows.map((row) => (
-						<p
-							className="rounded-xl border border-[color:var(--color-border-subtle)] p-3"
-							key={row.id}
-						>
+						<p className="rounded-md border border p-3" key={row.id}>
 							Linha {row.rowNumber}: {rowStatusLabels[row.status] ?? row.status}{" "}
 							· {row.originalDescription}
 						</p>
@@ -990,15 +1019,20 @@ function BatchReview({
 function Panel({
 	title,
 	children,
+	description,
 }: {
 	title: string;
 	children: React.ReactNode;
+	description?: string;
 }) {
 	return (
-		<section className="rounded-3xl border border-[color:var(--color-border-subtle)] bg-[color:var(--color-surface)] p-6">
-			<h2 className="mb-4 font-semibold text-xl">{title}</h2>
-			{children}
-		</section>
+		<Card>
+			<CardHeader>
+				<CardTitle>{title}</CardTitle>
+				{description ? <CardDescription>{description}</CardDescription> : null}
+			</CardHeader>
+			<CardContent>{children}</CardContent>
+		</Card>
 	);
 }
 
@@ -1015,14 +1049,12 @@ function FieldLabel({
 }) {
 	return (
 		<div
-			className={`grid gap-1 text-[color:var(--color-text-muted)] text-sm ${wrapperClassName ?? ""}`}
+			className={`grid gap-1 text-muted-foreground text-sm ${wrapperClassName ?? ""}`}
 		>
-			<span>{label}</span>
+			<Label>{label}</Label>
 			{children}
 			{hint ? (
-				<span className="text-[color:var(--color-text-subtle)] text-xs">
-					{hint}
-				</span>
+				<span className="text-muted-foreground text-xs">{hint}</span>
 			) : null}
 		</div>
 	);
@@ -1038,18 +1070,17 @@ function LabelledInput({
 	hint?: string;
 	wrapperClassName?: string;
 }) {
+	const inputId = props.id ?? props.name;
 	return (
-		<label
-			className={`grid gap-1 text-[color:var(--color-text-muted)] text-sm ${wrapperClassName ?? ""}`}
+		<div
+			className={`grid gap-1 text-muted-foreground text-sm ${wrapperClassName ?? ""}`}
 		>
-			<span>{label}</span>
-			<input className={inputClass} {...props} />
+			<Label htmlFor={inputId}>{label}</Label>
+			<Input id={inputId} {...props} />
 			{hint ? (
-				<span className="text-[color:var(--color-text-subtle)] text-xs">
-					{hint}
-				</span>
+				<span className="text-muted-foreground text-xs">{hint}</span>
 			) : null}
-		</label>
+		</div>
 	);
 }
 
@@ -1072,7 +1103,7 @@ function LabelledSelect({
 }) {
 	return (
 		<label
-			className={`grid gap-1 text-[color:var(--color-text-muted)] text-sm ${wrapperClassName ?? ""}`}
+			className={`grid gap-1 text-muted-foreground text-sm ${wrapperClassName ?? ""}`}
 		>
 			<span>{label}</span>
 			<select
@@ -1088,9 +1119,7 @@ function LabelledSelect({
 				))}
 			</select>
 			{hint ? (
-				<span className="text-[color:var(--color-text-subtle)] text-xs">
-					{hint}
-				</span>
+				<span className="text-muted-foreground text-xs">{hint}</span>
 			) : null}
 		</label>
 	);
@@ -1121,12 +1150,11 @@ function StatChip({
 	tone?: "default" | "good" | "bad" | "warn" | "info";
 }) {
 	const toneClass = {
-		default:
-			"border-[color:var(--color-border-subtle)] bg-[color:var(--color-surface-muted)] text-[color:var(--color-text)]",
-		good: "border-[color:var(--color-good-border)] bg-[color:var(--color-good-bg)] text-[color:var(--color-good)]",
-		bad: "border-[color:var(--color-bad-border)] bg-[color:var(--color-bad-bg)] text-[color:var(--color-bad)]",
-		warn: "border-[color:var(--color-warn-border)] bg-[color:var(--color-warn-bg)] text-[color:var(--color-warn)]",
-		info: "border-[color:var(--color-info-border)] bg-[color:var(--color-info-bg)] text-[color:var(--color-info)]",
+		default: "border bg-muted/50 text-foreground",
+		good: "border-success/40 bg-success/10 text-success",
+		bad: "border-destructive/40 bg-destructive/10 text-destructive",
+		warn: "border-warning/40 bg-warning/10 text-warning",
+		info: "border-info/40 bg-info/10 text-info",
 	}[tone];
 	return (
 		<span
@@ -1145,13 +1173,6 @@ function rowHadSensitiveData(parsedData: unknown) {
 		"hadSensitiveData" in parsedData &&
 		parsedData.hadSensitiveData === true
 	);
-}
-
-function formatMoney(cents: number) {
-	return new Intl.NumberFormat("pt-BR", {
-		style: "currency",
-		currency: "BRL",
-	}).format(cents / 100);
 }
 
 function formatDateTime(date: Date) {

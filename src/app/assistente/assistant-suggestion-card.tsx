@@ -6,7 +6,8 @@ import {
 	acceptAssistantSuggestion,
 	rejectAssistantSuggestion,
 } from "~/app/_actions/assistant-actions";
-import { SubmitButton } from "~/app/_components/pending-submit-button";
+import { SubmitButton } from "~/components/submit-button";
+import { Card, CardContent } from "~/components/ui/card";
 
 export function AssistantSuggestionCard({
 	children,
@@ -55,39 +56,38 @@ export function AssistantSuggestionCard({
 			{error ? (
 				<p
 					aria-live="polite"
-					className="rounded-2xl border border-[color:var(--color-bad-border)] bg-[color:var(--color-surface)] p-3 text-[color:var(--color-bad)] text-sm"
+					className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-destructive text-sm"
 					role="alert"
 				>
 					{error}
 				</p>
 			) : null}
 			{isVisible ? (
-				<article className="rounded-2xl border border-[color:var(--color-border-subtle)] bg-[color:var(--color-surface-muted)] p-4">
-					<div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-						<div className="space-y-2">{children}</div>
-						<div className="flex shrink-0 items-center gap-2">
-							<form action={acceptWithRollback}>
-								<input name="id" type="hidden" value={suggestionId} />
-								<SubmitButton
-									className="px-3 py-2 text-xs"
-									pendingLabel="Aceitando..."
-								>
-									Aceitar
-								</SubmitButton>
-							</form>
-							<form action={rejectWithRollback}>
-								<input name="id" type="hidden" value={suggestionId} />
-								<SubmitButton
-									className="px-3 py-2 text-xs"
-									pendingLabel="Rejeitando..."
-									variant="secondary"
-								>
-									Rejeitar
-								</SubmitButton>
-							</form>
+				<Card>
+					<CardContent className="pt-6">
+						<div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+							<div className="space-y-2">{children}</div>
+							<div className="flex shrink-0 items-center gap-2">
+								<form action={acceptWithRollback}>
+									<input name="id" type="hidden" value={suggestionId} />
+									<SubmitButton pendingLabel="Aceitando..." size="sm">
+										Aceitar
+									</SubmitButton>
+								</form>
+								<form action={rejectWithRollback}>
+									<input name="id" type="hidden" value={suggestionId} />
+									<SubmitButton
+										pendingLabel="Rejeitando..."
+										size="sm"
+										variant="secondary"
+									>
+										Rejeitar
+									</SubmitButton>
+								</form>
+							</div>
 						</div>
-					</div>
-				</article>
+					</CardContent>
+				</Card>
 			) : null}
 		</>
 	);

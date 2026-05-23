@@ -1,7 +1,25 @@
 import { and, desc, eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
-import { Panel, SubmitButton } from "~/app/_components/finance-ui";
+
 import { runSanitizeHistory } from "~/app/configuracoes/actions";
+import { EmptyState } from "~/components/empty-state";
+import { SubmitButton } from "~/components/submit-button";
+import { Badge } from "~/components/ui/badge";
+import {
+	Card,
+	CardContent,
+	CardDescription,
+	CardHeader,
+	CardTitle,
+} from "~/components/ui/card";
+import {
+	Table,
+	TableBody,
+	TableCell,
+	TableHead,
+	TableHeader,
+	TableRow,
+} from "~/components/ui/table";
 import { formatDateTime } from "~/lib/formatters";
 import { sensitiveDataRules } from "~/lib/sensitive-data";
 import { getSession } from "~/server/better-auth/server";
@@ -37,112 +55,129 @@ export default async function PrivacidadePage() {
 
 	return (
 		<div className="flex flex-col gap-6">
-			<Panel
-				description="Lista oficial de dados sigilosos. Aplicada na escrita de todo texto livre vindo do usuário e de CSV."
-				title="Política de mascaramento"
-			>
-				<ul className="grid gap-3 sm:grid-cols-2">
-					{sensitiveDataRules.map((rule) => (
-						<li
-							className="rounded-2xl border border-[color:var(--color-border-subtle)] bg-[color:var(--color-surface-muted)] p-4"
-							key={rule.id}
-						>
-							<p className="font-semibold text-[color:var(--color-text)] text-sm">
-								{rule.label}
-							</p>
-							<p className="mt-1 text-[color:var(--color-text-muted)] text-xs">
-								{rule.description}
-							</p>
-							<dl className="mt-3 space-y-1 text-xs">
-								<div className="flex gap-2">
-									<dt className="w-16 shrink-0 text-[color:var(--color-text-subtle)]">
-										Entrada
-									</dt>
-									<dd className="font-mono text-[color:var(--color-text-muted)]">
-										{rule.example.input}
-									</dd>
-								</div>
-								<div className="flex gap-2">
-									<dt className="w-16 shrink-0 text-[color:var(--color-text-subtle)]">
-										Saída
-									</dt>
-									<dd className="font-mono text-[color:var(--color-accent)]">
-										{rule.example.output}
-									</dd>
-								</div>
-							</dl>
-						</li>
-					))}
-				</ul>
-			</Panel>
+			<Card>
+				<CardHeader>
+					<CardTitle>Política de mascaramento</CardTitle>
+					<CardDescription>
+						Lista oficial de dados sigilosos. Aplicada na escrita de todo texto
+						livre vindo do usuário e de CSV.
+					</CardDescription>
+				</CardHeader>
+				<CardContent>
+					<ul className="grid gap-3 sm:grid-cols-2">
+						{sensitiveDataRules.map((rule) => (
+							<li className="rounded-md border bg-muted/20 p-4" key={rule.id}>
+								<p className="font-semibold text-sm">{rule.label}</p>
+								<p className="mt-1 text-muted-foreground text-xs">
+									{rule.description}
+								</p>
+								<dl className="mt-3 space-y-1 text-xs">
+									<div className="flex gap-2">
+										<dt className="w-16 shrink-0 text-muted-foreground">
+											Entrada
+										</dt>
+										<dd className="font-mono text-muted-foreground">
+											{rule.example.input}
+										</dd>
+									</div>
+									<div className="flex gap-2">
+										<dt className="w-16 shrink-0 text-muted-foreground">
+											Saída
+										</dt>
+										<dd className="font-mono text-primary">
+											{rule.example.output}
+										</dd>
+									</div>
+								</dl>
+							</li>
+						))}
+					</ul>
+				</CardContent>
+			</Card>
 
-			<Panel
-				description="Aplica a política atual em transações, recorrências e lotes de importação já persistidos. Idempotente: rodar duas vezes não duplica alterações."
-				title="Re-sanitizar histórico"
-			>
-				{lastSanitize ? (
-					<p className="mb-3 text-[color:var(--color-text-muted)] text-sm">
-						Última execução em {formatDateTime(lastSanitize.createdAt)} —{" "}
-						{lastSanitize.summary}
-					</p>
-				) : (
-					<p className="mb-3 text-[color:var(--color-text-muted)] text-sm">
-						Nenhuma re-sanitização registrada para este usuário.
-					</p>
-				)}
-				<form action={runSanitizeHistory}>
-					<SubmitButton pendingLabel="Re-sanitizando...">
-						Re-sanitizar histórico agora
-					</SubmitButton>
-				</form>
-			</Panel>
+			<Card>
+				<CardHeader>
+					<CardTitle>Re-sanitizar histórico</CardTitle>
+					<CardDescription>
+						Aplica a política atual em transações, recorrências e lotes de
+						importação já persistidos. Idempotente: rodar duas vezes não duplica
+						alterações.
+					</CardDescription>
+				</CardHeader>
+				<CardContent>
+					{lastSanitize ? (
+						<p className="mb-3 text-muted-foreground text-sm">
+							Última execução em {formatDateTime(lastSanitize.createdAt)} —{" "}
+							{lastSanitize.summary}
+						</p>
+					) : (
+						<p className="mb-3 text-muted-foreground text-sm">
+							Nenhuma re-sanitização registrada para este usuário.
+						</p>
+					)}
+					<form action={runSanitizeHistory}>
+						<SubmitButton pendingLabel="Re-sanitizando...">
+							Re-sanitizar histórico agora
+						</SubmitButton>
+					</form>
+				</CardContent>
+			</Card>
 
-			<Panel
-				description="Por padrão o app não armazena o CSV bruto. Cada lote indica explicitamente se manteve algum arquivo."
-				title="Arquivos brutos importados"
-			>
-				{batchSummary.length === 0 ? (
-					<p className="text-[color:var(--color-text-muted)] text-sm">
-						Nenhum lote de importação encontrado.
+			<Card>
+				<CardHeader>
+					<CardTitle>Arquivos brutos importados</CardTitle>
+					<CardDescription>
+						Por padrão o app não armazena o CSV bruto. Cada lote indica
+						explicitamente se manteve algum arquivo.
+					</CardDescription>
+				</CardHeader>
+				<CardContent>
+					{batchSummary.length === 0 ? (
+						<EmptyState title="Nenhum lote de importação encontrado." />
+					) : (
+						<div className="overflow-hidden rounded-lg border">
+							<Table>
+								<TableHeader>
+									<TableRow>
+										<TableHead>Arquivo</TableHead>
+										<TableHead>Status</TableHead>
+										<TableHead>Quando</TableHead>
+										<TableHead>Bruto armazenado</TableHead>
+									</TableRow>
+								</TableHeader>
+								<TableBody>
+									{batchSummary.map((batch) => (
+										<TableRow key={batch.id}>
+											<TableCell className="font-mono text-xs">
+												{batch.originalFileName}
+											</TableCell>
+											<TableCell className="text-muted-foreground">
+												{batch.status}
+											</TableCell>
+											<TableCell className="text-muted-foreground">
+												{formatDateTime(batch.createdAt)}
+											</TableCell>
+											<TableCell>
+												<Badge
+													variant={
+														batch.rawFileStored ? "destructive" : "secondary"
+													}
+												>
+													{batch.rawFileStored ? "Sim" : "Não"}
+												</Badge>
+											</TableCell>
+										</TableRow>
+									))}
+								</TableBody>
+							</Table>
+						</div>
+					)}
+					<p className="mt-3 text-muted-foreground text-xs">
+						O Finance App não persiste senhas ou credenciais bancárias e não
+						armazena CSV bruto por padrão.
 					</p>
-				) : (
-					<table className="w-full text-left text-sm">
-						<thead className="text-[color:var(--color-text-muted)] text-xs uppercase">
-							<tr>
-								<th className="py-2">Arquivo</th>
-								<th className="py-2">Status</th>
-								<th className="py-2">Quando</th>
-								<th className="py-2">Bruto armazenado</th>
-							</tr>
-						</thead>
-						<tbody>
-							{batchSummary.map((batch) => (
-								<tr
-									className="border-[color:var(--color-border-subtle)] border-t"
-									key={batch.id}
-								>
-									<td className="py-2 font-mono text-[color:var(--color-text)] text-xs">
-										{batch.originalFileName}
-									</td>
-									<td className="py-2 text-[color:var(--color-text-muted)]">
-										{batch.status}
-									</td>
-									<td className="py-2 text-[color:var(--color-text-muted)]">
-										{formatDateTime(batch.createdAt)}
-									</td>
-									<td className="py-2 text-[color:var(--color-text-muted)]">
-										{batch.rawFileStored ? "Sim" : "Não"}
-									</td>
-								</tr>
-							))}
-						</tbody>
-					</table>
-				)}
-				<p className="mt-3 text-[color:var(--color-text-subtle)] text-xs">
-					O Finance App não persiste senhas ou credenciais bancárias e não
-					armazena CSV bruto por padrão.
-				</p>
-			</Panel>
+				</CardContent>
+			</Card>
 		</div>
 	);
 }

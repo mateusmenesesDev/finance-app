@@ -1,8 +1,20 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { SubmitButton } from "~/components/submit-button";
+import { Button } from "~/components/ui/button";
+import {
+	Card,
+	CardContent,
+	CardDescription,
+	CardHeader,
+	CardTitle,
+} from "~/components/ui/card";
+import { Input } from "~/components/ui/input";
+import { Label } from "~/components/ui/label";
 import { authClient } from "~/server/better-auth/client";
 
 export function ResetPasswordForm({ token }: { token: string }) {
@@ -13,109 +25,133 @@ export function ResetPasswordForm({ token }: { token: string }) {
 
 	if (success) {
 		return (
-			<div className="rounded-3xl border border-[color:var(--color-border-subtle)] bg-[color:var(--color-surface)] p-6 shadow-2xl shadow-black/10">
-				<p className="font-medium text-[color:var(--color-accent)] text-sm">
-					Senha redefinida
-				</p>
-				<p className="mt-3 text-[color:var(--color-text)]">{success}</p>
-				<button
-					className="mt-6 w-full rounded-full bg-[color:var(--color-accent-strong)] px-6 py-3 font-semibold text-[color:var(--color-accent-text)] transition hover:opacity-90"
-					onClick={() => router.push("/")}
-					type="button"
-				>
-					Ir para entrar
-				</button>
-			</div>
+			<Card className="w-full">
+				<CardHeader>
+					<CardDescription className="text-primary">
+						Senha redefinida
+					</CardDescription>
+					<CardTitle className="text-2xl">Redefinir senha</CardTitle>
+				</CardHeader>
+				<CardContent className="grid gap-4">
+					<p>{success}</p>
+					<Button
+						className="w-full"
+						onClick={() => router.push("/")}
+						type="button"
+					>
+						Ir para entrar
+					</Button>
+					<Link
+						className="text-muted-foreground text-sm underline-offset-4 hover:text-foreground hover:underline"
+						href="/"
+					>
+						Voltar para entrar
+					</Link>
+				</CardContent>
+			</Card>
 		);
 	}
 
 	return (
-		<form
-			className="rounded-3xl border border-[color:var(--color-border-subtle)] bg-[color:var(--color-surface)] p-6 shadow-2xl shadow-black/10"
-			onSubmit={async (event) => {
-				event.preventDefault();
-				setError(null);
+		<Card className="w-full">
+			<CardHeader>
+				<CardDescription className="text-primary">
+					Recuperar acesso
+				</CardDescription>
+				<CardTitle className="text-2xl">Redefinir senha</CardTitle>
+			</CardHeader>
+			<CardContent>
+				<form
+					className="flex flex-col gap-4"
+					onSubmit={async (event) => {
+						event.preventDefault();
+						setError(null);
 
-				const formData = new FormData(event.currentTarget);
-				const password = String(formData.get("password") ?? "");
-				const confirm = String(formData.get("confirm") ?? "");
+						const formData = new FormData(event.currentTarget);
+						const password = String(formData.get("password") ?? "");
+						const confirm = String(formData.get("confirm") ?? "");
 
-				if (password.length < 8) {
-					setError("A senha precisa ter pelo menos 8 caracteres.");
-					return;
-				}
-				if (password !== confirm) {
-					setError("A confirmação não bate com a nova senha.");
-					return;
-				}
+						if (password.length < 8) {
+							setError("A senha precisa ter pelo menos 8 caracteres.");
+							return;
+						}
+						if (password !== confirm) {
+							setError("A confirmação não bate com a nova senha.");
+							return;
+						}
 
-				setIsSubmitting(true);
-				const result = await authClient.resetPassword({
-					newPassword: password,
-					token,
-				});
-				setIsSubmitting(false);
+						setIsSubmitting(true);
+						const result = await authClient.resetPassword({
+							newPassword: password,
+							token,
+						});
+						setIsSubmitting(false);
 
-				if (result.error) {
-					const code = result.error.code ?? "";
-					if (
-						code.includes("TOKEN") ||
-						code.includes("EXPIRED") ||
-						code.includes("INVALID")
-					) {
-						setError(
-							"Este link de redefinição é inválido ou expirou. Peça um novo.",
+						if (result.error) {
+							const code = result.error.code ?? "";
+							if (
+								code.includes("TOKEN") ||
+								code.includes("EXPIRED") ||
+								code.includes("INVALID")
+							) {
+								setError(
+									"Este link de redefinição é inválido ou expirou. Peça um novo.",
+								);
+								return;
+							}
+							setError(
+								result.error.message ||
+									"Não foi possível redefinir a senha. Tente novamente.",
+							);
+							return;
+						}
+
+						setSuccess(
+							"Sua senha foi atualizada. Use a nova senha para entrar na sua conta.",
 						);
-						return;
-					}
-					setError(
-						result.error.message ||
-							"Não foi possível redefinir a senha. Tente novamente.",
-					);
-					return;
-				}
+					}}
+				>
+					<div className="grid gap-2">
+						<Label htmlFor="password">Nova senha</Label>
+						<Input
+							autoComplete="new-password"
+							id="password"
+							minLength={8}
+							name="password"
+							required
+							type="password"
+						/>
+					</div>
+					<div className="grid gap-2">
+						<Label htmlFor="confirm">Confirmar nova senha</Label>
+						<Input
+							autoComplete="new-password"
+							id="confirm"
+							minLength={8}
+							name="confirm"
+							required
+							type="password"
+						/>
+					</div>
 
-				setSuccess(
-					"Sua senha foi atualizada. Use a nova senha para entrar na sua conta.",
-				);
-			}}
-		>
-			<div className="flex flex-col gap-4">
-				<label className="flex flex-col gap-2 text-[color:var(--color-text-muted)] text-sm">
-					Nova senha
-					<input
-						autoComplete="new-password"
-						className="rounded-xl border border-[color:var(--color-border)] bg-[color:var(--color-surface-muted)] px-4 py-3 text-[color:var(--color-text)] outline-none transition focus:border-[color:var(--color-accent)]"
-						minLength={8}
-						name="password"
-						required
-						type="password"
-					/>
-				</label>
-				<label className="flex flex-col gap-2 text-[color:var(--color-text-muted)] text-sm">
-					Confirmar nova senha
-					<input
-						autoComplete="new-password"
-						className="rounded-xl border border-[color:var(--color-border)] bg-[color:var(--color-surface-muted)] px-4 py-3 text-[color:var(--color-text)] outline-none transition focus:border-[color:var(--color-accent)]"
-						minLength={8}
-						name="confirm"
-						required
-						type="password"
-					/>
-				</label>
-			</div>
+					{error ? <p className="text-destructive text-sm">{error}</p> : null}
 
-			{error && (
-				<p className="mt-4 text-[color:var(--color-bad)] text-sm">{error}</p>
-			)}
+					<SubmitButton
+						className="mt-2 w-full"
+						disabled={isSubmitting}
+						pendingLabel="Salvando..."
+					>
+						{isSubmitting ? "Salvando..." : "Redefinir senha"}
+					</SubmitButton>
 
-			<button
-				className="mt-6 w-full rounded-full bg-[color:var(--color-accent-strong)] px-6 py-3 font-semibold text-[color:var(--color-accent-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-				disabled={isSubmitting}
-				type="submit"
-			>
-				{isSubmitting ? "Salvando..." : "Redefinir senha"}
-			</button>
-		</form>
+					<Link
+						className="text-muted-foreground text-sm underline-offset-4 hover:text-foreground hover:underline"
+						href="/"
+					>
+						Voltar para entrar
+					</Link>
+				</form>
+			</CardContent>
+		</Card>
 	);
 }

@@ -2,14 +2,22 @@ import { and, asc, desc, eq, isNotNull } from "drizzle-orm";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { ComparisonTable, TimelineTable } from "~/app/cash-flow/_components";
+import { AppShell } from "~/components/app-shell";
+import { EmptyState } from "~/components/empty-state";
+import { Money } from "~/components/money";
+import { PageHeader } from "~/components/page-header";
+import { StatCard } from "~/components/stat-card";
+import { SubmitButton } from "~/components/submit-button";
 import {
-	FinanceShell,
-	Panel,
-	Select,
-	SubmitButton,
-	SummaryCard,
-	TextInput,
-} from "~/app/_components/finance-ui";
+	Card,
+	CardContent,
+	CardDescription,
+	CardHeader,
+	CardTitle,
+} from "~/components/ui/card";
+import { Input } from "~/components/ui/input";
+import { Label } from "~/components/ui/label";
 import {
 	aggregateCashFlow,
 	comparePlannedVsRealized,
@@ -60,6 +68,9 @@ const presetOptions = {
 	"12m": "12 meses",
 	custom: "Livre",
 };
+
+const selectClass =
+	"flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50";
 
 export default async function CashFlowPage({
 	searchParams,
@@ -191,293 +202,308 @@ export default async function CashFlowPage({
 	const plannedExpense =
 		aggregate.totals.plannedExpense + aggregate.totals.invoiceOutflow;
 
+	const timelineRows = timeline.map((row, index) => {
+		const bucket = aggregate.buckets[index];
+		const invoiceOutflow = bucket?.invoiceOutflow ?? 0;
+		return {
+			bucketKey: row.bucketKey,
+			period: `${formatDate(row.bucketStart)} – ${formatDate(row.bucketEnd)}`,
+			realized: row.realized,
+			planned: row.planned + invoiceOutflow,
+			invoiceOutflow,
+			closingCents: row.closingCents,
+		};
+	});
+	const comparisonRows = comparison.map((row) => ({
+		key: row.key,
+		plannedCents: row.plannedCents,
+		realizedCents: row.realizedCents,
+		deltaCents: row.deltaCents,
+		deltaPercent:
+			row.deltaPercent === null ? "—" : formatPercent(row.deltaPercent),
+	}));
+
 	return (
-		<FinanceShell
-			description="Projete entradas, saídas, faturas e risco de saldo negativo sem misturar realizado, previsto e pendente."
-			eyebrow="Fluxo de caixa"
-			title="Fluxo de caixa"
-		>
-			<Panel title="Filtros do fluxo">
-				<form className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 xl:items-end">
-					<label
-						className="grid gap-1 text-[color:var(--color-text-muted)] text-sm"
-						htmlFor="granularity"
-					>
-						Granularidade
-						<Select
-							defaultValue={granularity}
-							id="granularity"
-							name="granularity"
-							options={granularityOptions}
-						/>
-					</label>
-					<label
-						className="grid gap-1 text-[color:var(--color-text-muted)] text-sm"
-						htmlFor="windowPreset"
-					>
-						Janela
-						<Select
-							defaultValue={params?.windowPreset ?? "30d"}
-							id="windowPreset"
-							name="windowPreset"
-							options={presetOptions}
-						/>
-					</label>
-					<label
-						className="grid gap-1 text-[color:var(--color-text-muted)] text-sm"
-						htmlFor="windowStart"
-					>
-						Início livre
-						<TextInput
-							defaultValue={window.start}
-							id="windowStart"
-							name="windowStart"
-							type="date"
-						/>
-					</label>
-					<label
-						className="grid gap-1 text-[color:var(--color-text-muted)] text-sm"
-						htmlFor="accountId"
-					>
-						Conta
-						<Select
-							defaultValue={String(selectedAccountFilter)}
-							id="accountId"
-							name="accountId"
-							options={accountOptions}
-						/>
-					</label>
-					<input name="windowEnd" type="hidden" value={window.end} />
-					<SubmitButton pendingLabel="Atualizando...">Atualizar</SubmitButton>
-				</form>
-				<p className="mt-4 text-[color:var(--color-text-subtle)] text-xs">
-					Período: {formatDate(window.start)} – {formatDate(window.end)}.
-				</p>
-			</Panel>
+		<AppShell user={{ name: session.user.name, email: session.user.email }}>
+			<PageHeader
+				description="Projete entradas, saídas, faturas e risco de saldo negativo sem misturar realizado, previsto e pendente."
+				eyebrow="Fluxo de caixa"
+				title="Fluxo de caixa"
+			/>
+
+			<Card>
+				<CardHeader>
+					<CardTitle>Filtros do fluxo</CardTitle>
+				</CardHeader>
+				<CardContent>
+					<form className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 xl:items-end">
+						<div className="grid gap-2">
+							<Label htmlFor="granularity">Granularidade</Label>
+							<select
+								className={selectClass}
+								defaultValue={granularity}
+								id="granularity"
+								name="granularity"
+							>
+								{Object.entries(granularityOptions).map(([value, label]) => (
+									<option key={value} value={value}>
+										{label}
+									</option>
+								))}
+							</select>
+						</div>
+						<div className="grid gap-2">
+							<Label htmlFor="windowPreset">Janela</Label>
+							<select
+								className={selectClass}
+								defaultValue={params?.windowPreset ?? "30d"}
+								id="windowPreset"
+								name="windowPreset"
+							>
+								{Object.entries(presetOptions).map(([value, label]) => (
+									<option key={value} value={value}>
+										{label}
+									</option>
+								))}
+							</select>
+						</div>
+						<div className="grid gap-2">
+							<Label htmlFor="windowStart">Início livre</Label>
+							<Input
+								defaultValue={window.start}
+								id="windowStart"
+								name="windowStart"
+								type="date"
+							/>
+						</div>
+						<div className="grid gap-2">
+							<Label htmlFor="accountId">Conta</Label>
+							<select
+								className={selectClass}
+								defaultValue={String(selectedAccountFilter)}
+								id="accountId"
+								name="accountId"
+							>
+								{Object.entries(accountOptions).map(([value, label]) => (
+									<option key={value} value={value}>
+										{label}
+									</option>
+								))}
+							</select>
+						</div>
+						<input name="windowEnd" type="hidden" value={window.end} />
+						<SubmitButton pendingLabel="Atualizando...">Atualizar</SubmitButton>
+					</form>
+					<p className="mt-4 text-muted-foreground text-xs">
+						Período: {formatDate(window.start)} – {formatDate(window.end)}.
+					</p>
+				</CardContent>
+			</Card>
 
 			<section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-				<SummaryCard
+				<StatCard
 					label="Entradas previstas"
+					tone="success"
 					value={formatMoney(plannedIncome)}
-					variant="good"
 				/>
-				<SummaryCard
+				<StatCard
 					label="Saídas previstas"
+					tone="destructive"
 					value={formatMoney(plannedExpense)}
-					variant="bad"
 				/>
-				<SummaryCard
+				<StatCard
 					label="Saldo projetado consolidado"
+					tone={finalConsolidated >= 0 ? "success" : "destructive"}
 					value={formatMoney(finalConsolidated)}
-					variant={finalConsolidated >= 0 ? "good" : "bad"}
 				/>
-				<SummaryCard
+				<StatCard
 					description={
 						minConsolidated ? formatDate(minConsolidated.date) : undefined
 					}
 					label="Mínimo projetado"
+					tone={
+						(minConsolidated?.balanceCents ?? finalConsolidated) >= 0
+							? "default"
+							: "destructive"
+					}
 					value={formatMoney(
 						minConsolidated?.balanceCents ?? finalConsolidated,
 					)}
-					variant={
-						(minConsolidated?.balanceCents ?? finalConsolidated) >= 0
-							? "default"
-							: "bad"
-					}
 				/>
 			</section>
 
-			<Panel title="Saldo projetado por conta">
-				{accountProjections.length > 0 ? (
-					<div className="grid gap-3">
-						{accountProjections.map((projection) => (
-							<div
-								className="rounded-2xl border border-[color:var(--color-border-subtle)] bg-[color:var(--color-surface-muted)] p-4"
-								key={projection.accountId}
-							>
-								<div className="flex items-start justify-between gap-4">
-									<div>
-										<p className="font-medium">{projection.accountName}</p>
-										<p className="text-[color:var(--color-text-subtle)] text-xs">
-											Mínimo {formatMoney(projection.minCents)} em{" "}
-											{formatDate(projection.minDate)}
-										</p>
+			<Card>
+				<CardHeader>
+					<CardTitle>Saldo projetado por conta</CardTitle>
+				</CardHeader>
+				<CardContent>
+					{accountProjections.length > 0 ? (
+						<div className="grid gap-3">
+							{accountProjections.map((projection) => (
+								<div
+									className="rounded-md border bg-muted/20 p-4"
+									key={projection.accountId}
+								>
+									<div className="flex items-start justify-between gap-4">
+										<div>
+											<p className="font-medium">{projection.accountName}</p>
+											<p className="text-muted-foreground text-xs">
+												Mínimo {formatMoney(projection.minCents)} em{" "}
+												{formatDate(projection.minDate)}
+											</p>
+										</div>
+										<Money
+											cents={projection.closingProjectedCents}
+											className="font-semibold"
+										/>
 									</div>
-									<p className="font-semibold">
-										{formatMoney(projection.closingProjectedCents)}
-									</p>
+									<Sparkline
+										values={projection.dailyBalances.map(
+											(item) => item.balanceCents,
+										)}
+									/>
 								</div>
-								<Sparkline
-									values={projection.dailyBalances.map(
-										(item) => item.balanceCents,
-									)}
-								/>
-							</div>
-						))}
-					</div>
-				) : (
-					<EmptyState text="Nenhuma conta normal ativa para projetar." />
-				)}
-			</Panel>
+							))}
+						</div>
+					) : (
+						<EmptyState title="Nenhuma conta normal ativa para projetar." />
+					)}
+				</CardContent>
+			</Card>
 
-			<Panel
-				description="Consolidado inclui faturas futuras; saldos por banco não assumem qual conta pagará o cartão."
-				title="Linha do tempo"
-			>
-				{timeline.length > 0 ? (
-					<div className="overflow-x-auto">
-						<table className="w-full text-left text-sm">
-							<thead className="text-[color:var(--color-text-muted)]">
-								<tr>
-									<th className="py-2 pr-4">Período</th>
-									<th className="py-2 pr-4">Realizado</th>
-									<th className="py-2 pr-4">Previsto</th>
-									<th className="py-2 pr-4">Fatura</th>
-									<th className="py-2 pr-4">Saldo acumulado</th>
-								</tr>
-							</thead>
-							<tbody>
-								{timeline.map((row, index) => {
-									const bucket = aggregate.buckets[index];
-									return (
-										<tr
-											className="border-[color:var(--color-border-subtle)] border-t"
-											key={row.bucketKey}
-										>
-											<td className="py-3 pr-4">
-												{formatDate(row.bucketStart)} –{" "}
-												{formatDate(row.bucketEnd)}
-											</td>
-											<td className="py-3 pr-4">{formatMoney(row.realized)}</td>
-											<td className="py-3 pr-4">
-												{formatMoney(
-													row.planned + (bucket?.invoiceOutflow ?? 0),
-												)}
-											</td>
-											<td className="py-3 pr-4">
-												{formatMoney(bucket?.invoiceOutflow ?? 0)}
-											</td>
-											<td className="py-3 pr-4 font-semibold">
-												{formatMoney(row.closingCents)}
-											</td>
-										</tr>
-									);
-								})}
-							</tbody>
-						</table>
-					</div>
-				) : (
-					<EmptyState text="Nenhum bucket no período selecionado." />
-				)}
-			</Panel>
+			<Card>
+				<CardHeader>
+					<CardTitle>Linha do tempo</CardTitle>
+					<CardDescription>
+						Consolidado inclui faturas futuras; saldos por banco não assumem
+						qual conta pagará o cartão.
+					</CardDescription>
+				</CardHeader>
+				<CardContent>
+					<TimelineTable rows={timelineRows} />
+				</CardContent>
+			</Card>
 
 			<section className="grid gap-6 lg:grid-cols-2">
-				<Panel title="Faturas futuras de cartão">
-					{invoices.length > 0 ? (
-						<div className="grid gap-3">
-							{invoices.map((invoice) => (
-								<div
-									className="flex items-start justify-between gap-4 rounded-2xl border border-[color:var(--color-border-subtle)] bg-[color:var(--color-surface-muted)] p-4"
-									key={`${invoice.accountId}-${invoice.key}`}
-								>
-									<div>
-										<p className="font-medium">{invoice.accountName}</p>
-										<p className="text-[color:var(--color-text-subtle)] text-xs">
-											Vence {formatDate(invoice.dueDate)} · pago{" "}
-											{formatMoney(invoice.paidCents)}
+				<Card>
+					<CardHeader>
+						<CardTitle>Faturas futuras de cartão</CardTitle>
+					</CardHeader>
+					<CardContent>
+						{invoices.length > 0 ? (
+							<div className="grid gap-3">
+								{invoices.map((invoice) => (
+									<div
+										className="flex items-start justify-between gap-4 rounded-md border bg-muted/20 p-4"
+										key={`${invoice.accountId}-${invoice.key}`}
+									>
+										<div>
+											<p className="font-medium">{invoice.accountName}</p>
+											<p className="text-muted-foreground text-xs">
+												Vence {formatDate(invoice.dueDate)} · pago{" "}
+												{formatMoney(invoice.paidCents)}
+											</p>
+										</div>
+										<Money
+											cents={invoice.remainingCents}
+											className="font-semibold"
+											sign="debit"
+										/>
+									</div>
+								))}
+							</div>
+						) : (
+							<EmptyState title="Nenhuma fatura futura aberta na janela." />
+						)}
+					</CardContent>
+				</Card>
+
+				<Card>
+					<CardHeader>
+						<CardTitle>Alertas de saldo</CardTitle>
+					</CardHeader>
+					<CardContent>
+						{alerts.length > 0 ? (
+							<div className="grid gap-3">
+								{alerts.map((alert) => (
+									<div
+										className="rounded-md border border-destructive/40 bg-destructive/10 p-4 text-destructive"
+										key={alert.accountId}
+									>
+										<p className="font-medium">{alert.accountName}</p>
+										<p className="mt-1 text-sm opacity-80">
+											Pode chegar a {formatMoney(alert.minCents)} em{" "}
+											{formatDate(alert.minDate)}.
 										</p>
 									</div>
-									<p className="font-semibold text-[color:var(--color-bad)]">
-										{formatMoney(invoice.remainingCents)}
-									</p>
-								</div>
-							))}
-						</div>
-					) : (
-						<EmptyState text="Nenhuma fatura futura aberta na janela." />
-					)}
-				</Panel>
-
-				<Panel title="Alertas de saldo">
-					{alerts.length > 0 ? (
-						<div className="grid gap-3">
-							{alerts.map((alert) => (
-								<div
-									className="rounded-2xl border border-[color:var(--color-bad-border)] bg-[color:var(--color-bad-bg)] p-4 text-[color:var(--color-bad)]"
-									key={alert.accountId}
-								>
-									<p className="font-medium">{alert.accountName}</p>
-									<p className="mt-1 text-sm opacity-80">
-										Pode chegar a {formatMoney(alert.minCents)} em{" "}
-										{formatDate(alert.minDate)}.
-									</p>
-								</div>
-							))}
-						</div>
-					) : (
-						<EmptyState text="Nenhum risco de saldo negativo na janela." />
-					)}
-				</Panel>
+								))}
+							</div>
+						) : (
+							<EmptyState title="Nenhum risco de saldo negativo na janela." />
+						)}
+					</CardContent>
+				</Card>
 			</section>
 
 			<section className="grid gap-6 lg:grid-cols-2">
-				<Panel title="Previsto vs Realizado">
-					<SimpleTable
-						headers={["Período", "Previsto", "Realizado", "Δ R$", "Δ %"]}
-						rows={comparison.map((row) => [
-							row.key,
-							formatMoney(row.plannedCents),
-							formatMoney(row.realizedCents),
-							formatMoney(row.deltaCents),
-							row.deltaPercent === null ? "—" : formatPercent(row.deltaPercent),
-						])}
-					/>
-				</Panel>
+				<Card>
+					<CardHeader>
+						<CardTitle>Previsto vs Realizado</CardTitle>
+					</CardHeader>
+					<CardContent>
+						<ComparisonTable rows={comparisonRows} />
+					</CardContent>
+				</Card>
 
-				<Panel title="Pendente de revisão">
-					{pending.transactionCount === 0 && pending.importRowCount === 0 ? (
-						<EmptyState text="Nada pendente de revisão." />
-					) : (
-						<div className="grid gap-3 text-sm">
-							{pending.transactions.slice(0, 6).map((transaction) => (
-								<div
-									className="rounded-2xl border border-[color:var(--color-border-subtle)] bg-[color:var(--color-surface-muted)] p-4"
-									key={`tx-${transaction.id}`}
-								>
-									<p className="font-medium">
-										{transaction.description ??
-											transaction.originalDescription ??
-											"Transação pendente"}
-									</p>
-									<p className="text-[color:var(--color-text-subtle)] text-xs">
-										{formatDate(transaction.occurredOn)} ·{" "}
-										{formatMoney(transaction.amountCents)}
-									</p>
-								</div>
-							))}
-							{pending.importRows.slice(0, 8).map((row) => {
-								const batch = batchById.get(row.batchId);
-								return (
-									<Link
-										className="rounded-2xl border border-[color:var(--color-border-subtle)] bg-[color:var(--color-surface-muted)] p-4 transition hover:border-[color:var(--color-border)]"
-										href={`/import?batchId=${row.batchId}`}
-										key={`row-${row.id}`}
+				<Card>
+					<CardHeader>
+						<CardTitle>Pendente de revisão</CardTitle>
+					</CardHeader>
+					<CardContent>
+						{pending.transactionCount === 0 && pending.importRowCount === 0 ? (
+							<EmptyState title="Nada pendente de revisão." />
+						) : (
+							<div className="grid gap-3 text-sm">
+								{pending.transactions.slice(0, 6).map((transaction) => (
+									<div
+										className="rounded-md border bg-muted/20 p-4"
+										key={`tx-${transaction.id}`}
 									>
 										<p className="font-medium">
-											{row.originalDescription ?? `Linha ${row.rowNumber}`}
+											{transaction.description ??
+												transaction.originalDescription ??
+												"Transação pendente"}
 										</p>
-										<p className="text-[color:var(--color-text-subtle)] text-xs">
-											{batch?.originalFileName ?? "Importação"} · linha{" "}
-											{row.rowNumber}
+										<p className="text-muted-foreground text-xs">
+											{formatDate(transaction.occurredOn)} ·{" "}
+											{formatMoney(transaction.amountCents)}
 										</p>
-									</Link>
-								);
-							})}
-						</div>
-					)}
-				</Panel>
+									</div>
+								))}
+								{pending.importRows.slice(0, 8).map((row) => {
+									const batch = batchById.get(row.batchId);
+									return (
+										<Link
+											className="rounded-md border bg-muted/20 p-4 transition hover:border-primary/50 hover:bg-muted/30"
+											href={`/import?batchId=${row.batchId}`}
+											key={`row-${row.id}`}
+										>
+											<p className="font-medium">
+												{row.originalDescription ?? `Linha ${row.rowNumber}`}
+											</p>
+											<p className="text-muted-foreground text-xs">
+												{batch?.originalFileName ?? "Importação"} · linha{" "}
+												{row.rowNumber}
+											</p>
+										</Link>
+									);
+								})}
+							</div>
+						)}
+					</CardContent>
+				</Card>
 			</section>
-		</FinanceShell>
+		</AppShell>
 	);
 }
 
@@ -486,62 +512,15 @@ function Sparkline({ values }: { values: number[] }) {
 	const max = Math.max(...values, 0);
 	const span = Math.max(1, max - min);
 	return (
-		<div className="mt-3 flex h-8 items-end gap-1 rounded-xl bg-[color:var(--color-surface)] p-1">
+		<div className="mt-3 flex h-8 items-end gap-1 rounded-md bg-muted p-1">
 			{values.slice(0, 60).map((value) => (
 				<div
-					className="min-w-1 flex-1 rounded bg-[color:var(--color-accent)]"
+					className="min-w-1 flex-1 rounded bg-primary"
 					key={value}
 					style={{ height: `${10 + ((value - min) / span) * 90}%` }}
 				/>
 			))}
 		</div>
-	);
-}
-
-function SimpleTable({
-	headers,
-	rows,
-}: {
-	headers: string[];
-	rows: string[][];
-}) {
-	if (rows.length === 0) return <EmptyState text="Sem dados para exibir." />;
-	return (
-		<div className="overflow-x-auto">
-			<table className="w-full text-left text-sm">
-				<thead className="text-[color:var(--color-text-muted)]">
-					<tr>
-						{headers.map((header) => (
-							<th className="py-2 pr-4" key={header}>
-								{header}
-							</th>
-						))}
-					</tr>
-				</thead>
-				<tbody>
-					{rows.map((row) => (
-						<tr
-							className="border-[color:var(--color-border-subtle)] border-t"
-							key={row.join(":")}
-						>
-							{headers.map((header, index) => (
-								<td className="py-3 pr-4" key={header}>
-									{row[index]}
-								</td>
-							))}
-						</tr>
-					))}
-				</tbody>
-			</table>
-		</div>
-	);
-}
-
-function EmptyState({ text }: { text: string }) {
-	return (
-		<p className="rounded-2xl border border-[color:var(--color-border-subtle)] bg-[color:var(--color-surface-muted)] p-4 text-[color:var(--color-text-muted)] text-sm">
-			{text}
-		</p>
 	);
 }
 
