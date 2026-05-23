@@ -1,4 +1,5 @@
 import { asc, desc, eq } from "drizzle-orm";
+import { AlertTriangle, PiggyBank, Plus } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -7,16 +8,33 @@ import {
 	createOrUpdateBudget,
 	deleteBudget,
 } from "~/app/_actions/finance-actions";
+import { AppShell } from "~/components/app-shell";
+import { ConfirmDialog } from "~/components/confirm-dialog";
+import { EmptyState } from "~/components/empty-state";
+import { PageHeader } from "~/components/page-header";
+import { StatCard } from "~/components/stat-card";
+import { SubmitButton } from "~/components/submit-button";
+import { Badge } from "~/components/ui/badge";
+import { Button } from "~/components/ui/button";
 import {
-	BudgetProgress,
-	FinanceShell,
-	inputClass,
-	Panel,
-	Select,
-	SubmitButton,
-	SummaryCard,
-	TextInput,
-} from "~/app/_components/finance-ui";
+	Card,
+	CardContent,
+	CardDescription,
+	CardHeader,
+	CardTitle,
+} from "~/components/ui/card";
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+	DialogTrigger,
+} from "~/components/ui/dialog";
+import { Input } from "~/components/ui/input";
+import { Label } from "~/components/ui/label";
+import { Progress } from "~/components/ui/progress";
 import {
 	type BudgetScope,
 	buildBudgetHistory,
@@ -43,7 +61,6 @@ import {
 
 type BudgetsPageProps = {
 	searchParams?: Promise<{
-		edit?: string;
 		historyScope?: string;
 		month?: string;
 	}>;
@@ -55,6 +72,10 @@ const scopeLabels = {
 	month: "Mês geral",
 };
 
+type BudgetRow = typeof monthlyBudgets.$inferSelect;
+type CategoryRow = typeof categories.$inferSelect;
+type GroupRow = typeof categoryGroups.$inferSelect;
+
 export default async function BudgetsPage({ searchParams }: BudgetsPageProps) {
 	const session = await getSession();
 	if (!session?.user.id) redirect("/");
@@ -63,7 +84,6 @@ export default async function BudgetsPage({ searchParams }: BudgetsPageProps) {
 	const period = params?.month
 		? (parseMonthPeriod(params.month) ?? getMonthPeriod())
 		: getMonthPeriod();
-	const editId = params?.edit ? Number.parseInt(params.edit, 10) : null;
 	const [allBudgets, allCategories, allGroups, allTransactions] =
 		await Promise.all([
 			db
@@ -129,9 +149,6 @@ export default async function BudgetsPage({ searchParams }: BudgetsPageProps) {
 		monthBudgets,
 		allCategories,
 	);
-	const editingBudget = editId
-		? allBudgets.find((budget) => budget.id === editId)
-		: null;
 	const historySelection = parseHistorySelection(params?.historyScope);
 	const historyMonthKeys = lastMonthKeys(period.key, 6);
 	const historyRows = buildBudgetHistory(
@@ -150,236 +167,200 @@ export default async function BudgetsPage({ searchParams }: BudgetsPageProps) {
 	).filter((option) => option.key !== period.key);
 
 	return (
-		<FinanceShell
-			description="Planeje limites mensais e acompanhe previsto vs realizado por mês, grupo e categoria."
-			eyebrow="Orçamento"
-			title={`Orçamento de ${formatMonthLabel(period)}`}
-		>
-			<Panel title="Mês analisado">
-				<div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-					<div>
-						<p className="text-[color:var(--color-text-muted)] text-sm">
-							{period.key}
-						</p>
-						<p className="mt-1 text-[color:var(--color-text-subtle)] text-sm capitalize">
-							{formatMonthLabel(period)}
-						</p>
+		<AppShell user={{ name: session.user.name, email: session.user.email }}>
+			<PageHeader
+				actions={
+					<div className="flex flex-wrap items-end gap-2">
+						<form className="flex items-end gap-2">
+							<div className="grid gap-1">
+								<Label className="text-xs" htmlFor="budget-month">
+									Mês
+								</Label>
+								<Input
+									className="h-9"
+									defaultValue={period.key}
+									id="budget-month"
+									name="month"
+									type="month"
+								/>
+							</div>
+							<SubmitButton pendingLabel="Atualizando..." size="sm">
+								Atualizar
+							</SubmitButton>
+						</form>
+						<BudgetDialog
+							categories={activeExpenseCategories}
+							groups={activeExpenseGroups}
+							monthKey={period.key}
+						/>
 					</div>
-					<form className="flex flex-wrap items-end gap-3">
-						<label
-							className="grid gap-1 text-[color:var(--color-text-muted)] text-sm"
-							htmlFor="budget-month"
-						>
-							Mês
-							<TextInput
-								defaultValue={period.key}
-								id="budget-month"
-								name="month"
-								type="month"
-							/>
-						</label>
-						<SubmitButton pendingLabel="Atualizando...">Atualizar</SubmitButton>
-					</form>
-				</div>
-				<div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-					<SummaryCard
-						label="Previsto consolidado"
-						value={plannedCents ? formatMoney(plannedCents) : "Não configurado"}
-						variant={plannedCents ? "default" : "warn"}
-					/>
-					<SummaryCard
-						label="Realizado"
-						value={formatMoney(totalSpentCents)}
-						variant="bad"
-					/>
-					<SummaryCard
-						label="Consumido"
-						value={plannedCents ? formatPercent(summaryPercent) : "—"}
-						variant={statusVariant(summaryStatus)}
-					/>
-					<SummaryCard
-						label="Status"
-						value={statusLabel(summaryStatus)}
-						variant={statusVariant(summaryStatus)}
-					/>
-				</div>
-				{plannedCents ? <BudgetProgress percent={summaryPercent} /> : null}
-			</Panel>
+				}
+				description="Planeje limites mensais e acompanhe previsto vs realizado por mês, grupo e categoria."
+				eyebrow="Orçamento"
+				title={`Orçamento de ${formatMonthLabel(period)}`}
+			/>
 
-			{coherenceWarnings.length > 0 ? (
-				<Panel title="Avisos de coerência">
-					<ul className="grid gap-2 text-[color:var(--color-warn)] text-sm">
-						{coherenceWarnings.map((warning) => (
-							<li
-								className="rounded-2xl border border-[color:var(--color-warn-border)] bg-[color:var(--color-warn-bg)] p-4"
-								key={warning}
-							>
-								{warning}
-							</li>
-						))}
-					</ul>
-				</Panel>
+			<section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+				<StatCard
+					icon={PiggyBank}
+					label="Previsto consolidado"
+					tone={plannedCents ? "default" : "warning"}
+					value={plannedCents ? formatMoney(plannedCents) : "Não configurado"}
+				/>
+				<StatCard
+					label="Realizado"
+					tone="destructive"
+					value={formatMoney(totalSpentCents)}
+				/>
+				<StatCard
+					label="Consumido"
+					tone={statusTone(summaryStatus)}
+					value={plannedCents ? formatPercent(summaryPercent) : "—"}
+				/>
+				<StatCard
+					label="Status"
+					tone={statusTone(summaryStatus)}
+					value={statusLabel(summaryStatus)}
+				/>
+			</section>
+			{plannedCents ? (
+				<Progress value={Math.min(100, summaryPercent * 100)} />
 			) : null}
 
-			<Panel
-				description="Use mês geral, grupo ou categoria de despesa. Valores são salvos em BRL."
-				title={editingBudget ? "Editar orçamento" : "Novo orçamento"}
-			>
-				<form
-					action={createOrUpdateBudget}
-					className="grid gap-3 rounded-2xl border border-[color:var(--color-border-subtle)] p-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5"
-				>
-					<input name="monthKey" type="hidden" value={period.key} />
-					{editingBudget ? (
-						<input name="id" type="hidden" value={editingBudget.id} />
-					) : null}
-					<Select
-						defaultValue={editingBudget?.scope ?? "month"}
-						name="scope"
-						options={scopeLabels}
-					/>
-					<select
-						className={inputClass}
-						defaultValue={editingBudget?.categoryGroupId ?? ""}
-						name="categoryGroupId"
-					>
-						<option value="">Sem grupo</option>
-						{activeExpenseGroups.map((group) => (
-							<option key={group.id} value={group.id}>
-								{group.name}
-							</option>
-						))}
-					</select>
-					<select
-						className={inputClass}
-						defaultValue={editingBudget?.categoryId ?? ""}
-						name="categoryId"
-					>
-						<option value="">Sem categoria</option>
-						{activeExpenseCategories.map((category) => (
-							<option key={category.id} value={category.id}>
-								{category.name}
-							</option>
-						))}
-					</select>
-					<TextInput
-						defaultValue={
-							editingBudget ? formatMoneyInput(editingBudget.amountCents) : ""
-						}
-						name="amount"
-						placeholder="Valor"
-					/>
-					<SubmitButton
-						pendingLabel={editingBudget ? "Salvando..." : "Cadastrando..."}
-					>
-						{editingBudget ? "Salvar" : "Cadastrar"}
-					</SubmitButton>
-				</form>
-				<p className="mt-3 text-[color:var(--color-text-subtle)] text-xs">
-					Para mês geral, deixe grupo e categoria vazios. Para grupo, selecione
-					só grupo. Para categoria, selecione só categoria.
-				</p>
-			</Panel>
+			{coherenceWarnings.length > 0 ? (
+				<Card className="border-warning/40 bg-warning/5">
+					<CardHeader>
+						<CardTitle>Avisos de coerência</CardTitle>
+					</CardHeader>
+					<CardContent>
+						<ul className="grid gap-2 text-sm text-warning">
+							{coherenceWarnings.map((warning) => (
+								<li
+									className="rounded-md border border-warning/40 bg-background/50 p-3"
+									key={warning}
+								>
+									{warning}
+								</li>
+							))}
+						</ul>
+					</CardContent>
+				</Card>
+			) : null}
 
 			<BudgetTable
+				categories={activeExpenseCategories}
+				groups={activeExpenseGroups}
 				monthKey={period.key}
 				rows={usageRows.filter((row) => row.scope === "month")}
 				title="Mês geral"
 			/>
 			<BudgetTable
+				categories={activeExpenseCategories}
+				groups={activeExpenseGroups}
 				monthKey={period.key}
 				rows={usageRows.filter((row) => row.scope === "category_group")}
 				title="Por grupo"
 			/>
 			<BudgetTable
+				categories={activeExpenseCategories}
+				groups={activeExpenseGroups}
 				monthKey={period.key}
 				rows={usageRows.filter((row) => row.scope === "category")}
 				title="Por categoria"
 			/>
 
-			<Panel title="Copiar de outro mês">
-				<form
-					action={copyBudgetMonth}
-					className="grid gap-3 rounded-2xl border border-[color:var(--color-border-subtle)] p-4 md:grid-cols-[1fr_180px]"
-				>
-					<input name="targetMonthKey" type="hidden" value={period.key} />
-					<select className={inputClass} name="sourceMonthKey">
-						{sourceMonths.map((option) => (
-							<option key={option.key} value={option.key}>
-								{formatMonthLabel(option)}
-							</option>
-						))}
-					</select>
-					<SubmitButton pendingLabel="Copiando...">
-						Copiar orçamento
-					</SubmitButton>
-				</form>
-			</Panel>
-
-			<Panel
-				description="Escolha um escopo para comparar previsto, realizado e variações."
-				title="Histórico (6 meses)"
-			>
-				<div className="mb-4 flex flex-wrap gap-2">
-					<HistoryLink
-						active={historySelection.key === "month"}
-						href={`/budgets?month=${period.key}&historyScope=month`}
-						label="Mês geral"
-					/>
-					{activeExpenseGroups.map((group) => (
-						<HistoryLink
-							active={historySelection.key === `group:${group.id}`}
-							href={`/budgets?month=${period.key}&historyScope=group:${group.id}`}
-							key={group.id}
-							label={group.name}
-						/>
-					))}
-					{activeExpenseCategories.map((category) => (
-						<HistoryLink
-							active={historySelection.key === `category:${category.id}`}
-							href={`/budgets?month=${period.key}&historyScope=category:${category.id}`}
-							key={category.id}
-							label={category.name}
-						/>
-					))}
-				</div>
-				<div className="overflow-x-auto">
-					<table className="w-full min-w-[720px] text-left text-sm">
-						<thead className="text-[color:var(--color-text-muted)]">
-							<tr className="border-[color:var(--color-border-subtle)] border-b">
-								<th className="py-2 pr-4">Mês</th>
-								<th className="py-2 pr-4">Previsto</th>
-								<th className="py-2 pr-4">Realizado</th>
-								<th className="py-2 pr-4">%</th>
-								<th className="py-2 pr-4">Δ previsto</th>
-								<th className="py-2 pr-4">Δ realizado</th>
-							</tr>
-						</thead>
-						<tbody>
-							{historyRows.map((row) => (
-								<tr
-									className="border-[color:var(--color-border-subtle)] border-b"
-									key={row.monthKey}
-								>
-									<td className="py-3 pr-4">{row.monthKey}</td>
-									<td className="py-3 pr-4">{moneyOrDash(row.plannedCents)}</td>
-									<td className="py-3 pr-4">{moneyOrDash(row.spentCents)}</td>
-									<td className="py-3 pr-4">
-										{row.percent === null ? "—" : formatPercent(row.percent)}
-									</td>
-									<td className="py-3 pr-4">
-										{moneyOrDash(row.deltaPlannedCents)}
-									</td>
-									<td className="py-3 pr-4">
-										{moneyOrDash(row.deltaSpentCents)}
-									</td>
-								</tr>
+			<Card>
+				<CardHeader>
+					<CardTitle>Copiar de outro mês</CardTitle>
+				</CardHeader>
+				<CardContent>
+					<form
+						action={copyBudgetMonth}
+						className="grid gap-3 md:grid-cols-[1fr_180px]"
+					>
+						<input name="targetMonthKey" type="hidden" value={period.key} />
+						<select className={selectClass} name="sourceMonthKey">
+							{sourceMonths.map((option) => (
+								<option key={option.key} value={option.key}>
+									{formatMonthLabel(option)}
+								</option>
 							))}
-						</tbody>
-					</table>
-				</div>
-			</Panel>
-		</FinanceShell>
+						</select>
+						<SubmitButton pendingLabel="Copiando...">
+							Copiar orçamento
+						</SubmitButton>
+					</form>
+				</CardContent>
+			</Card>
+
+			<Card>
+				<CardHeader>
+					<CardTitle>Histórico (6 meses)</CardTitle>
+					<CardDescription>
+						Escolha um escopo para comparar previsto, realizado e variações.
+					</CardDescription>
+				</CardHeader>
+				<CardContent>
+					<div className="mb-4 flex flex-wrap gap-2">
+						<HistoryLink
+							active={historySelection.key === "month"}
+							href={`/budgets?month=${period.key}&historyScope=month`}
+							label="Mês geral"
+						/>
+						{activeExpenseGroups.map((group) => (
+							<HistoryLink
+								active={historySelection.key === `group:${group.id}`}
+								href={`/budgets?month=${period.key}&historyScope=group:${group.id}`}
+								key={group.id}
+								label={group.name}
+							/>
+						))}
+						{activeExpenseCategories.map((category) => (
+							<HistoryLink
+								active={historySelection.key === `category:${category.id}`}
+								href={`/budgets?month=${period.key}&historyScope=category:${category.id}`}
+								key={category.id}
+								label={category.name}
+							/>
+						))}
+					</div>
+					<div className="overflow-x-auto">
+						<table className="w-full min-w-[720px] text-left text-sm">
+							<thead className="text-muted-foreground">
+								<tr className="border-b">
+									<th className="py-2 pr-4">Mês</th>
+									<th className="py-2 pr-4">Previsto</th>
+									<th className="py-2 pr-4">Realizado</th>
+									<th className="py-2 pr-4">%</th>
+									<th className="py-2 pr-4">Δ previsto</th>
+									<th className="py-2 pr-4">Δ realizado</th>
+								</tr>
+							</thead>
+							<tbody>
+								{historyRows.map((row) => (
+									<tr className="border-b" key={row.monthKey}>
+										<td className="py-3 pr-4">{row.monthKey}</td>
+										<td className="py-3 pr-4">
+											{moneyOrDash(row.plannedCents)}
+										</td>
+										<td className="py-3 pr-4">{moneyOrDash(row.spentCents)}</td>
+										<td className="py-3 pr-4">
+											{row.percent === null ? "—" : formatPercent(row.percent)}
+										</td>
+										<td className="py-3 pr-4">
+											{moneyOrDash(row.deltaPlannedCents)}
+										</td>
+										<td className="py-3 pr-4">
+											{moneyOrDash(row.deltaSpentCents)}
+										</td>
+									</tr>
+								))}
+							</tbody>
+						</table>
+					</div>
+				</CardContent>
+			</Card>
+		</AppShell>
 	);
 }
 
@@ -389,85 +370,246 @@ function BudgetTable({
 	monthKey,
 	rows,
 	title,
+	groups,
+	categories,
 }: {
 	monthKey: string;
 	rows: UsageRow[];
 	title: string;
+	groups: GroupRow[];
+	categories: CategoryRow[];
 }) {
 	return (
-		<Panel title={title}>
-			{rows.length === 0 ? (
-				<p className="rounded-2xl border border-[color:var(--color-border-subtle)] bg-[color:var(--color-surface-muted)] p-4 text-[color:var(--color-text-muted)] text-sm">
-					Nenhum orçamento cadastrado.
-				</p>
-			) : (
-				<div className="overflow-x-auto">
-					<table className="w-full min-w-[820px] text-left text-sm">
-						<thead className="text-[color:var(--color-text-muted)]">
-							<tr className="border-[color:var(--color-border-subtle)] border-b">
-								<th className="py-2 pr-4">Nome</th>
-								<th className="py-2 pr-4">Previsto</th>
-								<th className="py-2 pr-4">Realizado</th>
-								<th className="py-2 pr-4">%</th>
-								<th className="py-2 pr-4">Status</th>
-								<th className="py-2 pr-4">Ações</th>
-							</tr>
-						</thead>
-						<tbody>
-							{rows.map((row) => (
-								<tr
-									className="border-[color:var(--color-border-subtle)] border-b"
-									key={row.budgetId}
-								>
-									<td className="py-3 pr-4">{row.name}</td>
-									<td className="py-3 pr-4">{formatMoney(row.plannedCents)}</td>
-									<td className="py-3 pr-4">{formatMoney(row.spentCents)}</td>
-									<td className="py-3 pr-4">
-										{formatPercent(row.percent)}
-										<BudgetProgress percent={row.percent} />
-									</td>
-									<td className="py-3 pr-4">
-										<StatusBadge status={row.status} />
-									</td>
-									<td className="flex gap-2 py-3 pr-4">
-										<Link
-											className="rounded-xl border border-[color:var(--color-border)] px-3 py-2 text-[color:var(--color-text)] text-xs"
-											href={`/budgets?month=${monthKey}&edit=${row.budgetId}`}
-										>
-											Editar
-										</Link>
-										<form action={deleteBudget}>
-											<input name="id" type="hidden" value={row.budgetId} />
-											<SubmitButton
-												className="px-3 py-2 text-xs"
-												pendingLabel="Excluindo..."
-												variant="danger"
-											>
-												Excluir
-											</SubmitButton>
-										</form>
-									</td>
+		<Card>
+			<CardHeader>
+				<CardTitle>{title}</CardTitle>
+			</CardHeader>
+			<CardContent>
+				{rows.length === 0 ? (
+					<EmptyState
+						description="Nenhum orçamento cadastrado."
+						icon={AlertTriangle}
+						title="Sem orçamento"
+					/>
+				) : (
+					<div className="overflow-x-auto">
+						<table className="w-full min-w-[820px] text-left text-sm">
+							<thead className="text-muted-foreground">
+								<tr className="border-b">
+									<th className="py-2 pr-4">Nome</th>
+									<th className="py-2 pr-4">Previsto</th>
+									<th className="py-2 pr-4">Realizado</th>
+									<th className="py-2 pr-4">%</th>
+									<th className="py-2 pr-4">Status</th>
+									<th className="py-2 pr-4">Ações</th>
 								</tr>
-							))}
-						</tbody>
-					</table>
-				</div>
-			)}
-		</Panel>
+							</thead>
+							<tbody>
+								{rows.map((row) => (
+									<tr className="border-b" key={row.budgetId}>
+										<td className="py-3 pr-4">{row.name}</td>
+										<td className="py-3 pr-4">
+											{formatMoney(row.plannedCents)}
+										</td>
+										<td className="py-3 pr-4">{formatMoney(row.spentCents)}</td>
+										<td className="py-3 pr-4">
+											<span>{formatPercent(row.percent)}</span>
+											<Progress
+												className="mt-2 h-1.5"
+												value={Math.min(100, row.percent * 100)}
+											/>
+										</td>
+										<td className="py-3 pr-4">
+											<StatusBadge status={row.status} />
+										</td>
+										<td className="py-3 pr-4">
+											<div className="flex gap-2">
+												<BudgetDialog
+													budget={rowToBudget(row, monthKey)}
+													categories={categories}
+													groups={groups}
+													monthKey={monthKey}
+												/>
+												<ConfirmDialog
+													action={deleteBudget}
+													confirmLabel="Excluir"
+													destructive
+													hidden={{ id: row.budgetId }}
+													title="Excluir orçamento?"
+													trigger={
+														<Button size="sm" variant="destructive">
+															Excluir
+														</Button>
+													}
+												/>
+											</div>
+										</td>
+									</tr>
+								))}
+							</tbody>
+						</table>
+					</div>
+				)}
+			</CardContent>
+		</Card>
 	);
 }
 
-function StatusBadge({ status }: { status: UsageRow["status"] }) {
-	const className = {
-		near: "border-[color:var(--color-warn-border)] text-[color:var(--color-warn)]",
-		ok: "border-[color:var(--color-good-border)] text-[color:var(--color-good)]",
-		over: "border-[color:var(--color-bad-border)] text-[color:var(--color-bad)]",
-	}[status];
+function BudgetDialog({
+	monthKey,
+	groups,
+	categories,
+	budget,
+}: {
+	monthKey: string;
+	groups: GroupRow[];
+	categories: CategoryRow[];
+	budget?: BudgetRow;
+}) {
 	return (
-		<span className={`rounded-full border px-3 py-1 text-xs ${className}`}>
-			{statusLabel(status)}
-		</span>
+		<Dialog>
+			<DialogTrigger asChild>
+				<Button
+					size={budget ? "sm" : "default"}
+					variant={budget ? "outline" : "default"}
+				>
+					{budget ? (
+						"Editar"
+					) : (
+						<>
+							<Plus className="size-4" />
+							Novo orçamento
+						</>
+					)}
+				</Button>
+			</DialogTrigger>
+			<DialogContent>
+				<DialogHeader>
+					<DialogTitle>
+						{budget ? "Editar orçamento" : "Novo orçamento"}
+					</DialogTitle>
+					<DialogDescription>
+						Use mês geral, grupo ou categoria de despesa. Valores são salvos em
+						BRL.
+					</DialogDescription>
+				</DialogHeader>
+				<form action={createOrUpdateBudget} className="grid gap-4">
+					<input name="monthKey" type="hidden" value={monthKey} />
+					{budget ? <input name="id" type="hidden" value={budget.id} /> : null}
+					<div className="grid gap-4 sm:grid-cols-2">
+						<SelectField
+							defaultValue={budget?.scope ?? "month"}
+							label="Escopo"
+							name="scope"
+							options={scopeLabels}
+						/>
+						<SelectField
+							defaultValue={budget?.categoryGroupId ?? ""}
+							label="Grupo"
+							name="categoryGroupId"
+							options={{
+								"": "Sem grupo",
+								...Object.fromEntries(
+									groups.map((group) => [String(group.id), group.name]),
+								),
+							}}
+						/>
+						<SelectField
+							defaultValue={budget?.categoryId ?? ""}
+							label="Categoria"
+							name="categoryId"
+							options={{
+								"": "Sem categoria",
+								...Object.fromEntries(
+									categories.map((category) => [
+										String(category.id),
+										category.name,
+									]),
+								),
+							}}
+						/>
+						<div className="grid gap-2">
+							<Label htmlFor="budget-amount">Valor</Label>
+							<Input
+								defaultValue={
+									budget ? formatMoneyInput(budget.amountCents) : ""
+								}
+								id="budget-amount"
+								name="amount"
+								placeholder="Valor"
+							/>
+						</div>
+					</div>
+					<p className="text-muted-foreground text-xs">
+						Para mês geral, deixe grupo e categoria vazios. Para grupo,
+						selecione só grupo. Para categoria, selecione só categoria.
+					</p>
+					<DialogFooter>
+						<SubmitButton
+							pendingLabel={budget ? "Salvando..." : "Cadastrando..."}
+						>
+							{budget ? "Salvar" : "Cadastrar"}
+						</SubmitButton>
+					</DialogFooter>
+				</form>
+			</DialogContent>
+		</Dialog>
 	);
+}
+
+function SelectField({
+	label,
+	name,
+	options,
+	defaultValue,
+}: {
+	label: string;
+	name: string;
+	options: Record<string, string>;
+	defaultValue?: string | number;
+}) {
+	return (
+		<div className="grid gap-2">
+			<Label htmlFor={`budget-${name}`}>{label}</Label>
+			<select
+				className={selectClass}
+				defaultValue={defaultValue}
+				id={`budget-${name}`}
+				name={name}
+			>
+				{Object.entries(options).map(([value, label]) => (
+					<option key={value} value={value}>
+						{label}
+					</option>
+				))}
+			</select>
+		</div>
+	);
+}
+
+function rowToBudget(row: UsageRow, monthKey: string): BudgetRow {
+	return {
+		id: row.budgetId,
+		userId: "",
+		monthKey,
+		scope: row.scope,
+		categoryGroupId: row.scope === "category_group" ? row.refId : null,
+		categoryId: row.scope === "category" ? row.refId : null,
+		amountCents: row.plannedCents,
+		notes: null,
+		createdAt: new Date(),
+		updatedAt: null,
+	};
+}
+
+function StatusBadge({ status }: { status: UsageRow["status"] }) {
+	const variant =
+		status === "over"
+			? "destructive"
+			: status === "near"
+				? "secondary"
+				: "outline";
+	return <Badge variant={variant}>{statusLabel(status)}</Badge>;
 }
 
 function HistoryLink({
@@ -480,27 +622,23 @@ function HistoryLink({
 	label: string;
 }) {
 	return (
-		<Link
-			className={`rounded-full border px-3 py-1 text-xs ${active ? "border-[color:var(--color-good-border)] text-[color:var(--color-good)]" : "border-[color:var(--color-border)] text-[color:var(--color-text-muted)]"}`}
-			href={href}
-		>
-			{label}
-		</Link>
+		<Button asChild size="sm" variant={active ? "default" : "outline"}>
+			<Link href={href}>{label}</Link>
+		</Button>
 	);
 }
 
-function consolidatedPlanned(budgets: (typeof monthlyBudgets.$inferSelect)[]) {
+function consolidatedPlanned(budgets: BudgetRow[]) {
 	const monthBudget = budgets.find((budget) => budget.scope === "month");
 	if (monthBudget) return monthBudget.amountCents;
 	const groupBudgets = budgets.filter(
 		(budget) => budget.scope === "category_group",
 	);
-	if (groupBudgets.length > 0) {
+	if (groupBudgets.length > 0)
 		return groupBudgets.reduce(
 			(total, budget) => total + budget.amountCents,
 			0,
 		);
-	}
 	return budgets
 		.filter((budget) => budget.scope === "category")
 		.reduce((total, budget) => total + budget.amountCents, 0);
@@ -515,12 +653,10 @@ function parseHistorySelection(value: string | undefined): {
 		return { key: "month", refId: null, scope: "month" };
 	const [type, rawId] = value.split(":");
 	const refId = rawId ? Number.parseInt(rawId, 10) : NaN;
-	if (type === "group" && Number.isFinite(refId)) {
+	if (type === "group" && Number.isFinite(refId))
 		return { key: value, refId, scope: "category_group" };
-	}
-	if (type === "category" && Number.isFinite(refId)) {
+	if (type === "category" && Number.isFinite(refId))
 		return { key: value, refId, scope: "category" };
-	}
 	return { key: "month", refId: null, scope: "month" };
 }
 
@@ -528,11 +664,11 @@ function statusLabel(status: UsageRow["status"] | "ok" | "near" | "over") {
 	return { near: "Perto", ok: "OK", over: "Acima" }[status];
 }
 
-function statusVariant(status: "ok" | "near" | "over") {
-	return { near: "warn", ok: "good", over: "bad" }[status] as
-		| "bad"
-		| "good"
-		| "warn";
+function statusTone(status: "ok" | "near" | "over") {
+	return { near: "warning", ok: "success", over: "destructive" }[status] as
+		| "destructive"
+		| "success"
+		| "warning";
 }
 
 function moneyOrDash(value: number | null) {
@@ -552,3 +688,6 @@ function monthStartDate(monthKey: string) {
 	const [year, month] = monthKey.split("-").map(Number);
 	return new Date(year ?? 0, (month ?? 1) - 1, 1);
 }
+
+const selectClass =
+	"h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 dark:bg-input/30";

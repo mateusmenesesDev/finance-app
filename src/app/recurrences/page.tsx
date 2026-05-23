@@ -1,4 +1,5 @@
 import { and, asc, eq, isNotNull } from "drizzle-orm";
+import { CalendarClock, Plus, Repeat } from "lucide-react";
 import { redirect } from "next/navigation";
 
 import {
@@ -7,14 +8,28 @@ import {
 	createRecurrence,
 	updateRecurrence,
 } from "~/app/_actions/finance-actions";
+import { AppShell } from "~/components/app-shell";
+import { ConfirmDialog } from "~/components/confirm-dialog";
+import { EmptyState } from "~/components/empty-state";
+import { Money } from "~/components/money";
+import { PageHeader } from "~/components/page-header";
+import { StatCard } from "~/components/stat-card";
+import { SubmitButton } from "~/components/submit-button";
+import { Badge } from "~/components/ui/badge";
+import { Button } from "~/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
+import { Checkbox } from "~/components/ui/checkbox";
 import {
-	FinanceShell,
-	Panel,
-	Select,
-	SubmitButton,
-	SummaryCard,
-	TextInput,
-} from "~/app/_components/finance-ui";
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+	DialogTrigger,
+} from "~/components/ui/dialog";
+import { Input } from "~/components/ui/input";
+import { Label } from "~/components/ui/label";
 import { formatDate, formatMoney } from "~/lib/formatters";
 import {
 	generateOccurrences,
@@ -48,9 +63,11 @@ const weekdayOptions = {
 	"5": "Sexta",
 	"6": "Sábado",
 };
+
 type RecurrenceRow = typeof recurrences.$inferSelect;
 type AccountRow = typeof financialAccounts.$inferSelect;
 type CategoryRow = typeof categories.$inferSelect;
+
 export default async function RecurrencesPage() {
 	const session = await getSession();
 	if (!session?.user.id) redirect("/");
@@ -148,147 +165,189 @@ export default async function RecurrencesPage() {
 	);
 
 	return (
-		<FinanceShell
-			description="Cadastre receitas, contas, despesas fixas e assinaturas para alimentar o fluxo de caixa previsto."
-			eyebrow="Recorrências"
-			title="Recorrências"
-		>
+		<AppShell user={{ name: session.user.name, email: session.user.email }}>
+			<PageHeader
+				actions={
+					<RecurrenceDialog
+						accountOptions={accountOptions}
+						categoryOptions={categoryOptions}
+					/>
+				}
+				description="Cadastre receitas, contas, despesas fixas e assinaturas para alimentar o fluxo de caixa previsto."
+				eyebrow="Recorrências"
+				title="Recorrências"
+			/>
+
 			<section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-				<SummaryCard label="Ativas" value={String(activeRecurrences.length)} />
-				<SummaryCard
+				<StatCard
+					icon={Repeat}
+					label="Ativas"
+					value={String(activeRecurrences.length)}
+				/>
+				<StatCard
 					label="Total mensal previsto"
 					value={formatMoney(monthlyTotal)}
 				/>
-				<SummaryCard
+				<StatCard
 					label="Assinaturas ativas"
 					value={String(
 						activeRecurrences.filter((item) => item.isSubscription).length,
 					)}
 				/>
-				<SummaryCard
+				<StatCard
 					label="Atrasadas"
+					tone={late.length > 0 ? "destructive" : "success"}
 					value={String(late.length)}
-					variant={late.length > 0 ? "bad" : "good"}
 				/>
 			</section>
 
 			{late.length > 0 ? (
-				<Panel title="Recorrências atrasadas">
-					<div className="grid gap-3">
+				<Card className="border-destructive/40">
+					<CardHeader>
+						<CardTitle>Recorrências atrasadas</CardTitle>
+					</CardHeader>
+					<CardContent className="grid gap-3">
 						{late.map(({ recurrence, occurrenceOn }) => (
 							<OccurrenceRow
 								key={`${recurrence.id}-${occurrenceOn}`}
 								occurrenceOn={occurrenceOn}
 								recurrence={recurrence}
+								status="late"
 							/>
 						))}
-					</div>
-				</Panel>
+					</CardContent>
+				</Card>
 			) : null}
 
-			<Panel title="Próximas ocorrências (30 dias)">
-				{upcoming.length > 0 ? (
-					<div className="grid gap-3">
-						{upcoming.map(({ recurrence, occurrenceOn }) => (
-							<OccurrenceRow
-								editable
-								key={`${recurrence.id}-${occurrenceOn}`}
-								occurrenceOn={occurrenceOn}
-								recurrence={recurrence}
-							/>
-						))}
-					</div>
-				) : (
-					<Empty text="Nenhuma ocorrência prevista nos próximos 30 dias." />
-				)}
-			</Panel>
+			<Card>
+				<CardHeader>
+					<CardTitle>Próximas ocorrências (30 dias)</CardTitle>
+				</CardHeader>
+				<CardContent>
+					{upcoming.length > 0 ? (
+						<div className="grid gap-3">
+							{upcoming.map(({ recurrence, occurrenceOn }) => (
+								<OccurrenceRow
+									editable
+									key={`${recurrence.id}-${occurrenceOn}`}
+									occurrenceOn={occurrenceOn}
+									recurrence={recurrence}
+									status="upcoming"
+								/>
+							))}
+						</div>
+					) : (
+						<EmptyState
+							description="Nenhuma ocorrência prevista nos próximos 30 dias."
+							icon={CalendarClock}
+							title="Sem próximas ocorrências"
+						/>
+					)}
+				</CardContent>
+			</Card>
 
-			<Panel title="Lista de recorrências ativas">
-				{activeRecurrences.length > 0 ? (
-					<div className="grid gap-3">
-						{activeRecurrences.map((recurrence) => (
-							<RecurrenceCard
-								account={accountById.get(recurrence.accountId)}
-								accountOptions={accountOptions}
-								category={
-									recurrence.categoryId
-										? categoryById.get(recurrence.categoryId)
-										: undefined
-								}
-								categoryOptions={categoryOptions}
-								key={recurrence.id}
-								nextOn={nextOccurrence(recurrence, confirmedSet, today)}
-								recurrence={recurrence}
-								review={reviewIds.has(recurrence.id)}
-							/>
-						))}
-					</div>
-				) : (
-					<Empty text="Nenhuma recorrência ativa." />
-				)}
-			</Panel>
+			<Card>
+				<CardHeader>
+					<CardTitle>Lista de recorrências ativas</CardTitle>
+				</CardHeader>
+				<CardContent>
+					{activeRecurrences.length > 0 ? (
+						<div className="grid gap-3">
+							{activeRecurrences.map((recurrence) => (
+								<RecurrenceCard
+									account={accountById.get(recurrence.accountId)}
+									accountOptions={accountOptions}
+									category={
+										recurrence.categoryId
+											? categoryById.get(recurrence.categoryId)
+											: undefined
+									}
+									categoryOptions={categoryOptions}
+									key={recurrence.id}
+									nextOn={nextOccurrence(recurrence, confirmedSet, today)}
+									recurrence={recurrence}
+									review={reviewIds.has(recurrence.id)}
+								/>
+							))}
+						</div>
+					) : (
+						<EmptyState
+							description="Nenhuma recorrência ativa."
+							icon={Repeat}
+							title="Sem recorrências"
+						/>
+					)}
+				</CardContent>
+			</Card>
 
-			<Panel title="Recorrências arquivadas">
-				{archivedRecurrences.length > 0 ? (
-					<div className="grid gap-2">
-						{archivedRecurrences.map((recurrence) => (
-							<form
-								className="flex items-center justify-between gap-3 rounded-2xl border border-[color:var(--color-border-subtle)] bg-[color:var(--color-surface-muted)] p-4"
-								key={recurrence.id}
-							>
-								<div>
-									<p className="font-medium">{recurrence.name}</p>
-									<p className="text-[color:var(--color-text-subtle)] text-xs">
-										{formatMoney(recurrence.amountCents)} ·{" "}
-										{humanFrequency(recurrence)}
-									</p>
-								</div>
-								<input name="id" type="hidden" value={recurrence.id} />
-								<input name="isArchived" type="hidden" value="false" />
-								<SubmitButton
-									formAction={archiveRecurrence}
-									pendingLabel="Reativando..."
-									variant="secondary"
+			<Card>
+				<CardHeader>
+					<CardTitle>Recorrências arquivadas</CardTitle>
+				</CardHeader>
+				<CardContent>
+					{archivedRecurrences.length > 0 ? (
+						<div className="grid gap-2">
+							{archivedRecurrences.map((recurrence) => (
+								<form
+									action={archiveRecurrence}
+									className="flex items-center justify-between gap-3 rounded-md border bg-muted/30 p-4"
+									key={recurrence.id}
 								>
-									Reativar
-								</SubmitButton>
-							</form>
-						))}
-					</div>
-				) : (
-					<Empty text="Nenhuma recorrência arquivada." />
-				)}
-			</Panel>
-
-			<Panel
-				description="Marque conta a pagar/receber quando não houver categoria ainda; assinatura indica gasto recorrente que deve ser revisado periodicamente."
-				title="Cadastrar recorrência"
-			>
-				<RecurrenceForm
-					accountOptions={accountOptions}
-					categoryOptions={categoryOptions}
-				/>
-			</Panel>
-		</FinanceShell>
+									<div>
+										<p className="font-medium">{recurrence.name}</p>
+										<p className="text-muted-foreground text-xs">
+											{formatMoney(recurrence.amountCents)} ·{" "}
+											{humanFrequency(recurrence)}
+										</p>
+									</div>
+									<input name="id" type="hidden" value={recurrence.id} />
+									<input name="isArchived" type="hidden" value="false" />
+									<SubmitButton
+										formAction={archiveRecurrence}
+										pendingLabel="Reativando..."
+										variant="secondary"
+									>
+										Reativar
+									</SubmitButton>
+								</form>
+							))}
+						</div>
+					) : (
+						<EmptyState
+							description="Nenhuma recorrência arquivada."
+							title="Sem arquivadas"
+						/>
+					)}
+				</CardContent>
+			</Card>
+		</AppShell>
 	);
 }
+
 function OccurrenceRow({
 	recurrence,
 	occurrenceOn,
 	editable = false,
+	status,
 }: {
 	recurrence: RecurrenceInput;
 	occurrenceOn: string;
 	editable?: boolean;
+	status: "late" | "upcoming";
 }) {
 	return (
 		<form
 			action={confirmRecurrenceOccurrence}
-			className="grid gap-3 rounded-2xl border border-[color:var(--color-border-subtle)] bg-[color:var(--color-surface-muted)] p-4 md:grid-cols-[1fr_auto] md:items-end"
+			className="grid gap-3 rounded-md border bg-muted/20 p-4 md:grid-cols-[1fr_auto] md:items-end"
 		>
 			<div>
-				<p className="font-medium">{recurrence.name}</p>
-				<p className="text-[color:var(--color-text-subtle)] text-xs">
+				<div className="flex flex-wrap items-center gap-2">
+					<p className="font-medium">{recurrence.name}</p>
+					<Badge variant={status === "late" ? "destructive" : "default"}>
+						{status === "late" ? "Atrasada" : "Próxima"}
+					</Badge>
+				</div>
+				<p className="text-muted-foreground text-xs">
 					{formatDate(occurrenceOn)} · {formatMoney(recurrence.amountCents)}
 				</p>
 				<input name="recurrenceId" type="hidden" value={recurrence.id} />
@@ -300,13 +359,9 @@ function OccurrenceRow({
 				/>
 				{editable ? (
 					<div className="mt-3 grid gap-3 md:grid-cols-3">
-						<TextInput defaultValue={recurrence.name} name="description" />
-						<TextInput
-							defaultValue={occurrenceOn}
-							name="occurredOn"
-							type="date"
-						/>
-						<TextInput
+						<Input defaultValue={recurrence.name} name="description" />
+						<Input defaultValue={occurrenceOn} name="occurredOn" type="date" />
+						<Input
 							defaultValue={moneyValue(recurrence.amountCents)}
 							name="amount"
 						/>
@@ -319,6 +374,7 @@ function OccurrenceRow({
 		</form>
 	);
 }
+
 function RecurrenceCard({
 	recurrence,
 	account,
@@ -337,54 +393,109 @@ function RecurrenceCard({
 	review: boolean;
 }) {
 	return (
-		<div className="rounded-2xl border border-[color:var(--color-border-subtle)] bg-[color:var(--color-surface-muted)] p-4">
+		<div className="rounded-md border bg-muted/20 p-4">
 			<div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
 				<div>
 					<div className="flex flex-wrap items-center gap-2">
 						<p className="font-medium">{recurrence.name}</p>
-						<Chip>
+						<Badge
+							variant={
+								recurrence.movementType === "income" ? "default" : "secondary"
+							}
+						>
 							{recurrence.movementType === "income" ? "Receita" : "Despesa"}
-						</Chip>
-						{recurrence.isBill ? <Chip>Conta</Chip> : null}
-						{recurrence.isSubscription ? <Chip>Assinatura</Chip> : null}
-						{review ? <Chip tone="warn">Revisar</Chip> : null}
+						</Badge>
+						{recurrence.isBill ? <Badge variant="outline">Conta</Badge> : null}
+						{recurrence.isSubscription ? (
+							<Badge variant="outline">Assinatura</Badge>
+						) : null}
+						{review ? <Badge variant="secondary">Revisar</Badge> : null}
+						{nextOn ? <Badge variant="secondary">OK</Badge> : null}
 					</div>
-					<p className="mt-2 text-[color:var(--color-text-subtle)] text-sm">
+					<p className="mt-2 text-muted-foreground text-sm">
 						{account?.name ?? "Conta removida"} ·{" "}
 						{category?.name ?? "Sem categoria"} · {humanFrequency(recurrence)}
 					</p>
-					<p className="mt-1 text-[color:var(--color-text-subtle)] text-xs">
+					<p className="mt-1 text-muted-foreground text-xs">
 						Próxima: {nextOn ? formatDate(nextOn) : "sem ocorrência futura"}
 					</p>
 				</div>
-				<p className="font-semibold">{formatMoney(recurrence.amountCents)}</p>
+				<Money
+					cents={recurrence.amountCents}
+					className="font-semibold"
+					sign={recurrence.movementType === "income" ? "credit" : "debit"}
+				/>
 			</div>
-			<details className="mt-4">
-				<summary className="cursor-pointer text-[color:var(--color-text-muted)] text-sm">
-					Editar / arquivar
-				</summary>
-				<div className="mt-4 grid gap-4">
-					<RecurrenceForm
-						accountOptions={accountOptions}
-						categoryOptions={categoryOptions}
-						recurrence={recurrence}
-					/>
-					<form action={archiveRecurrence}>
-						<input name="id" type="hidden" value={recurrence.id} />
-						<input name="isArchived" type="hidden" value="true" />
-						<SubmitButton
-							formAction={archiveRecurrence}
-							pendingLabel="Arquivando..."
-							variant="danger"
-						>
+			<div className="mt-4 flex flex-wrap gap-2">
+				<RecurrenceDialog
+					accountOptions={accountOptions}
+					categoryOptions={categoryOptions}
+					recurrence={recurrence}
+				/>
+				<ConfirmDialog
+					action={archiveRecurrence}
+					confirmLabel="Arquivar"
+					destructive
+					hidden={{ id: recurrence.id, isArchived: "true" }}
+					title="Arquivar recorrência?"
+					trigger={
+						<Button size="sm" variant="destructive">
 							Arquivar
-						</SubmitButton>
-					</form>
-				</div>
-			</details>
+						</Button>
+					}
+				/>
+			</div>
 		</div>
 	);
 }
+
+function RecurrenceDialog({
+	accountOptions,
+	categoryOptions,
+	recurrence,
+}: {
+	accountOptions: Record<string, string>;
+	categoryOptions: Record<string, string>;
+	recurrence?: RecurrenceRow;
+}) {
+	return (
+		<Dialog>
+			<DialogTrigger asChild>
+				<Button
+					size={recurrence ? "sm" : "default"}
+					variant={recurrence ? "outline" : "default"}
+				>
+					{recurrence ? (
+						"Editar"
+					) : (
+						<>
+							<Plus className="size-4" />
+							Nova recorrência
+						</>
+					)}
+				</Button>
+			</DialogTrigger>
+			<DialogContent className="sm:max-w-3xl">
+				<DialogHeader>
+					<DialogTitle>
+						{recurrence ? "Editar recorrência" : "Nova recorrência"}
+					</DialogTitle>
+					<DialogDescription>
+						Marque conta a pagar/receber quando não houver categoria ainda;
+						assinatura indica gasto recorrente que deve ser revisado
+						periodicamente.
+					</DialogDescription>
+				</DialogHeader>
+				<RecurrenceForm
+					accountOptions={accountOptions}
+					categoryOptions={categoryOptions}
+					recurrence={recurrence}
+				/>
+			</DialogContent>
+		</Dialog>
+	);
+}
+
 function RecurrenceForm({
 	accountOptions,
 	categoryOptions,
@@ -397,167 +508,160 @@ function RecurrenceForm({
 	return (
 		<form
 			action={recurrence ? updateRecurrence : createRecurrence}
-			className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 xl:items-end"
+			className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
 		>
 			{recurrence ? (
 				<input name="id" type="hidden" value={recurrence.id} />
 			) : null}
-			<Label text="Nome">
-				<TextInput defaultValue={recurrence?.name} name="name" />
-			</Label>
-			<Label text="Tipo">
-				<Select
-					defaultValue={recurrence?.movementType ?? "expense"}
-					name="movementType"
-					options={movementOptions}
-				/>
-			</Label>
-			<Label text="Conta">
-				<Select
-					defaultValue={
-						recurrence?.accountId ? String(recurrence.accountId) : undefined
-					}
-					name="accountId"
-					options={accountOptions}
-				/>
-			</Label>
-			<Label text="Categoria">
-				<Select
-					defaultValue={
-						recurrence?.categoryId ? String(recurrence.categoryId) : ""
-					}
-					name="categoryId"
-					options={categoryOptions}
-				/>
-			</Label>
-			<Label text="Valor">
-				<TextInput
-					defaultValue={
-						recurrence ? moneyValue(recurrence.amountCents) : undefined
-					}
-					name="amount"
-				/>
-			</Label>
-			<Label text="Frequência">
-				<Select
-					defaultValue={recurrence?.frequency ?? "monthly"}
-					name="frequency"
-					options={frequencyOptions}
-				/>
-			</Label>
-			<Label text="A cada">
-				<TextInput
-					defaultValue={recurrence?.intervalCount ?? 1}
-					min={1}
-					name="intervalCount"
-					type="number"
-				/>
-			</Label>
-			<Label text="Início">
-				<TextInput
-					defaultValue={recurrence?.startsOn ?? isoToday()}
-					name="startsOn"
-					type="date"
-				/>
-			</Label>
-			<Label text="Fim">
-				<TextInput
-					defaultValue={recurrence?.endsOn ?? ""}
-					name="endsOn"
-					type="date"
-				/>
-			</Label>
-			<Label text="Dia do mês">
-				<TextInput
-					defaultValue={recurrence?.anchorDay ?? ""}
-					max={31}
-					min={1}
-					name="anchorDay"
-					type="number"
-				/>
-			</Label>
-			<Label text="Dia da semana">
-				<Select
-					defaultValue={
-						recurrence?.anchorWeekday === null ||
-						recurrence?.anchorWeekday === undefined
-							? ""
-							: String(recurrence.anchorWeekday)
-					}
-					name="anchorWeekday"
-					options={{ "": "Usar início", ...weekdayOptions }}
-				/>
-			</Label>
-			<Label text="Descrição">
-				<TextInput
-					defaultValue={recurrence?.description ?? ""}
-					name="description"
-				/>
-			</Label>
-			<label className="flex items-center gap-2 text-[color:var(--color-text-muted)] text-sm">
-				<input
+			<Field defaultValue={recurrence?.name} label="Nome" name="name" />
+			<SelectField
+				defaultValue={recurrence?.movementType ?? "expense"}
+				label="Tipo"
+				name="movementType"
+				options={movementOptions}
+			/>
+			<SelectField
+				defaultValue={
+					recurrence?.accountId ? String(recurrence.accountId) : undefined
+				}
+				label="Conta"
+				name="accountId"
+				options={accountOptions}
+			/>
+			<SelectField
+				defaultValue={
+					recurrence?.categoryId ? String(recurrence.categoryId) : ""
+				}
+				label="Categoria"
+				name="categoryId"
+				options={categoryOptions}
+			/>
+			<Field
+				defaultValue={
+					recurrence ? moneyValue(recurrence.amountCents) : undefined
+				}
+				label="Valor"
+				name="amount"
+			/>
+			<SelectField
+				defaultValue={recurrence?.frequency ?? "monthly"}
+				label="Frequência"
+				name="frequency"
+				options={frequencyOptions}
+			/>
+			<Field
+				defaultValue={recurrence?.intervalCount ?? 1}
+				label="A cada"
+				min={1}
+				name="intervalCount"
+				type="number"
+			/>
+			<Field
+				defaultValue={recurrence?.startsOn ?? isoToday()}
+				label="Início"
+				name="startsOn"
+				type="date"
+			/>
+			<Field
+				defaultValue={recurrence?.endsOn ?? ""}
+				label="Fim"
+				name="endsOn"
+				type="date"
+			/>
+			<Field
+				defaultValue={recurrence?.anchorDay ?? ""}
+				label="Dia do mês"
+				max={31}
+				min={1}
+				name="anchorDay"
+				type="number"
+			/>
+			<SelectField
+				defaultValue={
+					recurrence?.anchorWeekday === null ||
+					recurrence?.anchorWeekday === undefined
+						? ""
+						: String(recurrence.anchorWeekday)
+				}
+				label="Dia da semana"
+				name="anchorWeekday"
+				options={{ "": "Usar início", ...weekdayOptions }}
+			/>
+			<Field
+				defaultValue={recurrence?.description ?? ""}
+				label="Descrição"
+				name="description"
+			/>
+			<div className="flex items-center gap-2 text-muted-foreground text-sm">
+				<Checkbox
 					defaultChecked={recurrence?.isBill ?? false}
+					id="recurrence-isBill"
 					name="isBill"
-					type="checkbox"
-				/>{" "}
-				Conta a pagar/receber
-			</label>
-			<label className="flex items-center gap-2 text-[color:var(--color-text-muted)] text-sm">
-				<input
+				/>
+				<Label htmlFor="recurrence-isBill">Conta a pagar/receber</Label>
+			</div>
+			<div className="flex items-center gap-2 text-muted-foreground text-sm">
+				<Checkbox
 					defaultChecked={recurrence?.isSubscription ?? false}
+					id="recurrence-isSubscription"
 					name="isSubscription"
-					type="checkbox"
-				/>{" "}
-				Assinatura
-			</label>
-			<SubmitButton
-				pendingLabel={recurrence ? "Salvando..." : "Cadastrando..."}
-			>
-				{recurrence ? "Salvar" : "Cadastrar"}
-			</SubmitButton>
+				/>
+				<Label htmlFor="recurrence-isSubscription">Assinatura</Label>
+			</div>
+			<DialogFooter className="sm:col-span-2 lg:col-span-3">
+				<SubmitButton
+					pendingLabel={recurrence ? "Salvando..." : "Cadastrando..."}
+				>
+					{recurrence ? "Salvar" : "Cadastrar"}
+				</SubmitButton>
+			</DialogFooter>
 		</form>
 	);
 }
-function Label({
-	text,
-	children,
-}: {
-	text: string;
-	children: React.ReactNode;
-}) {
+
+function Field({
+	label,
+	name,
+	...props
+}: { label: string; name: string } & React.ComponentProps<typeof Input>) {
 	return (
-		<div className="grid gap-1 text-[color:var(--color-text-muted)] text-sm">
-			<span>{text}</span>
-			{children}
+		<div className="grid gap-2">
+			<Label htmlFor={`recurrence-${name}`}>{label}</Label>
+			<Input id={`recurrence-${name}`} name={name} {...props} />
 		</div>
 	);
 }
-function Chip({
-	children,
-	tone = "default",
+
+function SelectField({
+	label,
+	name,
+	options,
+	defaultValue,
 }: {
-	children: React.ReactNode;
-	tone?: "default" | "warn";
+	label: string;
+	name: string;
+	options: Record<string, string>;
+	defaultValue?: string;
 }) {
 	return (
-		<span
-			className={
-				tone === "warn"
-					? "rounded-full bg-[color:var(--color-warn-bg)] px-2 py-1 text-[color:var(--color-warn)] text-xs"
-					: "rounded-full bg-[color:var(--color-surface-muted)] px-2 py-1 text-[color:var(--color-text-muted)] text-xs"
-			}
-		>
-			{children}
-		</span>
+		<div className="grid gap-2">
+			<Label htmlFor={`recurrence-${name}`}>{label}</Label>
+			<select
+				className={selectClass}
+				defaultValue={defaultValue}
+				id={`recurrence-${name}`}
+				name={name}
+			>
+				{Object.entries(options).map(([value, label]) => (
+					<option key={value} value={value}>
+						{label}
+					</option>
+				))}
+			</select>
+		</div>
 	);
 }
-function Empty({ text }: { text: string }) {
-	return (
-		<p className="rounded-2xl border border-[color:var(--color-border-subtle)] bg-[color:var(--color-surface-muted)] p-4 text-[color:var(--color-text-muted)] text-sm">
-			{text}
-		</p>
-	);
-}
+
 function humanFrequency(recurrence: RecurrenceInput) {
 	const every =
 		recurrence.intervalCount > 1 ? ` a cada ${recurrence.intervalCount} ` : "";
@@ -568,6 +672,7 @@ function humanFrequency(recurrence: RecurrenceInput) {
 		return recurrence.intervalCount > 1 ? `Mensal${every}meses` : "Mensal";
 	return recurrence.intervalCount > 1 ? `Anual${every}anos` : "Anual";
 }
+
 function nextOccurrence(
 	recurrence: RecurrenceInput,
 	confirmedSet: Set<string>,
@@ -585,6 +690,7 @@ function nextOccurrence(
 		)?.occurrenceOn ?? null
 	);
 }
+
 function isoToday() {
 	return new Date().toISOString().slice(0, 10);
 }
@@ -598,3 +704,6 @@ function addDaysIso(dateIso: string, days: number) {
 function moneyValue(cents: number) {
 	return (cents / 100).toFixed(2);
 }
+
+const selectClass =
+	"h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 dark:bg-input/30";
