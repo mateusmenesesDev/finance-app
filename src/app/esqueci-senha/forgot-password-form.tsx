@@ -1,7 +1,18 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 
+import { SubmitButton } from "~/components/submit-button";
+import {
+	Card,
+	CardContent,
+	CardDescription,
+	CardHeader,
+	CardTitle,
+} from "~/components/ui/card";
+import { Input } from "~/components/ui/input";
+import { Label } from "~/components/ui/label";
 import { authClient } from "~/server/better-auth/client";
 
 const GENERIC_SUCCESS =
@@ -14,65 +25,91 @@ export function ForgotPasswordForm() {
 
 	if (success) {
 		return (
-			<div className="rounded-3xl border border-[color:var(--color-border-subtle)] bg-[color:var(--color-surface)] p-6 shadow-2xl shadow-black/10">
-				<p className="font-medium text-[color:var(--color-accent)] text-sm">
-					Pedido recebido
-				</p>
-				<p className="mt-3 text-[color:var(--color-text)]">{success}</p>
-			</div>
+			<Card className="w-full">
+				<CardHeader>
+					<CardDescription className="text-primary">
+						Pedido recebido
+					</CardDescription>
+					<CardTitle className="text-2xl">Esqueci minha senha</CardTitle>
+				</CardHeader>
+				<CardContent className="grid gap-4">
+					<p>{success}</p>
+					<Link
+						className="text-muted-foreground text-sm underline-offset-4 hover:text-foreground hover:underline"
+						href="/"
+					>
+						Voltar para entrar
+					</Link>
+				</CardContent>
+			</Card>
 		);
 	}
 
 	return (
-		<form
-			className="rounded-3xl border border-[color:var(--color-border-subtle)] bg-[color:var(--color-surface)] p-6 shadow-2xl shadow-black/10"
-			onSubmit={async (event) => {
-				event.preventDefault();
-				setError(null);
-				setIsSubmitting(true);
+		<Card className="w-full">
+			<CardHeader>
+				<CardDescription className="text-primary">
+					Recuperar acesso
+				</CardDescription>
+				<CardTitle className="text-2xl">Esqueci minha senha</CardTitle>
+			</CardHeader>
+			<CardContent>
+				<form
+					className="flex flex-col gap-4"
+					onSubmit={async (event) => {
+						event.preventDefault();
+						setError(null);
+						setIsSubmitting(true);
 
-				const formData = new FormData(event.currentTarget);
-				const email = String(formData.get("email") ?? "").trim();
+						const formData = new FormData(event.currentTarget);
+						const email = String(formData.get("email") ?? "").trim();
 
-				const result = await authClient.requestPasswordReset({
-					email,
-					redirectTo: "/redefinir-senha",
-				});
+						const result = await authClient.requestPasswordReset({
+							email,
+							redirectTo: "/redefinir-senha",
+						});
 
-				setIsSubmitting(false);
+						setIsSubmitting(false);
 
-				if (result.error) {
-					setError(
-						"Não foi possível processar o pedido agora. Tente novamente em instantes.",
-					);
-					return;
-				}
+						if (result.error) {
+							setError(
+								"Não foi possível processar o pedido agora. Tente novamente em instantes.",
+							);
+							return;
+						}
 
-				setSuccess(GENERIC_SUCCESS);
-			}}
-		>
-			<label className="flex flex-col gap-2 text-[color:var(--color-text-muted)] text-sm">
-				Email
-				<input
-					autoComplete="email"
-					className="rounded-xl border border-[color:var(--color-border)] bg-[color:var(--color-surface-muted)] px-4 py-3 text-[color:var(--color-text)] outline-none transition focus:border-[color:var(--color-accent)]"
-					name="email"
-					required
-					type="email"
-				/>
-			</label>
+						setSuccess(GENERIC_SUCCESS);
+					}}
+				>
+					<div className="grid gap-2">
+						<Label htmlFor="email">Email</Label>
+						<Input
+							autoComplete="email"
+							id="email"
+							name="email"
+							required
+							type="email"
+						/>
+					</div>
 
-			{error && (
-				<p className="mt-4 text-[color:var(--color-bad)] text-sm">{error}</p>
-			)}
+					{error ? <p className="text-destructive text-sm">{error}</p> : null}
 
-			<button
-				className="mt-6 w-full rounded-full bg-[color:var(--color-accent-strong)] px-6 py-3 font-semibold text-[color:var(--color-accent-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-				disabled={isSubmitting}
-				type="submit"
-			>
-				{isSubmitting ? "Enviando..." : "Enviar link de redefinição"}
-			</button>
-		</form>
+					<SubmitButton
+						className="mt-2 w-full"
+						disabled={isSubmitting}
+						pendingLabel="Enviando..."
+					>
+						{isSubmitting ? "Enviando..." : "Enviar link de redefinição"}
+					</SubmitButton>
+
+					<Link
+						className="text-muted-foreground text-sm underline-offset-4 hover:text-foreground hover:underline"
+						href="/"
+					>
+						Voltar para entrar
+					</Link>
+				</form>
+			</CardContent>
+		</Card>
 	);
 }

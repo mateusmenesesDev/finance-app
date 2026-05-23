@@ -3,13 +3,20 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { regenerateAssistantSuggestions } from "~/app/_actions/assistant-actions";
-import {
-	FinanceShell,
-	Panel,
-	SubmitButton,
-	SummaryCard,
-} from "~/app/_components/finance-ui";
 import { AssistantSuggestionCard } from "~/app/assistente/assistant-suggestion-card";
+import { AppShell } from "~/components/app-shell";
+import { EmptyState } from "~/components/empty-state";
+import { PageHeader } from "~/components/page-header";
+import { StatCard } from "~/components/stat-card";
+import { SubmitButton } from "~/components/submit-button";
+import { Badge } from "~/components/ui/badge";
+import {
+	Card,
+	CardContent,
+	CardDescription,
+	CardHeader,
+	CardTitle,
+} from "~/components/ui/card";
 import {
 	type AssistantSummary,
 	type Suggestion,
@@ -316,140 +323,157 @@ export default async function AssistantPage() {
 	const transactionsById = new Map(allTransactions.map((t) => [t.id, t]));
 
 	return (
-		<FinanceShell
-			description="Sugestões locais determinísticas para categorizar, revisar e economizar. Nenhuma alteração é aplicada sem sua confirmação."
-			eyebrow="Assistente"
-			title="Assistente financeiro"
-		>
+		<AppShell user={{ name: session.user.name, email: session.user.email }}>
+			<PageHeader
+				actions={
+					<form action={regenerateAssistantSuggestions}>
+						<SubmitButton pendingLabel="Atualizando...">
+							Atualizar sugestões
+						</SubmitButton>
+					</form>
+				}
+				description="Sugestões locais determinísticas para categorizar, revisar e economizar. Nenhuma alteração é aplicada sem sua confirmação."
+				eyebrow="Assistente"
+				title="Assistente financeiro"
+			/>
 			<section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-				<SummaryCard
+				<StatCard
 					description={
 						totalPending > 0
 							? "Revise antes de aplicar"
 							: "Nada esperando aprovação"
 					}
 					label="Sugestões pendentes"
+					tone={totalPending > 0 ? "warning" : "default"}
 					value={String(totalPending)}
-					variant={totalPending > 0 ? "warn" : "default"}
 				/>
-				<SummaryCard
+				<StatCard
 					description={`${formatDate(period.start)} – ${formatDate(period.end)}`}
 					label="Mês analisado"
 					value={formatMonthLabel(period)}
 				/>
-				<form action={regenerateAssistantSuggestions} className="self-end">
-					<SubmitButton
-						className="w-full rounded-2xl border border-[color:var(--color-good-border)] bg-[color:var(--color-good-bg)] py-3 text-[color:var(--color-good)] hover:bg-[color:var(--color-good-bg)]"
-						pendingLabel="Atualizando..."
-					>
-						Atualizar sugestões
-					</SubmitButton>
-				</form>
+				<StatCard
+					description="Decisões exibidas abaixo"
+					label="Histórico recente"
+					value={String(decided.length)}
+				/>
 			</section>
 
-			<Panel
-				description="Resumos gerados a partir dos dados deste mês. Apenas leitura."
-				title="Resumos"
-			>
-				<div className="grid gap-4 lg:grid-cols-2">
-					{summaries.map((summary) => (
-						<SummaryBlock key={summary.theme} summary={summary} />
-					))}
-				</div>
-			</Panel>
-
-			<Panel
-				description="Cada item exige aceitar ou rejeitar. Aceitar aplica a ação correspondente."
-				title="Sugestões pendentes"
-			>
-				{totalPending === 0 ? (
-					<p className="text-[color:var(--color-text-muted)] text-sm">
-						Nenhuma sugestão pendente. Use “Atualizar sugestões” após importar
-						ou corrigir transações.
-					</p>
-				) : (
-					<div className="space-y-6">
-						{kindOrder.map((kind) => {
-							const items = pendingByKind.get(kind) ?? [];
-							if (items.length === 0) return null;
-							return (
-								<section className="space-y-3" key={kind}>
-									<h3 className="font-semibold text-[color:var(--color-text)] text-sm uppercase tracking-wider">
-										{kindLabels[kind]} · {items.length}
-									</h3>
-									<div className="grid gap-3">
-										{items.map((suggestion) => (
-											<SuggestionRow
-												accountById={accountById}
-												categoryNames={categoryNames}
-												key={suggestion.id}
-												suggestion={suggestion}
-												transactionsById={transactionsById}
-											/>
-										))}
-									</div>
-								</section>
-							);
-						})}
-					</div>
-				)}
-			</Panel>
-
-			<Panel
-				description="Últimas decisões registradas para auditoria."
-				title="Histórico recente"
-			>
-				{decided.length === 0 ? (
-					<p className="text-[color:var(--color-text-muted)] text-sm">
-						Sem decisões registradas até o momento.
-					</p>
-				) : (
-					<div className="space-y-2">
-						{decided.map((row) => (
-							<div
-								className="flex items-start justify-between gap-3 rounded-2xl border border-[color:var(--color-border-subtle)] bg-[color:var(--color-surface-muted)] p-3 text-sm"
-								key={row.id}
-							>
-								<div>
-									<p className="font-medium text-[color:var(--color-text)]">
-										{kindLabels[row.kind as Suggestion["kind"]]}
-									</p>
-									<p className="text-[color:var(--color-text-muted)] text-xs">
-										{row.reason}
-									</p>
-								</div>
-								<div className="text-right text-xs">
-									<p
-										className={
-											row.status === "accepted"
-												? "text-[color:var(--color-accent)]"
-												: "text-[color:var(--color-bad)]"
-										}
-									>
-										{row.status === "accepted" ? "Aceita" : "Rejeitada"}
-									</p>
-									{row.decidedAt ? (
-										<p className="text-[color:var(--color-text-subtle)]">
-											{row.decidedAt.toLocaleString("pt-BR")}
-										</p>
-									) : null}
-								</div>
-							</div>
+			<Card>
+				<CardHeader>
+					<CardTitle>Resumos</CardTitle>
+					<CardDescription>
+						Resumos gerados a partir dos dados deste mês. Apenas leitura.
+					</CardDescription>
+				</CardHeader>
+				<CardContent>
+					<div className="grid gap-4 lg:grid-cols-2">
+						{summaries.map((summary) => (
+							<SummaryBlock key={summary.theme} summary={summary} />
 						))}
 					</div>
-				)}
-			</Panel>
-		</FinanceShell>
+				</CardContent>
+			</Card>
+
+			<Card>
+				<CardHeader>
+					<CardTitle>Sugestões pendentes</CardTitle>
+					<CardDescription>
+						Cada item exige aceitar ou rejeitar. Aceitar aplica a ação
+						correspondente.
+					</CardDescription>
+				</CardHeader>
+				<CardContent>
+					{totalPending === 0 ? (
+						<EmptyState
+							description="Use “Atualizar sugestões” após importar ou corrigir transações."
+							title="Nenhuma sugestão pendente."
+						/>
+					) : (
+						<div className="space-y-6">
+							{kindOrder.map((kind) => {
+								const items = pendingByKind.get(kind) ?? [];
+								if (items.length === 0) return null;
+								return (
+									<section className="space-y-3" key={kind}>
+										<h3 className="font-semibold text-foreground text-sm uppercase tracking-wider">
+											{kindLabels[kind]} · {items.length}
+										</h3>
+										<div className="grid gap-3">
+											{items.map((suggestion) => (
+												<SuggestionRow
+													accountById={accountById}
+													categoryNames={categoryNames}
+													key={suggestion.id}
+													suggestion={suggestion}
+													transactionsById={transactionsById}
+												/>
+											))}
+										</div>
+									</section>
+								);
+							})}
+						</div>
+					)}
+				</CardContent>
+			</Card>
+
+			<Card>
+				<CardHeader>
+					<CardTitle>Histórico recente</CardTitle>
+					<CardDescription>
+						Últimas decisões registradas para auditoria.
+					</CardDescription>
+				</CardHeader>
+				<CardContent>
+					{decided.length === 0 ? (
+						<EmptyState title="Sem decisões registradas até o momento." />
+					) : (
+						<div className="space-y-2">
+							{decided.map((row) => (
+								<div
+									className="flex items-start justify-between gap-3 rounded-md border bg-muted/20 p-3 text-sm"
+									key={row.id}
+								>
+									<div>
+										<p className="font-medium text-foreground">
+											{kindLabels[row.kind as Suggestion["kind"]]}
+										</p>
+										<p className="text-muted-foreground text-xs">
+											{row.reason}
+										</p>
+									</div>
+									<div className="text-right text-xs">
+										<p
+											className={
+												row.status === "accepted"
+													? "text-primary"
+													: "text-destructive"
+											}
+										>
+											{row.status === "accepted" ? "Aceita" : "Rejeitada"}
+										</p>
+										{row.decidedAt ? (
+											<p className="text-muted-foreground">
+												{row.decidedAt.toLocaleString("pt-BR")}
+											</p>
+										) : null}
+									</div>
+								</div>
+							))}
+						</div>
+					)}
+				</CardContent>
+			</Card>
+		</AppShell>
 	);
 }
 
 function SummaryBlock({ summary }: { summary: AssistantSummary }) {
 	return (
-		<div className="rounded-2xl border border-[color:var(--color-border-subtle)] bg-[color:var(--color-surface-muted)] p-4">
-			<p className="font-medium text-[color:var(--color-text)]">
-				{summary.title}
-			</p>
-			<ul className="mt-2 list-disc space-y-1 pl-4 text-[color:var(--color-text-muted)] text-sm">
+		<div className="rounded-md border bg-muted/20 p-4">
+			<p className="font-medium">{summary.title}</p>
+			<ul className="mt-2 list-disc space-y-1 pl-4 text-muted-foreground text-sm">
 				{summary.bullets.map((line) => (
 					<li key={`${summary.theme}-${line}`}>{line}</li>
 				))}
@@ -485,9 +509,10 @@ function SuggestionRow({
 }) {
 	return (
 		<AssistantSuggestionCard suggestionId={suggestion.id}>
-			<p className="font-medium text-[color:var(--color-text)] text-sm">
-				{suggestion.reason}
-			</p>
+			<div className="flex flex-wrap items-center gap-2">
+				<Badge variant="outline">{kindLabels[suggestion.kind]}</Badge>
+				<p className="font-medium text-sm">{suggestion.reason}</p>
+			</div>
 			<SuggestionDetails
 				accountById={accountById}
 				categoryNames={categoryNames}
@@ -520,12 +545,10 @@ function SuggestionDetails({
 		};
 		const tx = transactionsById.get(payload.transactionId);
 		return (
-			<div className="space-y-1 text-[color:var(--color-text-muted)] text-xs">
+			<div className="space-y-1 text-muted-foreground text-xs">
 				<p>
 					Categoria sugerida:{" "}
-					<span className="text-[color:var(--color-text)]">
-						{payload.categoryName}
-					</span>
+					<span className="text-foreground">{payload.categoryName}</span>
 				</p>
 				{tx ? (
 					<p>
@@ -540,10 +563,7 @@ function SuggestionDetails({
 						? "Origem: regra existente."
 						: "Origem: histórico do usuário."}
 				</p>
-				<Link
-					className="text-[color:var(--color-accent)] hover:underline"
-					href="/transactions"
-				>
+				<Link className="text-primary hover:underline" href="/transactions">
 					Ver transações
 				</Link>
 			</div>
@@ -558,13 +578,11 @@ function SuggestionDetails({
 			occurrenceCount: number;
 		};
 		return (
-			<div className="space-y-1 text-[color:var(--color-text-muted)] text-xs">
+			<div className="space-y-1 text-muted-foreground text-xs">
 				<p>
 					Regra: contém “{payload.normalizedDescription}” → categoria{" "}
-					<span className="text-[color:var(--color-text)]">
-						{payload.categoryName}
-					</span>{" "}
-					({payload.movementType === "income" ? "receita" : "despesa"}).
+					<span className="text-foreground">{payload.categoryName}</span> (
+					{payload.movementType === "income" ? "receita" : "despesa"}).
 				</p>
 				<p>
 					Exemplo: {payload.exampleDescription} · observada{" "}
@@ -583,7 +601,7 @@ function SuggestionDetails({
 			thresholdCents: number;
 		};
 		return (
-			<div className="space-y-1 text-[color:var(--color-text-muted)] text-xs">
+			<div className="space-y-1 text-muted-foreground text-xs">
 				<p>
 					{payload.categoryName} · {payload.groupName} ·{" "}
 					{formatMoney(payload.currentCents)} no mês.
@@ -602,7 +620,7 @@ function SuggestionDetails({
 		sources: ("subscription" | "grower" | "small_recurring")[];
 	};
 	return (
-		<div className="space-y-1 text-[color:var(--color-text-muted)] text-xs">
+		<div className="space-y-1 text-muted-foreground text-xs">
 			<p>
 				{payload.label} · {formatMoney(payload.amountCents)}
 			</p>

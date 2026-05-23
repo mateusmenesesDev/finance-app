@@ -1,8 +1,20 @@
+import type { ColumnDef } from "@tanstack/react-table";
 import { and, desc, eq, type SQL } from "drizzle-orm";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { Panel } from "~/app/_components/finance-ui";
+import { DataTable } from "~/components/data-table";
+import { EmptyState } from "~/components/empty-state";
+import { Button } from "~/components/ui/button";
+import {
+	Card,
+	CardContent,
+	CardDescription,
+	CardHeader,
+	CardTitle,
+} from "~/components/ui/card";
+import { Input } from "~/components/ui/input";
+import { Label } from "~/components/ui/label";
 import { formatDateTime } from "~/lib/formatters";
 import { getSession } from "~/server/better-auth/server";
 import { db } from "~/server/db";
@@ -58,7 +70,25 @@ type AuditPageProps = {
 	}>;
 };
 
+type AuditTableRow = {
+	id: number;
+	entity: string;
+	action: string;
+	when: string;
+	summary: string;
+	entityId: string;
+	diff: string;
+};
+
 const pageSize = 100;
+const auditColumns: ColumnDef<AuditTableRow, unknown>[] = [
+	{ accessorKey: "entity", header: "Entidade" },
+	{ accessorKey: "action", header: "Ação" },
+	{ accessorKey: "when", header: "Quando" },
+	{ accessorKey: "summary", header: "Resumo" },
+	{ accessorKey: "entityId", header: "ID" },
+	{ accessorKey: "diff", header: "Detalhes" },
+];
 
 export default async function AuditoriaPage({ searchParams }: AuditPageProps) {
 	const session = await getSession();
@@ -102,110 +132,103 @@ export default async function AuditoriaPage({ searchParams }: AuditPageProps) {
 		.where(and(...filters))
 		.orderBy(desc(auditEvents.createdAt))
 		.limit(pageSize);
+	const rows = events.map((event) => ({
+		id: event.id,
+		entity: entityTypeLabels[event.entityType] ?? event.entityType,
+		action: actionLabels[event.action] ?? event.action,
+		when: formatDateTime(event.createdAt),
+		summary: event.summary,
+		entityId: event.entityId === null ? "—" : `#${event.entityId}`,
+		diff: event.diff ? JSON.stringify(event.diff) : "—",
+	}));
 
 	return (
-		<div className="flex flex-col gap-6">
-			<Panel
-				description={`Últimos ${pageSize} eventos relevantes (criação, edição, arquivamento, sanitização e limpeza).`}
-				title="Histórico de auditoria"
-			>
+		<Card>
+			<CardHeader>
+				<CardTitle>Histórico de auditoria</CardTitle>
+				<CardDescription>{`Últimos ${pageSize} eventos relevantes (criação, edição, arquivamento, sanitização e limpeza).`}</CardDescription>
+			</CardHeader>
+			<CardContent>
 				<form
 					action="/configuracoes/auditoria"
 					className="mb-6 flex flex-wrap items-end gap-3"
 				>
-					<label className="flex flex-col gap-1 text-[color:var(--color-text-muted)] text-xs">
-						Entidade
-						<select
-							className="rounded-xl border border-[color:var(--color-border)] bg-[color:var(--color-bg)] px-3 py-2 text-[color:var(--color-text)] text-sm"
-							defaultValue={entityTypeFilter ?? ""}
-							name="entityType"
-						>
-							{entityTypeOptions.map((opt) => (
-								<option key={opt.value} value={opt.value}>
-									{opt.label}
-								</option>
-							))}
-						</select>
-					</label>
-					<label className="flex flex-col gap-1 text-[color:var(--color-text-muted)] text-xs">
-						Ação
-						<select
-							className="rounded-xl border border-[color:var(--color-border)] bg-[color:var(--color-bg)] px-3 py-2 text-[color:var(--color-text)] text-sm"
-							defaultValue={actionFilter ?? ""}
-							name="action"
-						>
-							{actionOptions.map((opt) => (
-								<option key={opt.value} value={opt.value}>
-									{opt.label}
-								</option>
-							))}
-						</select>
-					</label>
-					<label className="flex flex-col gap-1 text-[color:var(--color-text-muted)] text-xs">
-						ID da entidade
-						<input
-							className="rounded-xl border border-[color:var(--color-border)] bg-[color:var(--color-bg)] px-3 py-2 text-[color:var(--color-text)] text-sm"
+					<FilterSelect
+						defaultValue={entityTypeFilter ?? ""}
+						label="Entidade"
+						name="entityType"
+						options={entityTypeOptions}
+					/>
+					<FilterSelect
+						defaultValue={actionFilter ?? ""}
+						label="Ação"
+						name="action"
+						options={actionOptions}
+					/>
+					<div className="grid gap-1">
+						<Label className="text-xs" htmlFor="entityId">
+							ID da entidade
+						</Label>
+						<Input
 							defaultValue={params.entityId ?? ""}
+							id="entityId"
 							inputMode="numeric"
 							name="entityId"
 							placeholder="opcional"
 						/>
-					</label>
-					<button
-						className="rounded-xl border border-[color:var(--color-border)] px-4 py-2 font-medium text-[color:var(--color-text)] text-sm hover:border-[color:var(--color-border)]"
-						type="submit"
-					>
+					</div>
+					<Button type="submit" variant="outline">
 						Filtrar
-					</button>
-					<Link
-						className="rounded-xl border border-[color:var(--color-border-subtle)] px-4 py-2 font-medium text-[color:var(--color-text-muted)] text-sm hover:border-[color:var(--color-border)]"
-						href="/configuracoes/auditoria"
-					>
-						Limpar
-					</Link>
+					</Button>
+					<Button asChild variant="ghost">
+						<Link href="/configuracoes/auditoria">Limpar</Link>
+					</Button>
 				</form>
-
-				{events.length === 0 ? (
-					<p className="text-[color:var(--color-text-muted)] text-sm">
-						Nenhum evento encontrado para os filtros aplicados.
-					</p>
+				{rows.length === 0 ? (
+					<EmptyState title="Nenhum evento encontrado para os filtros aplicados." />
 				) : (
-					<ul className="flex flex-col gap-3">
-						{events.map((event) => (
-							<li
-								className="rounded-2xl border border-[color:var(--color-border-subtle)] bg-[color:var(--color-surface-muted)] p-4"
-								key={event.id}
-							>
-								<div className="flex flex-wrap items-center justify-between gap-2 text-[color:var(--color-text-muted)] text-xs">
-									<span>
-										{entityTypeLabels[event.entityType] ?? event.entityType} ·{" "}
-										{actionLabels[event.action] ?? event.action}
-									</span>
-									<span>{formatDateTime(event.createdAt)}</span>
-								</div>
-								<p className="mt-2 text-[color:var(--color-text)] text-sm">
-									{event.summary}
-								</p>
-								{event.entityId !== null ? (
-									<p className="text-[color:var(--color-text-subtle)] text-xs">
-										ID #{event.entityId}
-									</p>
-								) : null}
-								{event.diff ? (
-									<details className="mt-2">
-										<summary className="cursor-pointer text-[color:var(--color-accent)] text-xs">
-											Ver detalhes
-										</summary>
-										<pre className="mt-2 overflow-x-auto rounded-xl bg-black/40 p-3 font-mono text-[color:var(--color-text)] text-xs">
-											{JSON.stringify(event.diff, null, 2)}
-										</pre>
-									</details>
-								) : null}
-							</li>
-						))}
-					</ul>
+					<DataTable
+						columns={auditColumns}
+						data={rows}
+						density="compact"
+						emptyMessage="Nenhum evento encontrado."
+						searchColumn="summary"
+						searchPlaceholder="Filtrar resumo..."
+					/>
 				)}
-			</Panel>
+			</CardContent>
+		</Card>
+	);
+}
+
+function FilterSelect({
+	label,
+	name,
+	options,
+	defaultValue,
+}: {
+	label: string;
+	name: string;
+	options: { value: string; label: string }[];
+	defaultValue: string;
+}) {
+	return (
+		<div className="grid gap-1">
+			<Label className="text-xs" htmlFor={name}>
+				{label}
+			</Label>
+			<select
+				className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+				defaultValue={defaultValue}
+				id={name}
+				name={name}
+			>
+				{options.map((opt) => (
+					<option key={opt.value} value={opt.value}>
+						{opt.label}
+					</option>
+				))}
+			</select>
 		</div>
 	);
 }
