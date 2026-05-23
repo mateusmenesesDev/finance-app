@@ -43,4 +43,9 @@ yarn-error.log*
 *.tsbuildinfo
 
 # idea files
-.ideaexample.csv
+.idea
+
+# local-only sample data
+example.csv
+investiment-issue.md
+
