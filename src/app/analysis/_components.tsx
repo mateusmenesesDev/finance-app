@@ -60,9 +60,7 @@ function BarRow({
 				/>
 			</div>
 			{detail ? (
-				<p className="mt-1 text-[color:var(--color-text-subtle)] text-xs">
-					{detail}
-				</p>
+				<p className="mt-1 text-(--color-text-subtle) text-xs">{detail}</p>
 			) : null}
 		</div>
 	);
@@ -88,7 +86,7 @@ export function TotalsTable({
 		<div className="overflow-x-auto">
 			<table className="w-full text-sm">
 				<thead>
-					<tr className="text-left text-[color:var(--color-text-muted)]">
+					<tr className="text-left text-(--color-text-muted)">
 						<th className="py-2">Mês</th>
 						<th>Receitas</th>
 						<th>Despesas</th>

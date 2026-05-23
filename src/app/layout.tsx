@@ -2,8 +2,9 @@ import "~/styles/globals.css";
 
 import type { Metadata } from "next";
 import { Geist } from "next/font/google";
-import { cookies } from "next/headers";
 
+import { ThemeProvider } from "~/components/theme-provider";
+import { Toaster } from "~/components/ui/sonner";
 import { TRPCReactProvider } from "~/trpc/react";
 
 export const metadata: Metadata = {
@@ -17,30 +18,21 @@ const geist = Geist({
 	variable: "--font-geist-sans",
 });
 
-export default async function RootLayout({
+export default function RootLayout({
 	children,
 }: Readonly<{ children: React.ReactNode }>) {
-	const themeCookie = (await cookies()).get("finance-theme")?.value;
-	const theme =
-		themeCookie === "light" || themeCookie === "dark" ? themeCookie : "system";
-
 	return (
-		<html
-			className={`${geist.variable}`}
-			data-theme={theme}
-			lang="pt-BR"
-			suppressHydrationWarning
-		>
-			<head>
-				<script
-					// biome-ignore lint/security/noDangerouslySetInnerHtml: small no-flash theme bootstrap before React hydrates.
-					dangerouslySetInnerHTML={{
-						__html: `try{var t=localStorage.getItem("finance-theme");if(t==="light"||t==="dark"||t==="system")document.documentElement.dataset.theme=t;}catch(e){}`,
-					}}
-				/>
-			</head>
+		<html className={geist.variable} lang="pt-BR" suppressHydrationWarning>
 			<body>
-				<TRPCReactProvider>{children}</TRPCReactProvider>
+				<ThemeProvider
+					attribute="class"
+					defaultTheme="system"
+					disableTransitionOnChange
+					enableSystem
+				>
+					<TRPCReactProvider>{children}</TRPCReactProvider>
+					<Toaster position="top-right" richColors />
+				</ThemeProvider>
 			</body>
 		</html>
 	);

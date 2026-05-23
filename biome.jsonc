@@ -6,6 +6,9 @@
 		"useIgnoreFile": true,
 		"clientKind": "git"
 	},
+	"files": {
+		"includes": ["**", "!src/components/ui"]
+	},
 	"assist": {
 		"enabled": true,
 		"actions": {
