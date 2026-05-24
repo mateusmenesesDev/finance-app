@@ -1,13 +1,11 @@
 "use client";
 
-import type { ColumnDef } from "@tanstack/react-table";
 import { useActionState, useCallback, useMemo, useState } from "react";
 
 import {
 	type ConfirmImportBatchState,
 	confirmImportBatch,
 } from "~/app/_actions/finance-actions";
-import { DataTable } from "~/components/data-table";
 import { Money } from "~/components/money";
 import { SubmitButton } from "~/components/submit-button";
 import { formatMoneyInput } from "~/lib/formatters";
@@ -158,33 +156,6 @@ export function ConfirmImportForm({
 		[categoriesById],
 	);
 
-	const columns = useMemo<ColumnDef<ConfirmFormRow, unknown>[]>(
-		() => [
-			{
-				accessorKey: "rowNumber",
-				header: "Linha",
-				cell: ({ row }) => row.original.rowNumber,
-				size: 72,
-			},
-			{
-				accessorKey: "originalDescription",
-				header: "Decisão",
-				cell: ({ row }) => (
-					<RowBlock
-						accounts={accounts}
-						bulkCategory={bulkCategory}
-						categories={categories}
-						error={state.rowErrors[row.original.id] ?? null}
-						onChange={(patch) => updateRow(row.original.id, patch)}
-						row={row.original}
-						state={rowStates[row.original.id]}
-					/>
-				),
-			},
-		],
-		[accounts, bulkCategory, categories, rowStates, state.rowErrors, updateRow],
-	);
-
 	return (
 		<form action={action} className="mt-5 grid gap-4">
 			<input name="batchId" type="hidden" value={batchId} />
@@ -248,14 +219,24 @@ export function ConfirmImportForm({
 				</div>
 			)}
 
-			<DataTable
-				columns={columns}
-				data={rows}
-				density="compact"
-				emptyMessage="Nenhuma linha para revisar."
-				enableColumnToggle={false}
-				enablePagination={false}
-			/>
+			{rows.length === 0 ? (
+				<p className="text-muted-foreground text-sm">Nenhuma linha para revisar.</p>
+			) : (
+				<div className="grid gap-4">
+					{rows.map((row) => (
+						<RowBlock
+							accounts={accounts}
+							bulkCategory={bulkCategory}
+							categories={categories}
+							error={state.rowErrors[row.id] ?? null}
+							key={row.id}
+							onChange={(patch) => updateRow(row.id, patch)}
+							row={row}
+							state={rowStates[row.id]}
+						/>
+					))}
+				</div>
+			)}
 
 			<SubmitButton
 				className="bg-primary py-3 font-semibold"
