@@ -368,11 +368,12 @@ function parseMovementType(
 
 function parseDate(value: string, format: ImportTemplateConfig["dateFormat"]) {
 	const trimmed = value.trim();
-	const parts = trimmed
-		.split(format === "yyyy-mm-dd" ? /-/ : /[/-]/)
-		.map(Number);
+	const parts = trimmed.split(/[/\-]/).map(Number);
+	// If the first segment is clearly a year (> 31), treat as yyyy-mm-dd regardless of configured format
+	const effectiveFormat =
+		(parts[0] ?? 0) > 31 ? "yyyy-mm-dd" : format;
 	const [year, month, day] =
-		format === "yyyy-mm-dd" ? parts : [parts[2], parts[1], parts[0]];
+		effectiveFormat === "yyyy-mm-dd" ? parts : [parts[2], parts[1], parts[0]];
 	if (!year || !month || !day) return null;
 	const date = new Date(year, month - 1, day);
 	if (
