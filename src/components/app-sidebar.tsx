@@ -1,5 +1,6 @@
 "use client";
 
+import { Wallet } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -36,7 +37,7 @@ export function AppSidebar() {
 						aria-hidden
 						className="flex size-7 items-center justify-center rounded-md bg-primary text-primary-foreground"
 					>
-						$
+						<Wallet className="size-4" />
 					</span>
 					<span className="truncate group-data-[collapsible=icon]:hidden">
 						Finance App

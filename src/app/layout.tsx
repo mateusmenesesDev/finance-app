@@ -10,7 +10,6 @@ import { TRPCReactProvider } from "~/trpc/react";
 export const metadata: Metadata = {
 	title: "Finance App",
 	description: "Controle pessoal de contas, transações e importações CSV.",
-	icons: [{ rel: "icon", url: "/favicon.ico" }],
 };
 
 const geist = Geist({
