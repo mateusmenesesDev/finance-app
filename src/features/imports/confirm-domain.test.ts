@@ -91,6 +91,25 @@ describe("resolveConfirmRowCategory", () => {
 		});
 	});
 
+	test("credit card payment rows do not need category", () => {
+		expect(
+			resolveConfirmRowCategory({
+				movementType: "credit_card_payment",
+				rowCategoryId: null,
+				bulkCategoryId: null,
+				categoriesById,
+			}),
+		).toEqual({
+			kind: "ok",
+			category: {
+				id: 0,
+				name: "Pagamento de fatura",
+				kind: "credit_card_payment",
+			},
+			usedBulk: false,
+		});
+	});
+
 	test("reports missing when neither pick resolves", () => {
 		expect(
 			resolveConfirmRowCategory({

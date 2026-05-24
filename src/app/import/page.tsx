@@ -1004,6 +1004,7 @@ function BatchReview({
 					accounts={reviewAccounts.map((account) => ({
 						id: account.id,
 						name: account.name,
+						type: account.type,
 					}))}
 					batchId={selectedBatch.id}
 					categories={reviewCategories.map((category) => ({

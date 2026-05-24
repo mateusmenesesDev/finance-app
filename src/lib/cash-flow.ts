@@ -203,6 +203,11 @@ export function aggregateCashFlow(input: {
 		invoiceOutflow: 0,
 	}));
 	const byKey = new Map(buckets.map((bucket) => [bucket.key, bucket]));
+	const creditCardAccountIds = new Set(
+		input.accounts
+			.filter((account) => account.type === "credit_card")
+			.map((account) => account.id),
+	);
 	let pendingTransactionCount = 0;
 	let pendingTransactionCents = 0;
 
@@ -213,6 +218,13 @@ export function aggregateCashFlow(input: {
 		)
 			continue;
 		if (!matchesAccountFilter(transaction, input.accountFilter ?? "all"))
+			continue;
+		// Card purchases are not cash flow — they only move money on invoice payment,
+		// which `computeFutureInvoices` and `credit_card_payment` transactions handle.
+		if (
+			transaction.movementType !== "credit_card_payment" &&
+			creditCardAccountIds.has(transaction.accountId)
+		)
 			continue;
 		const bucket = byKey.get(
 			bucketKey(transaction.occurredOn, input.granularity),

@@ -10,7 +10,7 @@ import { Money } from "~/components/money";
 import { SubmitButton } from "~/components/submit-button";
 import { formatMoneyInput } from "~/lib/formatters";
 
-type MovementType = "income" | "expense" | "transfer";
+type MovementType = "income" | "expense" | "transfer" | "credit_card_payment";
 
 export type ConfirmFormCategory = {
 	id: number;
@@ -21,6 +21,12 @@ export type ConfirmFormCategory = {
 export type ConfirmFormAccount = {
 	id: number;
 	name: string;
+	type:
+		| "checking"
+		| "savings"
+		| "cash"
+		| "credit_card"
+		| "investment";
 };
 
 export type ConfirmFormRow = {
@@ -63,7 +69,12 @@ const movementTypeLabels: Record<MovementType, string> = {
 	income: "receita",
 	expense: "despesa",
 	transfer: "transferência",
+	credit_card_payment: "pagamento de fatura",
 };
+
+function isTransferLikeMovement(movementType: MovementType) {
+	return movementType === "transfer" || movementType === "credit_card_payment";
+}
 
 const rowStatusLabels: Record<string, string> = {
 	pending_review: "aguardando revisão",
@@ -140,13 +151,19 @@ export function ConfirmImportForm({
 				if (!current) return prev;
 				let next: RowState = { ...current, ...patch };
 				if (patch.movementType && patch.movementType !== current.movementType) {
-					// Drop a category whose kind no longer matches the new Tipo.
+					// Drop a category whose kind no longer matches the new Tipo. Note
+					// that the only category-bearing kinds are income/expense.
 					const selected = next.categoryId
 						? categoriesById.get(Number(next.categoryId))
 						: null;
-					if (!selected || selected.kind !== next.movementType)
+					if (
+						!selected ||
+						(next.movementType !== "income" && next.movementType !== "expense") ||
+						selected.kind !== next.movementType
+					) {
 						next = { ...next, categoryId: "" };
-					if (patch.movementType !== "transfer") {
+					}
+					if (!isTransferLikeMovement(patch.movementType)) {
 						next = { ...next, destinationAccountId: "" };
 					}
 				}
@@ -280,14 +297,14 @@ function RowBlock({
 }) {
 	if (!state) return null;
 	const movementType = state.movementType;
-	const filteredCategories =
-		movementType === "transfer"
-			? []
-			: categories.filter((category) => category.kind === movementType);
+	const isTransferLike = isTransferLikeMovement(movementType);
+	const filteredCategories = isTransferLike
+		? []
+		: categories.filter((category) => category.kind === movementType);
 	const categoryErrorId = error ? `row-${row.id}-category-error` : undefined;
 	const isIgnoreSuggestion = row.suggestionSource === "rule_ignore";
 	const suggestionVisible =
-		movementType !== "transfer" &&
+		!isTransferLike &&
 		row.suggestedCategoryId &&
 		row.suggestedCategoryName &&
 		categories.find((category) => category.id === row.suggestedCategoryId)
@@ -302,6 +319,14 @@ function RowBlock({
 		movementType === "transfer" &&
 		row.suggestedSourceAccountId &&
 		row.suggestedDestinationAccountId;
+	const destinationOptions =
+		movementType === "credit_card_payment"
+			? accounts.filter((account) => account.type === "credit_card")
+			: accounts;
+	const sourceOptions =
+		movementType === "credit_card_payment"
+			? accounts.filter((account) => account.type !== "credit_card")
+			: accounts;
 	const bulkWillApply =
 		bulkCategory && !state.categoryId && bulkCategory.kind === movementType;
 	const bulkWillSkip =
@@ -449,9 +474,17 @@ function RowBlock({
 						<option value="income">Receita</option>
 						<option value="expense">Despesa</option>
 						<option value="transfer">Transferência</option>
+						<option value="credit_card_payment">Pagamento de fatura</option>
 					</select>
 				</FieldLabel>
-				<FieldLabel label={movementType === "transfer" ? "Origem" : "Conta"}>
+				<FieldLabel
+					hint={
+						movementType === "credit_card_payment"
+							? "Conta normal de onde sai o dinheiro da fatura."
+							: undefined
+					}
+					label={isTransferLike ? "Origem" : "Conta"}
+				>
 					<select
 						className={inputClass}
 						name={`row-${row.id}-accountId`}
@@ -460,15 +493,26 @@ function RowBlock({
 						}
 						value={state.sourceAccountId}
 					>
-						{accounts.map((account) => (
+						{sourceOptions.map((account) => (
 							<option key={account.id} value={account.id}>
 								{account.name}
 							</option>
 						))}
 					</select>
 				</FieldLabel>
-				{movementType === "transfer" ? (
-					<FieldLabel label="Destino">
+				{isTransferLike ? (
+					<FieldLabel
+						hint={
+							movementType === "credit_card_payment"
+								? "Cartão cuja fatura está sendo paga."
+								: undefined
+						}
+						label={
+							movementType === "credit_card_payment"
+								? "Cartão pago"
+								: "Destino"
+						}
+					>
 						<select
 							className={inputClass}
 							name={`row-${row.id}-destinationAccountId`}
@@ -478,8 +522,12 @@ function RowBlock({
 							required
 							value={state.destinationAccountId}
 						>
-							<option value="">Selecione o destino</option>
-							{accounts.map((account) => (
+							<option value="">
+								{movementType === "credit_card_payment"
+									? "Selecione o cartão"
+									: "Selecione o destino"}
+							</option>
+							{destinationOptions.map((account) => (
 								<option key={account.id} value={account.id}>
 									{account.name}
 								</option>
@@ -487,7 +535,7 @@ function RowBlock({
 						</select>
 					</FieldLabel>
 				) : null}
-				{movementType === "transfer" ? null : (
+				{isTransferLike ? null : (
 					<FieldLabel
 						hint={
 							bulkWillApply
@@ -553,11 +601,18 @@ function RowBlock({
 						Confirmar como ocorrência desta recorrência
 					</label>
 				)}
-			<label className="flex items-center gap-2 text-muted-foreground text-sm">
-				<input name={`row-${row.id}-createRule`} type="checkbox" /> Salvar a
-				decisão desta linha como nova regra (categorizar, transferir ou
-				ignorar). Aplica em lotes futuros.
-			</label>
+			{movementType === "credit_card_payment" ? (
+				<p className="text-muted-foreground text-xs">
+					Pagamentos de fatura ainda não geram regra automática — selecione o
+					cartão pago em cada importação.
+				</p>
+			) : (
+				<label className="flex items-center gap-2 text-muted-foreground text-sm">
+					<input name={`row-${row.id}-createRule`} type="checkbox" /> Salvar a
+					decisão desta linha como nova regra (categorizar, transferir ou
+					ignorar). Aplica em lotes futuros.
+				</label>
+			)}
 		</div>
 	);
 }

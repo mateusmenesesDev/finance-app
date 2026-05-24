@@ -1,7 +1,11 @@
 // Pure helpers used by the import confirmation server action and its review UI.
 // Kept dependency-free so they can be unit-tested without a database.
 
-export type ImportMovementType = "income" | "expense" | "transfer";
+export type ImportMovementType =
+	| "income"
+	| "expense"
+	| "transfer"
+	| "credit_card_payment";
 
 export type ImportConfirmCategory = {
 	id: number;
@@ -27,7 +31,7 @@ export type ResolveCategoryResult =
 
 // Mirrors the server action's resolution: the row-level pick wins, otherwise
 // the bulk default may fill in, but bulk only applies when its kind matches
-// the row's movement type.
+// the row's movement type. Transfers and invoice payments are category-free.
 export function resolveConfirmRowCategory(
 	input: ResolveCategoryInput,
 ): ResolveCategoryResult {
@@ -36,6 +40,16 @@ export function resolveConfirmRowCategory(
 		return {
 			kind: "ok",
 			category: { id: 0, name: "Transferência", kind: "transfer" },
+			usedBulk: false,
+		};
+	if (movementType === "credit_card_payment")
+		return {
+			kind: "ok",
+			category: {
+				id: 0,
+				name: "Pagamento de fatura",
+				kind: "credit_card_payment",
+			},
 			usedBulk: false,
 		};
 	if (rowCategoryId !== null) {
@@ -59,6 +73,7 @@ const movementTypeLabel: Record<ImportMovementType, string> = {
 	income: "receita",
 	expense: "despesa",
 	transfer: "transferência",
+	credit_card_payment: "pagamento de fatura",
 };
 
 export function formatConfirmCategoryError(

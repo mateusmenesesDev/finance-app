@@ -103,11 +103,9 @@ const importRuleActions = new Set<ImportRuleAction>([
 	"ignore",
 	"transfer",
 ]);
-const importMovementTypes = new Set<"income" | "expense" | "transfer">([
-	"income",
-	"expense",
-	"transfer",
-]);
+const importMovementTypes = new Set<
+	"income" | "expense" | "transfer" | "credit_card_payment"
+>(["income", "expense", "transfer", "credit_card_payment"]);
 const monthlyBudgetScopes = new Set<MonthlyBudgetScope>([
 	"month",
 	"category_group",
@@ -1795,12 +1793,19 @@ export async function createImportCategoryRule(formData: FormData) {
 	let sourceAccountId: number | null = null;
 	let destinationAccountId: number | null = null;
 	let movementType: "income" | "expense" | "transfer" | null = null;
+	// Import rules today only match income/expense rows from CSV; credit-card
+	// payments still need manual classification each import.
+	const ruleRowMovementTypes = new Set<"income" | "expense" | "transfer">([
+		"income",
+		"expense",
+		"transfer",
+	]);
 	if (action === "categorize") {
 		categoryId = intField(formData, "categoryId");
 		const rawMovementType = enumField(
 			formData,
 			"movementType",
-			importMovementTypes,
+			ruleRowMovementTypes,
 		);
 		if (rawMovementType === "transfer")
 			throw new Error("Categoria não aceita transferência");
@@ -1811,7 +1816,7 @@ export async function createImportCategoryRule(formData: FormData) {
 		const rawMovementType = enumField(
 			formData,
 			"movementType",
-			importMovementTypes,
+			ruleRowMovementTypes,
 		);
 		if (rawMovementType === "transfer") {
 			throw new Error(
@@ -1823,7 +1828,7 @@ export async function createImportCategoryRule(formData: FormData) {
 		const rawMovementType = optionalString(formData, "movementType");
 		if (rawMovementType && rawMovementType !== "any") {
 			if (
-				!importMovementTypes.has(
+				!ruleRowMovementTypes.has(
 					rawMovementType as "income" | "expense" | "transfer",
 				)
 			)
@@ -2133,11 +2138,19 @@ export async function confirmImportBatch(
 		if (
 			!movementTypeValue ||
 			!importMovementTypes.has(
-				movementTypeValue as "income" | "expense" | "transfer",
+				movementTypeValue as
+					| "income"
+					| "expense"
+					| "transfer"
+					| "credit_card_payment",
 			)
 		)
 			continue;
-		const movementType = movementTypeValue as "income" | "expense" | "transfer";
+		const movementType = movementTypeValue as
+			| "income"
+			| "expense"
+			| "transfer"
+			| "credit_card_payment";
 		const rowCategoryId = optionalIntField(
 			formData,
 			`row-${row.id}-categoryId`,
@@ -2152,7 +2165,7 @@ export async function confirmImportBatch(
 			rowErrors[row.id] = formatConfirmCategoryError(resolved, movementType);
 			continue;
 		}
-		if (movementType === "transfer") {
+		if (movementType === "transfer" || movementType === "credit_card_payment") {
 			const sourceAccountId = optionalIntField(
 				formData,
 				`row-${row.id}-accountId`,
@@ -2161,16 +2174,34 @@ export async function confirmImportBatch(
 				formData,
 				`row-${row.id}-destinationAccountId`,
 			);
+			const label =
+				movementType === "credit_card_payment"
+					? "pagamento de fatura"
+					: "transferência";
 			if (!sourceAccountId || !accountsById.has(sourceAccountId)) {
-				rowErrors[row.id] = "Conta origem obrigatória para transferência.";
+				rowErrors[row.id] = `Conta origem obrigatória para ${label}.`;
 				continue;
 			}
 			if (!destinationAccountId || !accountsById.has(destinationAccountId)) {
-				rowErrors[row.id] = "Conta destino obrigatória para transferência.";
+				rowErrors[row.id] = `Conta destino obrigatória para ${label}.`;
 				continue;
 			}
 			if (sourceAccountId === destinationAccountId) {
 				rowErrors[row.id] = "Conta origem e destino devem ser diferentes.";
+				continue;
+			}
+			if (movementType === "credit_card_payment") {
+				const source = accountsById.get(sourceAccountId);
+				const destination = accountsById.get(destinationAccountId);
+				if (source?.type === "credit_card") {
+					rowErrors[row.id] =
+						"Pagamento de fatura deve sair de uma conta normal, não de um cartão.";
+					continue;
+				}
+				if (destination?.type !== "credit_card") {
+					rowErrors[row.id] =
+						"Pagamento de fatura precisa apontar para um cartão de crédito como destino.";
+				}
 			}
 		}
 	}
@@ -2294,7 +2325,9 @@ export async function confirmImportBatch(
 				formData,
 				`row-${row.id}-destinationAccountId`,
 			);
-			if (movementType === "transfer") {
+			const isTransferLike =
+				movementType === "transfer" || movementType === "credit_card_payment";
+			if (isTransferLike) {
 				if (!destinationAccountId || !accountsById.has(destinationAccountId)) {
 					throw new Error(
 						`Conta destino obrigatória na linha ${row.rowNumber}`,
@@ -2305,15 +2338,30 @@ export async function confirmImportBatch(
 						`Conta origem e destino devem ser diferentes na linha ${row.rowNumber}`,
 					);
 				}
+				if (movementType === "credit_card_payment") {
+					const source = accountsById.get(accountId);
+					const destination = accountsById.get(destinationAccountId);
+					if (source?.type === "credit_card") {
+						throw new Error(
+							`Pagamento de fatura na linha ${row.rowNumber} deve sair de uma conta normal`,
+						);
+					}
+					if (destination?.type !== "credit_card") {
+						throw new Error(
+							`Pagamento de fatura na linha ${row.rowNumber} precisa de um cartão como destino`,
+						);
+					}
+				}
 			}
 			const rowCategoryId = optionalIntField(
 				formData,
 				`row-${row.id}-categoryId`,
 			);
-			const categoryId =
-				movementType === "transfer" ? null : (rowCategoryId ?? bulkCategoryId);
+			const categoryId = isTransferLike
+				? null
+				: (rowCategoryId ?? bulkCategoryId);
 			const category = categoryId ? categoriesById.get(categoryId) : null;
-			if (movementType !== "transfer" && !category)
+			if (!isTransferLike && !category)
 				throw new Error(`Categoria obrigatória na linha ${row.rowNumber}`);
 			const acceptedRuleId =
 				row.suggestedRuleId &&
@@ -2351,7 +2399,14 @@ export async function confirmImportBatch(
 					row.normalizedDescription ||
 					"Importação CSV",
 			);
-			if (formData.get(`row-${row.id}-createRule`) === "on") {
+			// Auto-generated rules only support categorize/ignore/transfer today.
+			// Credit-card invoice payments still require manual classification per
+			// import; the user can save one as a transfer rule with credit_card
+			// destination from a future iteration if needed.
+			if (
+				formData.get(`row-${row.id}-createRule`) === "on" &&
+				movementType !== "credit_card_payment"
+			) {
 				const ruleMovementType =
 					movementType === "transfer" &&
 					(row.movementType === "income" || row.movementType === "expense")
@@ -2412,8 +2467,7 @@ export async function confirmImportBatch(
 			await tx.insert(transactions).values({
 				userId,
 				accountId,
-				destinationAccountId:
-					movementType === "transfer" ? destinationAccountId : null,
+				destinationAccountId: isTransferLike ? destinationAccountId : null,
 				categoryId,
 				categoryRuleId: acceptedRuleId,
 				importBatchId: batch.id,
@@ -2432,14 +2486,14 @@ export async function confirmImportBatch(
 				.update(importRows)
 				.set({
 					status: "imported",
-					accountId: movementType === "transfer" ? row.accountId : accountId,
+					accountId: isTransferLike ? row.accountId : accountId,
 					occurredOn,
 					amountCents,
 					movementType,
-					suggestedSourceAccountId:
-						movementType === "transfer" ? accountId : null,
-					suggestedDestinationAccountId:
-						movementType === "transfer" ? destinationAccountId : null,
+					suggestedSourceAccountId: isTransferLike ? accountId : null,
+					suggestedDestinationAccountId: isTransferLike
+						? destinationAccountId
+						: null,
 					suggestedRecurrenceId: acceptedRecurrence?.recurrenceId ?? null,
 					suggestedRecurrenceOccurrenceOn:
 						acceptedRecurrence?.occurrenceOn ?? null,

@@ -152,6 +152,55 @@ describe("cash flow", () => {
 		expect(result.pending).toEqual({ transactionCount: 1, amountCents: 20_00 });
 	});
 
+	test("credit card purchases are excluded from realized cash flow in the purchase month", () => {
+		const result = aggregateCashFlow({
+			accounts,
+			transactions: [
+				tx({
+					accountId: 2,
+					movementType: "expense",
+					amountCents: 20_00,
+					status: "confirmed",
+					occurredOn: "2026-05-10",
+				}),
+				tx({
+					accountId: 2,
+					movementType: "expense",
+					amountCents: 15_00,
+					status: "planned",
+					occurredOn: "2026-05-12",
+				}),
+			],
+			window: { start: "2026-05-01", end: "2026-05-31" },
+			granularity: "month",
+			today: "2026-05-01",
+		});
+
+		expect(result.totals.realizedExpense).toBe(0);
+		expect(result.totals.plannedExpense).toBe(0);
+	});
+
+	test("credit card payment from a normal account remains in realized expense", () => {
+		const result = aggregateCashFlow({
+			accounts,
+			transactions: [
+				tx({
+					accountId: 1,
+					destinationAccountId: 2,
+					movementType: "credit_card_payment",
+					amountCents: 35_00,
+					status: "confirmed",
+					occurredOn: "2026-05-20",
+				}),
+			],
+			window: { start: "2026-05-01", end: "2026-05-31" },
+			granularity: "month",
+			today: "2026-05-01",
+		});
+
+		expect(result.totals.realizedExpense).toBe(35_00);
+	});
+
 	test("per-account running balance ignores invoices but consolidated includes them", () => {
 		const transactions = [
 			tx({
