@@ -107,6 +107,7 @@ export function ConfirmImportForm({
 				destinationAccountId: row.suggestedDestinationAccountId
 					? String(row.suggestedDestinationAccountId)
 					: "",
+				description: row.suggestedDescription ?? row.originalDescription ?? "",
 			};
 		}
 		return map;
@@ -271,6 +272,7 @@ type RowState = {
 	categoryId: string;
 	sourceAccountId: string;
 	destinationAccountId: string;
+	description: string;
 };
 
 const initialConfirmState: ConfirmImportBatchState = {
@@ -543,10 +545,9 @@ function RowBlock({
 				>
 					<input
 						className={inputClass}
-						defaultValue={
-							row.suggestedDescription ?? row.originalDescription ?? ""
-						}
 						name={`row-${row.id}-description`}
+						onChange={(event) => onChange({ description: event.target.value })}
+						value={state.description}
 					/>
 				</FieldLabel>
 			</div>
