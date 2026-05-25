@@ -8,6 +8,7 @@ import {
 	createRecurrence,
 	updateRecurrence,
 } from "~/app/_actions/finance-actions";
+import { ActionDialog } from "~/components/action-dialog";
 import { AppShell } from "~/components/app-shell";
 import { ConfirmDialog } from "~/components/confirm-dialog";
 import { EmptyState } from "~/components/empty-state";
@@ -19,15 +20,6 @@ import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Checkbox } from "~/components/ui/checkbox";
-import {
-	Dialog,
-	DialogContent,
-	DialogDescription,
-	DialogFooter,
-	DialogHeader,
-	DialogTitle,
-	DialogTrigger,
-} from "~/components/ui/dialog";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { formatDate, formatMoney } from "~/lib/formatters";
@@ -436,7 +428,9 @@ function RecurrenceCard({
 					action={archiveRecurrence}
 					confirmLabel="Arquivar"
 					destructive
+					errorMessage="Não foi possível arquivar a recorrência."
 					hidden={{ id: recurrence.id, isArchived: "true" }}
+					successMessage="Recorrência arquivada."
 					title="Arquivar recorrência?"
 					trigger={
 						<Button size="sm" variant="destructive">
@@ -459,8 +453,19 @@ function RecurrenceDialog({
 	recurrence?: RecurrenceRow;
 }) {
 	return (
-		<Dialog>
-			<DialogTrigger asChild>
+		<ActionDialog
+			action={recurrence ? updateRecurrence : createRecurrence}
+			contentClassName="sm:max-w-3xl"
+			description="Marque conta a pagar/receber quando não houver categoria ainda; assinatura indica gasto recorrente que deve ser revisado periodicamente."
+			footerClassName="sm:col-span-2 lg:col-span-3"
+			formClassName="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+			pendingLabel={recurrence ? "Salvando..." : "Cadastrando..."}
+			submitLabel={recurrence ? "Salvar" : "Cadastrar"}
+			successMessage={
+				recurrence ? "Recorrência atualizada." : "Recorrência criada."
+			}
+			title={recurrence ? "Editar recorrência" : "Nova recorrência"}
+			trigger={
 				<Button
 					size={recurrence ? "sm" : "default"}
 					variant={recurrence ? "outline" : "default"}
@@ -474,25 +479,14 @@ function RecurrenceDialog({
 						</>
 					)}
 				</Button>
-			</DialogTrigger>
-			<DialogContent className="sm:max-w-3xl">
-				<DialogHeader>
-					<DialogTitle>
-						{recurrence ? "Editar recorrência" : "Nova recorrência"}
-					</DialogTitle>
-					<DialogDescription>
-						Marque conta a pagar/receber quando não houver categoria ainda;
-						assinatura indica gasto recorrente que deve ser revisado
-						periodicamente.
-					</DialogDescription>
-				</DialogHeader>
-				<RecurrenceForm
-					accountOptions={accountOptions}
-					categoryOptions={categoryOptions}
-					recurrence={recurrence}
-				/>
-			</DialogContent>
-		</Dialog>
+			}
+		>
+			<RecurrenceForm
+				accountOptions={accountOptions}
+				categoryOptions={categoryOptions}
+				recurrence={recurrence}
+			/>
+		</ActionDialog>
 	);
 }
 
@@ -506,10 +500,7 @@ function RecurrenceForm({
 	recurrence?: RecurrenceRow;
 }) {
 	return (
-		<form
-			action={recurrence ? updateRecurrence : createRecurrence}
-			className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
-		>
+		<>
 			{recurrence ? (
 				<input name="id" type="hidden" value={recurrence.id} />
 			) : null}
@@ -608,14 +599,7 @@ function RecurrenceForm({
 				/>
 				<Label htmlFor="recurrence-isSubscription">Assinatura</Label>
 			</div>
-			<DialogFooter className="sm:col-span-2 lg:col-span-3">
-				<SubmitButton
-					pendingLabel={recurrence ? "Salvando..." : "Cadastrando..."}
-				>
-					{recurrence ? "Salvar" : "Cadastrar"}
-				</SubmitButton>
-			</DialogFooter>
-		</form>
+		</>
 	);
 }
 

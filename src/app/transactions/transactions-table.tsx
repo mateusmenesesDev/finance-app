@@ -27,6 +27,7 @@ import {
 } from "~/components/ui/dropdown-menu";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
+import { useDialogAction } from "~/hooks/use-dialog-action";
 import { formatDate, formatMoneyInput } from "~/lib/formatters";
 import { cn } from "~/lib/utils";
 
@@ -180,8 +181,10 @@ function RowActions({
 	updateAction,
 	archiveAction,
 }: RowActionProps) {
+	const { open, onOpenChange, wrapAction } = useDialogAction();
+
 	return (
-		<Dialog>
+		<Dialog onOpenChange={onOpenChange} open={open}>
 			<DropdownMenu>
 				<DropdownMenuTrigger asChild>
 					<Button
@@ -227,10 +230,15 @@ function RowActions({
 			</DropdownMenu>
 			<EditTransactionDialog
 				accounts={accounts}
-				archiveAction={archiveAction}
+				archiveAction={wrapAction(archiveAction, {
+					success: "Transação arquivada.",
+					error: "Não foi possível arquivar a transação.",
+				})}
 				categories={categories}
 				row={row}
-				updateAction={updateAction}
+				updateAction={wrapAction(updateAction, {
+					success: "Transação atualizada.",
+				})}
 			/>
 		</Dialog>
 	);

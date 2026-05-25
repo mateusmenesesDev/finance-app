@@ -12,6 +12,7 @@ import {
 	updateCategory,
 	updateCategoryGroup,
 } from "~/app/_actions/finance-actions";
+import { ActionDialog } from "~/components/action-dialog";
 import { ConfirmDialog } from "~/components/confirm-dialog";
 import { EmptyState } from "~/components/empty-state";
 import { Money } from "~/components/money";
@@ -25,15 +26,6 @@ import {
 	CardHeader,
 	CardTitle,
 } from "~/components/ui/card";
-import {
-	Dialog,
-	DialogContent,
-	DialogDescription,
-	DialogFooter,
-	DialogHeader,
-	DialogTitle,
-	DialogTrigger,
-} from "~/components/ui/dialog";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import type { CategoryActionState } from "~/lib/category-errors";
@@ -75,26 +67,9 @@ export function CategoriesClient({
 		createDefaultCategories,
 		initialState,
 	);
-	const [createGroupState, createGroupAction] = useActionState(
-		createCategoryGroup,
-		initialState,
-	);
-	const [updateGroupState, updateGroupAction] = useActionState(
-		updateCategoryGroup,
-		initialState,
-	);
-	const [createState, createAction] = useActionState(
-		createCategory,
-		initialState,
-	);
-	const [updateState, updateAction] = useActionState(
-		updateCategory,
-		initialState,
-	);
 	const [visibleError, setVisibleError] = useState<string | null>(null);
 	const [visibleGroups, setVisibleGroups] = useState(activeGroups);
 	const [visibleCategories, setVisibleCategories] = useState(activeCategories);
-	const [status, setStatus] = useState<string | null>(null);
 
 	useEffect(() => {
 		setVisibleGroups(activeGroups);
@@ -107,62 +82,63 @@ export function CategoriesClient({
 		const id = Number(formData.get("id"));
 		const groupsBefore = visibleGroups;
 		const categoriesBefore = visibleCategories;
-		setVisibleError(null);
-		setStatus("Arquivando grupo...");
 		setVisibleGroups((current) => current.filter((group) => group.id !== id));
 		setVisibleCategories((current) =>
 			current.filter((category) => category.groupId !== id),
 		);
 		try {
 			await archiveCategoryGroup(formData);
-			setStatus("Grupo arquivado.");
 		} catch {
 			setVisibleGroups(groupsBefore);
 			setVisibleCategories(categoriesBefore);
-			setVisibleError("Não foi possível arquivar o grupo.");
-			setStatus(null);
+			throw new Error("Não foi possível arquivar o grupo.");
 		}
 	}
 
 	async function archiveCategoryWithRollback(formData: FormData) {
 		const id = Number(formData.get("id"));
 		const before = visibleCategories;
-		setVisibleError(null);
-		setStatus("Arquivando categoria...");
 		setVisibleCategories((current) =>
 			current.filter((category) => category.id !== id),
 		);
 		try {
 			await archiveCategory(formData);
-			setStatus("Categoria arquivada.");
 		} catch {
 			setVisibleCategories(before);
-			setVisibleError("Não foi possível arquivar a categoria.");
-			setStatus(null);
+			throw new Error("Não foi possível arquivar a categoria.");
 		}
 	}
 
 	useEffect(() => {
 		if (defaultState.error) setVisibleError(defaultState.error);
 	}, [defaultState]);
-	useEffect(() => {
-		if (createGroupState.error) setVisibleError(createGroupState.error);
-	}, [createGroupState]);
-	useEffect(() => {
-		if (updateGroupState.error) setVisibleError(updateGroupState.error);
-	}, [updateGroupState]);
-	useEffect(() => {
-		if (createState.error) setVisibleError(createState.error);
-	}, [createState]);
-	useEffect(() => {
-		if (updateState.error) setVisibleError(updateState.error);
-	}, [updateState]);
+
+	async function createGroupAction(formData: FormData) {
+		setVisibleError(null);
+		const result = await createCategoryGroup(initialState, formData);
+		if (result.error) throw new Error(result.error);
+	}
+
+	async function updateGroupAction(formData: FormData) {
+		setVisibleError(null);
+		const result = await updateCategoryGroup(initialState, formData);
+		if (result.error) throw new Error(result.error);
+	}
+
+	async function createCategoryAction(formData: FormData) {
+		setVisibleError(null);
+		const result = await createCategory(initialState, formData);
+		if (result.error) throw new Error(result.error);
+	}
+
+	async function updateCategoryAction(formData: FormData) {
+		setVisibleError(null);
+		const result = await updateCategory(initialState, formData);
+		if (result.error) throw new Error(result.error);
+	}
 
 	return (
 		<>
-			<p aria-live="polite" className="sr-only" role="status">
-				{status ?? ""}
-			</p>
 			{visibleError ? (
 				<div
 					aria-live="polite"
@@ -187,14 +163,10 @@ export function CategoriesClient({
 								Criar categorias iniciais
 							</SubmitButton>
 						</form>
-						<CreateGroupDialog
-							action={createGroupAction}
-							onSubmit={() => setVisibleError(null)}
-						/>
+						<CreateGroupDialog action={createGroupAction} />
 						<CreateCategoryDialog
-							action={createAction}
+							action={createCategoryAction}
 							groups={visibleGroups}
-							onSubmit={() => setVisibleError(null)}
 						/>
 					</div>
 				</CardHeader>
@@ -206,15 +178,13 @@ export function CategoriesClient({
 					archiveAction={archiveGroupWithRollback}
 					groups={visibleGroups}
 					groupTotals={groupTotals}
-					onSubmit={() => setVisibleError(null)}
 				/>
 				<CategoriesCard
-					action={updateAction}
+					action={updateCategoryAction}
 					archiveAction={archiveCategoryWithRollback}
 					categories={visibleCategories}
 					categoryTotals={categoryTotals}
 					groups={visibleGroups}
-					onSubmit={() => setVisibleError(null)}
 				/>
 			</section>
 		</>
@@ -223,76 +193,58 @@ export function CategoriesClient({
 
 function CreateGroupDialog({
 	action,
-	onSubmit,
 }: {
-	action: (payload: FormData) => void;
-	onSubmit: () => void;
+	action: (payload: FormData) => Promise<void>;
 }) {
 	return (
-		<Dialog>
-			<DialogTrigger asChild>
+		<ActionDialog
+			action={action}
+			description="Cadastre um grupo de receita ou despesa."
+			formClassName="grid gap-4"
+			pendingLabel="Cadastrando..."
+			submitLabel="Cadastrar grupo"
+			successMessage="Grupo criado."
+			title="Novo grupo"
+			trigger={
 				<Button>
 					<FolderPlus className="size-4" />
 					Novo grupo
 				</Button>
-			</DialogTrigger>
-			<DialogContent>
-				<DialogHeader>
-					<DialogTitle>Novo grupo</DialogTitle>
-					<DialogDescription>
-						Cadastre um grupo de receita ou despesa.
-					</DialogDescription>
-				</DialogHeader>
-				<form action={action} className="grid gap-4" onSubmit={onSubmit}>
-					<Field label="Grupo" name="name" />
-					<KindSelect />
-					<CashFlowRoleSelect />
-					<DialogFooter>
-						<SubmitButton pendingLabel="Cadastrando...">
-							Cadastrar grupo
-						</SubmitButton>
-					</DialogFooter>
-				</form>
-			</DialogContent>
-		</Dialog>
+			}
+		>
+			<Field label="Grupo" name="name" />
+			<KindSelect />
+			<CashFlowRoleSelect />
+		</ActionDialog>
 	);
 }
 
 function CreateCategoryDialog({
 	action,
 	groups,
-	onSubmit,
 }: {
-	action: (payload: FormData) => void;
+	action: (payload: FormData) => Promise<void>;
 	groups: CategoryGroup[];
-	onSubmit: () => void;
 }) {
 	return (
-		<Dialog>
-			<DialogTrigger asChild>
+		<ActionDialog
+			action={action}
+			description="Vincule a categoria a um grupo existente."
+			formClassName="grid gap-4"
+			pendingLabel="Cadastrando..."
+			submitLabel="Cadastrar categoria"
+			successMessage="Categoria criada."
+			title="Nova categoria"
+			trigger={
 				<Button variant="secondary">
 					<Plus className="size-4" />
 					Nova categoria
 				</Button>
-			</DialogTrigger>
-			<DialogContent>
-				<DialogHeader>
-					<DialogTitle>Nova categoria</DialogTitle>
-					<DialogDescription>
-						Vincule a categoria a um grupo existente.
-					</DialogDescription>
-				</DialogHeader>
-				<form action={action} className="grid gap-4" onSubmit={onSubmit}>
-					<Field label="Categoria" name="name" />
-					<GroupSelect groups={groups} name="groupId" />
-					<DialogFooter>
-						<SubmitButton pendingLabel="Cadastrando...">
-							Cadastrar categoria
-						</SubmitButton>
-					</DialogFooter>
-				</form>
-			</DialogContent>
-		</Dialog>
+			}
+		>
+			<Field label="Categoria" name="name" />
+			<GroupSelect groups={groups} name="groupId" />
+		</ActionDialog>
 	);
 }
 
@@ -301,13 +253,11 @@ function GroupsCard({
 	groupTotals,
 	action,
 	archiveAction,
-	onSubmit,
 }: {
 	groups: CategoryGroup[];
 	groupTotals: Record<number, number>;
-	action: (payload: FormData) => void;
+	action: (payload: FormData) => Promise<void>;
 	archiveAction: (formData: FormData) => Promise<void>;
-	onSubmit: () => void;
 }) {
 	return (
 		<Card>
@@ -342,16 +292,14 @@ function GroupsCard({
 								/>
 							</div>
 							<div className="flex flex-wrap gap-2">
-								<EditGroupDialog
-									action={action}
-									group={group}
-									onSubmit={onSubmit}
-								/>
+								<EditGroupDialog action={action} group={group} />
 								<ConfirmDialog
 									action={archiveAction}
 									confirmLabel="Arquivar"
 									destructive
+									errorMessage="Não foi possível arquivar o grupo."
 									hidden={{ id: group.id }}
+									successMessage="Grupo arquivado."
 									title="Arquivar grupo?"
 									trigger={
 										<Button size="sm" variant="destructive">
@@ -375,14 +323,12 @@ function CategoriesCard({
 	categoryTotals,
 	action,
 	archiveAction,
-	onSubmit,
 }: {
 	categories: Category[];
 	groups: CategoryGroup[];
 	categoryTotals: Record<number, number>;
-	action: (payload: FormData) => void;
+	action: (payload: FormData) => Promise<void>;
 	archiveAction: (formData: FormData) => Promise<void>;
-	onSubmit: () => void;
 }) {
 	return (
 		<Card>
@@ -425,13 +371,14 @@ function CategoriesCard({
 									groups={groups.filter(
 										(group) => group.kind === category.kind,
 									)}
-									onSubmit={onSubmit}
 								/>
 								<ConfirmDialog
 									action={archiveAction}
 									confirmLabel="Arquivar"
 									destructive
+									errorMessage="Não foi possível arquivar a categoria."
 									hidden={{ id: category.id }}
+									successMessage="Categoria arquivada."
 									title="Arquivar categoria?"
 									trigger={
 										<Button size="sm" variant="destructive">
@@ -452,34 +399,29 @@ function CategoriesCard({
 function EditGroupDialog({
 	group,
 	action,
-	onSubmit,
 }: {
 	group: CategoryGroup;
-	action: (payload: FormData) => void;
-	onSubmit: () => void;
+	action: (payload: FormData) => Promise<void>;
 }) {
 	return (
-		<Dialog>
-			<DialogTrigger asChild>
+		<ActionDialog
+			action={action}
+			formClassName="grid gap-4"
+			pendingLabel="Salvando..."
+			submitLabel="Salvar"
+			successMessage="Grupo atualizado."
+			title="Editar grupo"
+			trigger={
 				<Button size="sm" variant="outline">
 					<Pencil className="size-4" />
 					Editar
 				</Button>
-			</DialogTrigger>
-			<DialogContent>
-				<DialogHeader>
-					<DialogTitle>Editar grupo</DialogTitle>
-				</DialogHeader>
-				<form action={action} className="grid gap-4" onSubmit={onSubmit}>
-					<input name="id" type="hidden" value={group.id} />
-					<Field defaultValue={group.name} label="Grupo" name="name" />
-					<CashFlowRoleSelect defaultValue={group.cashFlowRole} />
-					<DialogFooter>
-						<SubmitButton>Salvar</SubmitButton>
-					</DialogFooter>
-				</form>
-			</DialogContent>
-		</Dialog>
+			}
+		>
+			<input name="id" type="hidden" value={group.id} />
+			<Field defaultValue={group.name} label="Grupo" name="name" />
+			<CashFlowRoleSelect defaultValue={group.cashFlowRole} />
+		</ActionDialog>
 	);
 }
 
@@ -487,39 +429,34 @@ function EditCategoryDialog({
 	category,
 	groups,
 	action,
-	onSubmit,
 }: {
 	category: Category;
 	groups: CategoryGroup[];
-	action: (payload: FormData) => void;
-	onSubmit: () => void;
+	action: (payload: FormData) => Promise<void>;
 }) {
 	return (
-		<Dialog>
-			<DialogTrigger asChild>
+		<ActionDialog
+			action={action}
+			formClassName="grid gap-4"
+			pendingLabel="Salvando..."
+			submitLabel="Salvar"
+			successMessage="Categoria atualizada."
+			title="Editar categoria"
+			trigger={
 				<Button size="sm" variant="outline">
 					<Pencil className="size-4" />
 					Editar
 				</Button>
-			</DialogTrigger>
-			<DialogContent>
-				<DialogHeader>
-					<DialogTitle>Editar categoria</DialogTitle>
-				</DialogHeader>
-				<form action={action} className="grid gap-4" onSubmit={onSubmit}>
-					<input name="id" type="hidden" value={category.id} />
-					<Field defaultValue={category.name} label="Categoria" name="name" />
-					<GroupSelect
-						defaultValue={category.groupId}
-						groups={groups}
-						name="groupId"
-					/>
-					<DialogFooter>
-						<SubmitButton>Salvar</SubmitButton>
-					</DialogFooter>
-				</form>
-			</DialogContent>
-		</Dialog>
+			}
+		>
+			<input name="id" type="hidden" value={category.id} />
+			<Field defaultValue={category.name} label="Categoria" name="name" />
+			<GroupSelect
+				defaultValue={category.groupId}
+				groups={groups}
+				name="groupId"
+			/>
+		</ActionDialog>
 	);
 }
 

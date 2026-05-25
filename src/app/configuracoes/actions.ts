@@ -95,5 +95,7 @@ export async function purgeAllFinancialData(formData: FormData) {
 	// financeiros foram apagados.
 	void auth; // referencia mantida para upgrades futuros (delete user)
 	revalidatePath("/");
-	redirect("/configuracoes/privacidade");
+	revalidatePath("/configuracoes/dados");
+	revalidatePath("/configuracoes/privacidade");
+	revalidatePath("/configuracoes/auditoria");
 }

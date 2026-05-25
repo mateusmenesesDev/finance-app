@@ -9,6 +9,7 @@ import {
 	deleteBudget,
 } from "~/app/_actions/finance-actions";
 import { BudgetFormFields } from "~/app/budgets/budget-form-fields";
+import { ActionDialog } from "~/components/action-dialog";
 import { AppShell } from "~/components/app-shell";
 import { ConfirmDialog } from "~/components/confirm-dialog";
 import { EmptyState } from "~/components/empty-state";
@@ -24,15 +25,6 @@ import {
 	CardHeader,
 	CardTitle,
 } from "~/components/ui/card";
-import {
-	Dialog,
-	DialogContent,
-	DialogDescription,
-	DialogFooter,
-	DialogHeader,
-	DialogTitle,
-	DialogTrigger,
-} from "~/components/ui/dialog";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { Progress } from "~/components/ui/progress";
@@ -429,7 +421,9 @@ function BudgetTable({
 													action={deleteBudget}
 													confirmLabel="Excluir"
 													destructive
+													errorMessage="Não foi possível excluir o orçamento."
 													hidden={{ id: row.budgetId }}
+													successMessage="Orçamento excluído."
 													title="Excluir orçamento?"
 													trigger={
 														<Button size="sm" variant="destructive">
@@ -462,8 +456,15 @@ function BudgetDialog({
 	budget?: BudgetRow;
 }) {
 	return (
-		<Dialog>
-			<DialogTrigger asChild>
+		<ActionDialog
+			action={createOrUpdateBudget}
+			description="Use mês geral, grupo ou categoria de despesa. Valores são salvos em BRL."
+			formClassName="grid gap-4"
+			pendingLabel={budget ? "Salvando..." : "Cadastrando..."}
+			submitLabel={budget ? "Salvar" : "Cadastrar"}
+			successMessage={budget ? "Orçamento atualizado." : "Orçamento criado."}
+			title={budget ? "Editar orçamento" : "Novo orçamento"}
+			trigger={
 				<Button
 					size={budget ? "sm" : "default"}
 					variant={budget ? "outline" : "default"}
@@ -477,61 +478,40 @@ function BudgetDialog({
 						</>
 					)}
 				</Button>
-			</DialogTrigger>
-			<DialogContent>
-				<DialogHeader>
-					<DialogTitle>
-						{budget ? "Editar orçamento" : "Novo orçamento"}
-					</DialogTitle>
-					<DialogDescription>
-						Use mês geral, grupo ou categoria de despesa. Valores são salvos em
-						BRL.
-					</DialogDescription>
-				</DialogHeader>
-				<form action={createOrUpdateBudget} className="grid gap-4">
-					<input name="monthKey" type="hidden" value={monthKey} />
-					{budget ? <input name="id" type="hidden" value={budget.id} /> : null}
-					<div className="grid gap-4 sm:grid-cols-2">
-						<BudgetFormFields
-							categories={categories.map((category) => ({
-								id: category.id,
-								name: category.name,
-							}))}
-							defaultCategoryGroupId={budget?.categoryGroupId ?? null}
-							defaultCategoryId={budget?.categoryId ?? null}
-							defaultScope={budget?.scope ?? "month"}
-							groups={groups.map((group) => ({
-								id: group.id,
-								name: group.name,
-							}))}
-							selectClassName={selectClass}
-						/>
-						<div className="grid gap-2">
-							<Label htmlFor="budget-amount">Valor</Label>
-							<Input
-								defaultValue={
-									budget ? formatMoneyInput(budget.amountCents) : ""
-								}
-								id="budget-amount"
-								name="amount"
-								placeholder="Valor"
-							/>
-						</div>
-					</div>
-					<p className="text-muted-foreground text-xs">
-						Para mês geral, deixe grupo e categoria vazios. Para grupo,
-						selecione só grupo. Para categoria, selecione só categoria.
-					</p>
-					<DialogFooter>
-						<SubmitButton
-							pendingLabel={budget ? "Salvando..." : "Cadastrando..."}
-						>
-							{budget ? "Salvar" : "Cadastrar"}
-						</SubmitButton>
-					</DialogFooter>
-				</form>
-			</DialogContent>
-		</Dialog>
+			}
+		>
+			<input name="monthKey" type="hidden" value={monthKey} />
+			{budget ? <input name="id" type="hidden" value={budget.id} /> : null}
+			<div className="grid gap-4 sm:grid-cols-2">
+				<BudgetFormFields
+					categories={categories.map((category) => ({
+						id: category.id,
+						name: category.name,
+					}))}
+					defaultCategoryGroupId={budget?.categoryGroupId ?? null}
+					defaultCategoryId={budget?.categoryId ?? null}
+					defaultScope={budget?.scope ?? "month"}
+					groups={groups.map((group) => ({
+						id: group.id,
+						name: group.name,
+					}))}
+					selectClassName={selectClass}
+				/>
+				<div className="grid gap-2">
+					<Label htmlFor="budget-amount">Valor</Label>
+					<Input
+						defaultValue={budget ? formatMoneyInput(budget.amountCents) : ""}
+						id="budget-amount"
+						name="amount"
+						placeholder="Valor"
+					/>
+				</div>
+			</div>
+			<p className="text-muted-foreground text-xs">
+				Para mês geral, deixe grupo e categoria vazios. Para grupo, selecione só
+				grupo. Para categoria, selecione só categoria.
+			</p>
+		</ActionDialog>
 	);
 }
 

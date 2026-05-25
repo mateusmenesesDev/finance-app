@@ -1,7 +1,6 @@
 "use client";
 
-import { useState } from "react";
-
+import { SubmitButton } from "~/components/submit-button";
 import { Button } from "~/components/ui/button";
 import {
 	Dialog,
@@ -12,14 +11,18 @@ import {
 	DialogTitle,
 	DialogTrigger,
 } from "~/components/ui/dialog";
+import { useDialogAction } from "~/hooks/use-dialog-action";
 
 type Props = {
 	trigger: React.ReactNode;
 	title: string;
 	description?: string;
 	confirmLabel?: string;
+	pendingLabel?: string;
 	cancelLabel?: string;
 	destructive?: boolean;
+	successMessage?: string;
+	errorMessage?: string;
 	/** Server action or any submit handler attached to the inner form. */
 	action: (formData: FormData) => void | Promise<void>;
 	/** Extra hidden inputs passed to the action. */
@@ -35,15 +38,18 @@ export function ConfirmDialog({
 	title,
 	description,
 	confirmLabel = "Confirmar",
+	pendingLabel,
 	cancelLabel = "Cancelar",
 	destructive = false,
+	successMessage = "Ação concluída com sucesso.",
+	errorMessage,
 	action,
 	hidden,
 }: Props) {
-	const [open, setOpen] = useState(false);
+	const { open, onOpenChange, setOpen, wrapAction } = useDialogAction();
 
 	return (
-		<Dialog onOpenChange={setOpen} open={open}>
+		<Dialog onOpenChange={onOpenChange} open={open}>
 			<DialogTrigger asChild>{trigger}</DialogTrigger>
 			<DialogContent>
 				<DialogHeader>
@@ -52,7 +58,12 @@ export function ConfirmDialog({
 						<DialogDescription>{description}</DialogDescription>
 					) : null}
 				</DialogHeader>
-				<form action={action}>
+				<form
+					action={wrapAction(action, {
+						success: successMessage,
+						error: errorMessage,
+					})}
+				>
 					{hidden
 						? Object.entries(hidden).map(([key, value]) => (
 								<input key={key} name={key} type="hidden" value={value} />
@@ -66,13 +77,12 @@ export function ConfirmDialog({
 						>
 							{cancelLabel}
 						</Button>
-						<Button
-							onClick={() => setOpen(false)}
-							type="submit"
+						<SubmitButton
+							pendingLabel={pendingLabel ?? `${confirmLabel}...`}
 							variant={destructive ? "destructive" : "default"}
 						>
 							{confirmLabel}
-						</Button>
+						</SubmitButton>
 					</DialogFooter>
 				</form>
 			</DialogContent>

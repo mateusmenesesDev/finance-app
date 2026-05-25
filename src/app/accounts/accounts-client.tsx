@@ -4,22 +4,13 @@ import { Archive, Pencil, Wallet } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { archiveAccount, updateAccount } from "~/app/_actions/finance-actions";
+import { ActionDialog } from "~/components/action-dialog";
 import { ConfirmDialog } from "~/components/confirm-dialog";
 import { EmptyState } from "~/components/empty-state";
 import { Money } from "~/components/money";
-import { SubmitButton } from "~/components/submit-button";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Checkbox } from "~/components/ui/checkbox";
-import {
-	Dialog,
-	DialogContent,
-	DialogDescription,
-	DialogFooter,
-	DialogHeader,
-	DialogTitle,
-	DialogTrigger,
-} from "~/components/ui/dialog";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { formatMoneyInput } from "~/lib/formatters";
@@ -56,8 +47,6 @@ export function AccountsList({
 	balances: Record<number, AccountBalance>;
 }) {
 	const [visibleAccounts, setVisibleAccounts] = useState(accounts);
-	const [status, setStatus] = useState<string | null>(null);
-	const [error, setError] = useState<string | null>(null);
 
 	useEffect(() => {
 		setVisibleAccounts(accounts);
@@ -66,35 +55,19 @@ export function AccountsList({
 	async function archiveWithRollback(formData: FormData) {
 		const id = Number(formData.get("id"));
 		const before = visibleAccounts;
-		setError(null);
-		setStatus("Arquivando conta...");
 		setVisibleAccounts((current) =>
 			current.filter((account) => account.id !== id),
 		);
 		try {
 			await archiveAccount(formData);
-			setStatus("Conta arquivada.");
 		} catch {
 			setVisibleAccounts(before);
-			setError("Não foi possível arquivar a conta.");
-			setStatus(null);
+			throw new Error("Não foi possível arquivar a conta.");
 		}
 	}
 
 	return (
 		<div className="grid gap-3">
-			<p aria-live="polite" className="sr-only" role="status">
-				{status ?? ""}
-			</p>
-			{error ? (
-				<p
-					aria-live="polite"
-					className="rounded-md border border-destructive/40 bg-destructive/10 p-4 text-destructive text-sm"
-					role="alert"
-				>
-					{error}
-				</p>
-			) : null}
 			{visibleAccounts.map((account) => {
 				const balance = balances[account.id];
 				return (
@@ -132,7 +105,9 @@ export function AccountsList({
 								confirmLabel="Arquivar"
 								description="Arquivar preserva o histórico da conta e remove ela das listas ativas."
 								destructive
+								errorMessage="Não foi possível arquivar a conta."
 								hidden={{ id: account.id }}
+								successMessage="Conta arquivada."
 								title="Arquivar conta?"
 								trigger={
 									<Button size="sm" variant="destructive">
@@ -158,74 +133,69 @@ export function AccountsList({
 
 function EditAccountDialog({ account }: { account: Account }) {
 	return (
-		<Dialog>
-			<DialogTrigger asChild>
+		<ActionDialog
+			action={updateAccount}
+			description="Atualize dados da conta ou cartão."
+			formClassName="grid gap-4"
+			pendingLabel="Salvando..."
+			submitLabel="Salvar"
+			successMessage="Conta atualizada."
+			title="Editar conta"
+			trigger={
 				<Button size="sm" variant="outline">
 					<Pencil className="size-4" />
 					Editar
 				</Button>
-			</DialogTrigger>
-			<DialogContent>
-				<DialogHeader>
-					<DialogTitle>Editar conta</DialogTitle>
-					<DialogDescription>
-						Atualize dados da conta ou cartão.
-					</DialogDescription>
-				</DialogHeader>
-				<form action={updateAccount} className="grid gap-4">
-					<input name="id" type="hidden" value={account.id} />
-					<div className="grid gap-4 sm:grid-cols-2">
-						<Field defaultValue={account.name} label="Nome" name="name" />
-						<Field
-							defaultValue={account.institution ?? ""}
-							label="Instituição"
-							name="institution"
-						/>
-						<div className="grid gap-2">
-							<Label htmlFor={`account-${account.id}-type`}>Tipo</Label>
-							<select
-								className={selectClass}
-								defaultValue={account.type}
-								id={`account-${account.id}-type`}
-								name="type"
-							>
-								{Object.entries(accountTypeLabels).map(([value, label]) => (
-									<option key={value} value={value}>
-										{label}
-									</option>
-								))}
-							</select>
-						</div>
-						<Field
-							defaultValue={formatMoneyInput(account.initialBalanceCents)}
-							label="Saldo inicial"
-							name="initialBalance"
-						/>
-						<Field
-							defaultValue={account.creditCardClosingDay?.toString() ?? ""}
-							label="Fecha"
-							name="closingDay"
-						/>
-						<Field
-							defaultValue={account.creditCardDueDay?.toString() ?? ""}
-							label="Vence"
-							name="dueDay"
-						/>
-					</div>
-					<div className="flex items-center gap-2 text-sm">
-						<Checkbox
-							defaultChecked={account.isActive}
-							id={`account-${account.id}-active`}
-							name="isActive"
-						/>
-						<Label htmlFor={`account-${account.id}-active`}>Ativa</Label>
-					</div>
-					<DialogFooter>
-						<SubmitButton pendingLabel="Salvando...">Salvar</SubmitButton>
-					</DialogFooter>
-				</form>
-			</DialogContent>
-		</Dialog>
+			}
+		>
+			<input name="id" type="hidden" value={account.id} />
+			<div className="grid gap-4 sm:grid-cols-2">
+				<Field defaultValue={account.name} label="Nome" name="name" />
+				<Field
+					defaultValue={account.institution ?? ""}
+					label="Instituição"
+					name="institution"
+				/>
+				<div className="grid gap-2">
+					<Label htmlFor={`account-${account.id}-type`}>Tipo</Label>
+					<select
+						className={selectClass}
+						defaultValue={account.type}
+						id={`account-${account.id}-type`}
+						name="type"
+					>
+						{Object.entries(accountTypeLabels).map(([value, label]) => (
+							<option key={value} value={value}>
+								{label}
+							</option>
+						))}
+					</select>
+				</div>
+				<Field
+					defaultValue={formatMoneyInput(account.initialBalanceCents)}
+					label="Saldo inicial"
+					name="initialBalance"
+				/>
+				<Field
+					defaultValue={account.creditCardClosingDay?.toString() ?? ""}
+					label="Fecha"
+					name="closingDay"
+				/>
+				<Field
+					defaultValue={account.creditCardDueDay?.toString() ?? ""}
+					label="Vence"
+					name="dueDay"
+				/>
+			</div>
+			<div className="flex items-center gap-2 text-sm">
+				<Checkbox
+					defaultChecked={account.isActive}
+					id={`account-${account.id}-active`}
+					name="isActive"
+				/>
+				<Label htmlFor={`account-${account.id}-active`}>Ativa</Label>
+			</div>
+		</ActionDialog>
 	);
 }
 

@@ -5,8 +5,8 @@ import {
 	deleteAccountForever,
 	purgeAllFinancialData,
 } from "~/app/configuracoes/actions";
+import { ActionDialog } from "~/components/action-dialog";
 import { EmptyState } from "~/components/empty-state";
-import { SubmitButton } from "~/components/submit-button";
 import { Button } from "~/components/ui/button";
 import {
 	Card,
@@ -15,15 +15,6 @@ import {
 	CardHeader,
 	CardTitle,
 } from "~/components/ui/card";
-import {
-	Dialog,
-	DialogContent,
-	DialogDescription,
-	DialogFooter,
-	DialogHeader,
-	DialogTitle,
-	DialogTrigger,
-} from "~/components/ui/dialog";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { getSession } from "~/server/better-auth/server";
@@ -116,59 +107,44 @@ export default async function DadosPage() {
 												{accountTypeLabels[account.type] ?? account.type}
 											</p>
 										</div>
-										<Dialog>
-											<DialogTrigger asChild>
+										<ActionDialog
+											action={deleteAccountForever}
+											description="Esta ação é permanente e apaga todas as transações, importações e recorrências desta conta."
+											formClassName="grid gap-3"
+											pendingLabel="Apagando..."
+											submitLabel="Apagar permanentemente"
+											submitVariant="destructive"
+											successMessage="Conta apagada permanentemente."
+											title="Apagar permanentemente"
+											trigger={
 												<Button size="sm" variant="destructive">
 													Apagar permanentemente
 												</Button>
-											</DialogTrigger>
-											<DialogContent>
-												<DialogHeader>
-													<DialogTitle>Apagar permanentemente</DialogTitle>
-													<DialogDescription>
-														Esta ação é permanente e apaga todas as transações,
-														importações e recorrências desta conta.
-													</DialogDescription>
-												</DialogHeader>
-												<form
-													action={deleteAccountForever}
-													className="grid gap-3"
-												>
-													<input
-														name="accountId"
-														type="hidden"
-														value={account.id}
-													/>
-													<div className="grid gap-1">
-														<Label
-															htmlFor={`delete-account-email-${account.id}`}
-														>
-															Confirme digitando seu e-mail ({userEmail})
-														</Label>
-														<Input
-															className="font-mono"
-															id={`delete-account-email-${account.id}`}
-															name="confirmEmail"
-															required
-															type="email"
-														/>
-													</div>
-													<label className="flex items-center gap-2 text-muted-foreground text-xs">
-														<input name="confirm" type="checkbox" />
-														Entendo que esta ação é permanente e apaga todas as
-														transações, importações e recorrências desta conta.
-													</label>
-													<DialogFooter>
-														<SubmitButton
-															pendingLabel="Apagando..."
-															variant="destructive"
-														>
-															Apagar permanentemente
-														</SubmitButton>
-													</DialogFooter>
-												</form>
-											</DialogContent>
-										</Dialog>
+											}
+										>
+											<input
+												name="accountId"
+												type="hidden"
+												value={account.id}
+											/>
+											<div className="grid gap-1">
+												<Label htmlFor={`delete-account-email-${account.id}`}>
+													Confirme digitando seu e-mail ({userEmail})
+												</Label>
+												<Input
+													className="font-mono"
+													id={`delete-account-email-${account.id}`}
+													name="confirmEmail"
+													required
+													type="email"
+												/>
+											</div>
+											<label className="flex items-center gap-2 text-muted-foreground text-xs">
+												<input name="confirm" type="checkbox" />
+												Entendo que esta ação é permanente e apaga todas as
+												transações, importações e recorrências desta conta.
+											</label>
+										</ActionDialog>
 									</div>
 								</li>
 							))}
@@ -187,64 +163,55 @@ export default async function DadosPage() {
 					</CardDescription>
 				</CardHeader>
 				<CardContent>
-					<Dialog>
-						<DialogTrigger asChild>
+					<ActionDialog
+						action={purgeAllFinancialData}
+						description="Esta ação é permanente e remove todos os meus dados financeiros."
+						formClassName="grid gap-3"
+						pendingLabel="Apagando..."
+						redirectTo="/configuracoes/privacidade"
+						submitLabel="Apagar todos os dados financeiros"
+						submitVariant="destructive"
+						successMessage="Todos os dados financeiros foram apagados."
+						title="Apagar todos os dados financeiros"
+						trigger={
 							<Button variant="destructive">
 								Apagar todos os dados financeiros
 							</Button>
-						</DialogTrigger>
-						<DialogContent>
-							<DialogHeader>
-								<DialogTitle>Apagar todos os dados financeiros</DialogTitle>
-								<DialogDescription>
-									Esta ação é permanente e remove todos os meus dados
-									financeiros.
-								</DialogDescription>
-							</DialogHeader>
-							<form action={purgeAllFinancialData} className="grid gap-3">
-								<div className="grid gap-1 text-xs">
-									<Label htmlFor="purge-confirm-email">
-										Confirme digitando seu e-mail ({userEmail})
-									</Label>
-									<Input
-										className="font-mono"
-										id="purge-confirm-email"
-										name="confirmEmail"
-										required
-										type="email"
-									/>
-								</div>
-								<div className="grid gap-1 text-xs">
-									<Label htmlFor="purge-confirm-text">
-										Digite{" "}
-										<code className="rounded bg-muted px-1 py-0.5 font-mono text-destructive">
-											APAGAR TUDO
-										</code>{" "}
-										para confirmar
-									</Label>
-									<Input
-										className="font-mono"
-										id="purge-confirm-text"
-										name="confirmText"
-										required
-									/>
-								</div>
-								<label className="flex items-center gap-2 text-muted-foreground text-xs">
-									<input name="confirm" type="checkbox" />
-									Entendo que esta ação é permanente e remove todos os meus
-									dados financeiros.
-								</label>
-								<DialogFooter>
-									<SubmitButton
-										pendingLabel="Apagando..."
-										variant="destructive"
-									>
-										Apagar todos os dados financeiros
-									</SubmitButton>
-								</DialogFooter>
-							</form>
-						</DialogContent>
-					</Dialog>
+						}
+					>
+						<div className="grid gap-1 text-xs">
+							<Label htmlFor="purge-confirm-email">
+								Confirme digitando seu e-mail ({userEmail})
+							</Label>
+							<Input
+								className="font-mono"
+								id="purge-confirm-email"
+								name="confirmEmail"
+								required
+								type="email"
+							/>
+						</div>
+						<div className="grid gap-1 text-xs">
+							<Label htmlFor="purge-confirm-text">
+								Digite{" "}
+								<code className="rounded bg-muted px-1 py-0.5 font-mono text-destructive">
+									APAGAR TUDO
+								</code>{" "}
+								para confirmar
+							</Label>
+							<Input
+								className="font-mono"
+								id="purge-confirm-text"
+								name="confirmText"
+								required
+							/>
+						</div>
+						<label className="flex items-center gap-2 text-muted-foreground text-xs">
+							<input name="confirm" type="checkbox" />
+							Entendo que esta ação é permanente e remove todos os meus dados
+							financeiros.
+						</label>
+					</ActionDialog>
 				</CardContent>
 			</Card>
 		</div>

@@ -4,12 +4,12 @@ import { redirect } from "next/navigation";
 
 import { createAccount } from "~/app/_actions/finance-actions";
 import { AccountsList } from "~/app/accounts/accounts-client";
+import { ActionDialog } from "~/components/action-dialog";
 import { AppShell } from "~/components/app-shell";
 import { EmptyState } from "~/components/empty-state";
 import { Money } from "~/components/money";
 import { PageHeader } from "~/components/page-header";
 import { StatCard } from "~/components/stat-card";
-import { SubmitButton } from "~/components/submit-button";
 import { Button } from "~/components/ui/button";
 import {
 	Card,
@@ -18,15 +18,6 @@ import {
 	CardHeader,
 	CardTitle,
 } from "~/components/ui/card";
-import {
-	Dialog,
-	DialogContent,
-	DialogDescription,
-	DialogFooter,
-	DialogHeader,
-	DialogTitle,
-	DialogTrigger,
-} from "~/components/ui/dialog";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import {
@@ -188,50 +179,43 @@ export default async function AccountsPage() {
 
 function CreateAccountDialog() {
 	return (
-		<Dialog>
-			<DialogTrigger asChild>
+		<ActionDialog
+			action={createAccount}
+			description="Cadastre uma conta bancária, carteira ou cartão."
+			formClassName="grid gap-4"
+			pendingLabel="Cadastrando..."
+			submitLabel="Cadastrar conta"
+			successMessage="Conta criada."
+			title="Nova conta"
+			trigger={
 				<Button>
 					<Plus className="size-4" />
 					Nova conta
 				</Button>
-			</DialogTrigger>
-			<DialogContent>
-				<DialogHeader>
-					<DialogTitle>Nova conta</DialogTitle>
-					<DialogDescription>
-						Cadastre uma conta bancária, carteira ou cartão.
-					</DialogDescription>
-				</DialogHeader>
-				<form action={createAccount} className="grid gap-4">
-					<div className="grid gap-4 sm:grid-cols-2">
-						<Field label="Nome" name="name" />
-						<Field label="Instituição" name="institution" />
-						<div className="grid gap-2">
-							<Label htmlFor="account-type">Tipo</Label>
-							<select className={selectClass} id="account-type" name="type">
-								{Object.entries(accountTypeLabels).map(([value, label]) => (
-									<option key={value} value={value}>
-										{label}
-									</option>
-								))}
-							</select>
-						</div>
-						<Field
-							defaultValue="0,00"
-							label="Saldo inicial"
-							name="initialBalance"
-						/>
-						<Field label="Fechamento (cartão)" name="closingDay" />
-						<Field label="Vencimento (cartão)" name="dueDay" />
-					</div>
-					<DialogFooter>
-						<SubmitButton pendingLabel="Cadastrando...">
-							Cadastrar conta
-						</SubmitButton>
-					</DialogFooter>
-				</form>
-			</DialogContent>
-		</Dialog>
+			}
+		>
+			<div className="grid gap-4 sm:grid-cols-2">
+				<Field label="Nome" name="name" />
+				<Field label="Instituição" name="institution" />
+				<div className="grid gap-2">
+					<Label htmlFor="account-type">Tipo</Label>
+					<select className={selectClass} id="account-type" name="type">
+						{Object.entries(accountTypeLabels).map(([value, label]) => (
+							<option key={value} value={value}>
+								{label}
+							</option>
+						))}
+					</select>
+				</div>
+				<Field
+					defaultValue="0,00"
+					label="Saldo inicial"
+					name="initialBalance"
+				/>
+				<Field label="Fechamento (cartão)" name="closingDay" />
+				<Field label="Vencimento (cartão)" name="dueDay" />
+			</div>
+		</ActionDialog>
 	);
 }
 
