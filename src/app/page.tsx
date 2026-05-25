@@ -39,7 +39,7 @@ import { aggregateCashFlow, computeFutureInvoices } from "~/lib/cash-flow";
 import {
 	buildBudgetUsage,
 	calculateAccountBalances,
-	calculateMonthlyTotalsByCashFlowRole,
+	calculateMonthlyBalanceTotals,
 	calculateWealthSummary,
 	getMonthPeriod,
 	parseMonthPeriod,
@@ -186,17 +186,19 @@ export default async function Home({ searchParams }: HomeProps) {
 	const wealth = calculateWealthSummary(activeAccounts, allTransactions);
 	const normalConsolidated = wealth.availableCashCents;
 	const cardDebt = wealth.cardDebtCents;
-	const monthlyTotals = calculateMonthlyTotalsByCashFlowRole(
+	const monthlyTotals = calculateMonthlyBalanceTotals(
 		allTransactions,
 		activeCategories,
 		activeGroups,
 		period,
+		allAccounts,
 	);
-	const previousTotals = calculateMonthlyTotalsByCashFlowRole(
+	const previousTotals = calculateMonthlyBalanceTotals(
 		allTransactions,
 		activeCategories,
 		activeGroups,
 		previousPeriod,
+		allAccounts,
 	);
 	const groupRanking = rankMonthlyGroups(
 		allTransactions,
@@ -1208,9 +1210,9 @@ function buildInsights({
 	budgetSummary: BudgetSummary;
 	categoryRanking: ReturnType<typeof rankMonthlyCategories>;
 	groupRanking: ReturnType<typeof rankMonthlyGroups>;
-	monthlyTotals: ReturnType<typeof calculateMonthlyTotalsByCashFlowRole>;
+	monthlyTotals: ReturnType<typeof calculateMonthlyBalanceTotals>;
 	pendingImportCount: number;
-	previousTotals: ReturnType<typeof calculateMonthlyTotalsByCashFlowRole>;
+	previousTotals: ReturnType<typeof calculateMonthlyBalanceTotals>;
 	uncategorizedCount: number;
 }) {
 	const insights: string[] = [];

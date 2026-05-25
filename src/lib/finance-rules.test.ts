@@ -4,6 +4,7 @@ import {
 	buildBudgetHistory,
 	buildBudgetUsage,
 	calculateAccountBalances,
+	calculateMonthlyBalanceTotals,
 	calculateMonthlyTotals,
 	calculateMonthlyTotalsByCashFlowRole,
 	calculateWealthSummary,
@@ -443,5 +444,222 @@ describe("finance rules", () => {
 			{ key: "2026-05", start: "2026-05-01" },
 			{ key: "2026-06", start: "2026-06-01" },
 		]);
+	});
+
+	describe("calculateMonthlyBalanceTotals", () => {
+		const period = parseMonthPeriod("2026-05");
+		if (!period) throw new Error("invalid test period");
+
+		test("credit card expense is excluded from cashExpenseCents and netCents", () => {
+			const result = calculateMonthlyBalanceTotals(
+				[
+					tx({ movementType: "income", amountCents: 500_00 }),
+					tx({ accountId: 2, movementType: "expense", amountCents: 200_00 }),
+				],
+				[],
+				[],
+				period,
+				accounts,
+			);
+			expect(result.cashExpenseCents).toBe(0);
+			expect(result.invoicePaymentCents).toBe(0);
+			expect(result.incomeCents).toBe(500_00);
+			expect(result.netCents).toBe(500_00);
+		});
+
+		test("bank expense counts as cashExpenseCents and reduces netCents", () => {
+			const result = calculateMonthlyBalanceTotals(
+				[
+					tx({ movementType: "income", amountCents: 500_00 }),
+					tx({ accountId: 1, movementType: "expense", amountCents: 150_00 }),
+				],
+				[],
+				[],
+				period,
+				accounts,
+			);
+			expect(result.cashExpenseCents).toBe(150_00);
+			expect(result.invoicePaymentCents).toBe(0);
+			expect(result.incomeCents).toBe(500_00);
+			expect(result.netCents).toBe(350_00);
+		});
+
+		test("credit_card_payment counts as invoicePaymentCents and reduces netCents", () => {
+			const result = calculateMonthlyBalanceTotals(
+				[
+					tx({ movementType: "income", amountCents: 500_00 }),
+					tx({
+						movementType: "credit_card_payment",
+						amountCents: 200_00,
+						destinationAccountId: 2,
+					}),
+				],
+				[],
+				[],
+				period,
+				accounts,
+			);
+			expect(result.cashExpenseCents).toBe(0);
+			expect(result.invoicePaymentCents).toBe(200_00);
+			expect(result.incomeCents).toBe(500_00);
+			expect(result.netCents).toBe(300_00);
+		});
+
+		test("netCents = income - cashExpenses - invoicePayments (mixed scenario)", () => {
+			const result = calculateMonthlyBalanceTotals(
+				[
+					tx({ movementType: "income", amountCents: 500_00 }),
+					tx({ accountId: 1, movementType: "expense", amountCents: 100_00 }),
+					tx({ accountId: 2, movementType: "expense", amountCents: 300_00 }),
+					tx({
+						movementType: "credit_card_payment",
+						amountCents: 200_00,
+						destinationAccountId: 2,
+					}),
+				],
+				[],
+				[],
+				period,
+				accounts,
+			);
+			expect(result.cashExpenseCents).toBe(100_00);
+			expect(result.invoicePaymentCents).toBe(200_00);
+			expect(result.incomeCents).toBe(500_00);
+			expect(result.netCents).toBe(200_00);
+		});
+
+		test("expenseCents equals cashExpenseCents plus invoicePaymentCents", () => {
+			const result = calculateMonthlyBalanceTotals(
+				[
+					tx({ accountId: 1, movementType: "expense", amountCents: 100_00 }),
+					tx({
+						movementType: "credit_card_payment",
+						amountCents: 200_00,
+						destinationAccountId: 2,
+					}),
+				],
+				[],
+				[],
+				period,
+				accounts,
+			);
+			expect(result.expenseCents).toBe(
+				result.cashExpenseCents + result.invoicePaymentCents,
+			);
+		});
+
+		test("separates main and financial income like the spending version", () => {
+			const result = calculateMonthlyBalanceTotals(
+				[
+					tx({ categoryId: 11, movementType: "income", amountCents: 300_00 }),
+					tx({ categoryId: 13, movementType: "income", amountCents: 20_00 }),
+				],
+				categories,
+				groups,
+				period,
+				accounts,
+			);
+			expect(result.mainIncomeCents).toBe(300_00);
+			expect(result.financialIncomeCents).toBe(20_00);
+		});
+
+		test("ignores planned and archived transactions", () => {
+			const result = calculateMonthlyBalanceTotals(
+				[
+					tx({ movementType: "income", amountCents: 100_00 }),
+					tx({
+						movementType: "expense",
+						amountCents: 50_00,
+						status: "planned",
+					}),
+					tx({
+						movementType: "expense",
+						amountCents: 50_00,
+						isArchived: true,
+					}),
+				],
+				[],
+				[],
+				period,
+				accounts,
+			);
+			expect(result.cashExpenseCents).toBe(0);
+			expect(result.invoicePaymentCents).toBe(0);
+			expect(result.incomeCents).toBe(100_00);
+			expect(result.netCents).toBe(100_00);
+		});
+	});
+
+	describe("calculateMonthlyTotalsByCashFlowRole (spending analysis — unchanged)", () => {
+		const period = parseMonthPeriod("2026-05");
+		if (!period) throw new Error("invalid test period");
+
+		test("card expense still counts in expenseCents for spending analysis", () => {
+			const result = calculateMonthlyTotalsByCashFlowRole(
+				[
+					tx({ movementType: "income", amountCents: 500_00 }),
+					tx({ accountId: 2, movementType: "expense", amountCents: 200_00 }),
+				],
+				[],
+				[],
+				period,
+			);
+			expect(result.expenseCents).toBe(200_00);
+			expect(result.incomeCents).toBe(500_00);
+			expect(result.netCents).toBe(300_00);
+		});
+
+		test("credit_card_payment is excluded from spending analysis", () => {
+			const result = calculateMonthlyTotalsByCashFlowRole(
+				[
+					tx({ movementType: "income", amountCents: 500_00 }),
+					tx({
+						movementType: "credit_card_payment",
+						amountCents: 200_00,
+						destinationAccountId: 2,
+					}),
+				],
+				[],
+				[],
+				period,
+			);
+			expect(result.expenseCents).toBe(0);
+			expect(result.incomeCents).toBe(500_00);
+			expect(result.netCents).toBe(500_00);
+		});
+	});
+
+	describe("rankings and budgets use spending analysis (card expenses by month)", () => {
+		const period = parseMonthPeriod("2026-05");
+		if (!period) throw new Error("invalid test period");
+
+		test("rankMonthlyCategories includes credit card expenses", () => {
+			const result = rankMonthlyCategories(
+				[
+					tx({ accountId: 2, categoryId: 10, amountCents: 150_00 }),
+					tx({ accountId: 1, categoryId: 12, amountCents: 50_00 }),
+				],
+				categories,
+				groups,
+				period,
+			);
+			expect(result.find((r) => r.categoryId === 10)?.amountCents).toBe(
+				150_00,
+			);
+		});
+
+		test("buildBudgetUsage includes credit card expenses", () => {
+			const result = buildBudgetUsage(
+				[budget({ scope: "month", amountCents: 500_00 })],
+				[
+					tx({ accountId: 2, categoryId: 10, amountCents: 200_00 }),
+					tx({ accountId: 1, categoryId: 12, amountCents: 100_00 }),
+				],
+				categories,
+				groups,
+				period,
+			);
+			expect(result[0]?.spentCents).toBe(300_00);
+		});
 	});
 });

@@ -287,6 +287,82 @@ export function calculateMonthlyTotalsByCashFlowRole(
 	};
 }
 
+function isMonthlyBalanceTransaction(
+	transaction: RuleTransaction,
+	period: Pick<MonthPeriod, "start" | "end">,
+	creditCardAccountIds: Set<number>,
+) {
+	if (!affectsReports(transaction)) return false;
+	if (!isInPeriod(transaction, period)) return false;
+	if (transaction.movementType === "income") return true;
+	if (transaction.movementType === "credit_card_payment") return true;
+	if (transaction.movementType === "expense") {
+		return !creditCardAccountIds.has(transaction.accountId);
+	}
+	return false;
+}
+
+export function calculateMonthlyBalanceTotals(
+	transactions: RuleTransaction[],
+	categories: RuleCategory[],
+	groups: RuleCategoryGroup[],
+	period: Pick<MonthPeriod, "start" | "end">,
+	accounts: RuleAccount[],
+) {
+	const creditCardAccountIds = new Set(
+		accounts
+			.filter((a) => a.type === "credit_card")
+			.map((a) => a.id),
+	);
+	const groupRoleByCategory = new Map(
+		categories.map((category) => [
+			category.id,
+			groups.find((group) => group.id === category.groupId)?.cashFlowRole ??
+				"operational",
+		]),
+	);
+
+	let mainIncomeCents = 0;
+	let financialIncomeCents = 0;
+	let cashExpenseCents = 0;
+	let invoicePaymentCents = 0;
+	let transactionCount = 0;
+
+	for (const transaction of transactions) {
+		if (!isMonthlyBalanceTransaction(transaction, period, creditCardAccountIds))
+			continue;
+
+		transactionCount++;
+		if (transaction.movementType === "income") {
+			if (
+				transaction.categoryId &&
+				groupRoleByCategory.get(transaction.categoryId) === "financial"
+			) {
+				financialIncomeCents += transaction.amountCents;
+			} else {
+				mainIncomeCents += transaction.amountCents;
+			}
+		} else if (transaction.movementType === "credit_card_payment") {
+			invoicePaymentCents += transaction.amountCents;
+		} else {
+			cashExpenseCents += transaction.amountCents;
+		}
+	}
+
+	const incomeCents = mainIncomeCents + financialIncomeCents;
+	const expenseCents = cashExpenseCents + invoicePaymentCents;
+	return {
+		mainIncomeCents,
+		financialIncomeCents,
+		incomeCents,
+		cashExpenseCents,
+		invoicePaymentCents,
+		expenseCents,
+		netCents: incomeCents - expenseCents,
+		transactionCount,
+	};
+}
+
 export function rankMonthlyCategories(
 	transactions: RuleTransaction[],
 	categories: RuleCategory[],

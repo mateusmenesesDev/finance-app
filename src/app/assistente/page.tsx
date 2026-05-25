@@ -36,7 +36,7 @@ import {
 import {
 	buildBudgetUsage,
 	calculateAccountBalances,
-	calculateMonthlyTotalsByCashFlowRole,
+	calculateMonthlyBalanceTotals,
 	getMonthPeriod,
 	rankMonthlyCategories,
 } from "~/lib/finance-rules";
@@ -140,17 +140,19 @@ export default async function AssistantPage() {
 		.slice(0, 12);
 
 	const previousMonth = previousMonthPeriod(period.key);
-	const previousTotals = calculateMonthlyTotalsByCashFlowRole(
+	const previousTotals = calculateMonthlyBalanceTotals(
 		allTransactions,
 		allCategories,
 		allGroups,
 		previousMonth,
+		allAccounts,
 	);
-	const totals = calculateMonthlyTotalsByCashFlowRole(
+	const totals = calculateMonthlyBalanceTotals(
 		allTransactions,
 		allCategories,
 		allGroups,
 		period,
+		allAccounts,
 	);
 
 	const activeAccounts = allAccounts.filter((a) => !a.isArchived);
