@@ -380,34 +380,40 @@ export default async function Home({ searchParams }: HomeProps) {
 				</section>
 			) : null}
 
-			<section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-				<StatCard
-					description={`Financeira: ${formatMoney(monthlyTotals.financialIncomeCents)} · total: ${formatMoney(monthlyTotals.incomeCents)}`}
-					icon={TrendingUp}
-					label="Receita principal"
-					tone="success"
-					value={formatMoney(monthlyTotals.mainIncomeCents)}
-				/>
-				<StatCard
-					icon={TrendingDown}
-					label="Despesas do mês"
-					tone="destructive"
-					value={formatMoney(monthlyTotals.expenseCents)}
-				/>
-				<StatCard
-					icon={ArrowDownUp}
-					label="Saldo do mês"
-					tone={monthlyTotals.netCents >= 0 ? "success" : "destructive"}
-					value={formatMoney(monthlyTotals.netCents)}
-				/>
-				<StatCard
-					description={budgetSummary.description}
-					icon={PiggyBank}
-					label="Orçamento usado"
-					tone={budgetTone(budgetSummary.variant)}
-					value={budgetSummary.label}
-				/>
-			</section>
+		<section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+			<StatCard
+				description={`Financeira: ${formatMoney(monthlyTotals.financialIncomeCents)} · total: ${formatMoney(monthlyTotals.incomeCents)}`}
+				icon={TrendingUp}
+				label="Receita principal"
+				tone="success"
+				value={formatMoney(monthlyTotals.mainIncomeCents)}
+			/>
+			<StatCard
+				icon={TrendingDown}
+				label="Despesas em dinheiro"
+				tone="destructive"
+				value={formatMoney(monthlyTotals.cashExpenseCents)}
+			/>
+			<StatCard
+				icon={CreditCard}
+				label="Fatura paga"
+				tone="destructive"
+				value={formatMoney(monthlyTotals.invoicePaymentCents)}
+			/>
+			<StatCard
+				icon={ArrowDownUp}
+				label="Saldo do mês"
+				tone={monthlyTotals.netCents >= 0 ? "success" : "destructive"}
+				value={formatMoney(monthlyTotals.netCents)}
+			/>
+			<StatCard
+				description={budgetSummary.description}
+				icon={PiggyBank}
+				label="Orçamento usado"
+				tone={budgetTone(budgetSummary.variant)}
+				value={budgetSummary.label}
+			/>
+		</section>
 
 			<section className="grid gap-6 lg:grid-cols-[1fr_1fr]">
 				<Card>
