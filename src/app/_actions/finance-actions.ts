@@ -22,6 +22,7 @@ import {
 	type CategoryActionState,
 	categoryActionError,
 } from "~/lib/category-errors";
+import { normalizeBudgetScopeSelection } from "~/lib/budget-form";
 import { MAX_AMOUNT_CENTS, moneyToCents } from "~/lib/money";
 import { maskSensitive } from "~/lib/sensitive-data";
 import { regenerateAssistantSuggestionsForUser } from "~/server/assistant";
@@ -1291,16 +1292,15 @@ export async function unlinkTransactionFromRecurrence(formData: FormData) {
 
 async function budgetValues(userId: string, formData: FormData) {
 	const scope = enumField(formData, "scope", monthlyBudgetScopes);
-	const categoryGroupId = optionalIntField(formData, "categoryGroupId");
-	const categoryId = optionalIntField(formData, "categoryId");
-	if (scope === "month" && (categoryGroupId !== null || categoryId !== null)) {
-		throw new Error("Orçamento mensal não usa grupo ou categoria");
+	const { categoryGroupId, categoryId } = normalizeBudgetScopeSelection(scope, {
+		categoryGroupId: optionalIntField(formData, "categoryGroupId"),
+		categoryId: optionalIntField(formData, "categoryId"),
+	});
+	if (scope === "category_group" && categoryGroupId === null) {
+		throw new Error("Orçamento por grupo exige um grupo");
 	}
-	if (scope === "category_group" && (!categoryGroupId || categoryId !== null)) {
-		throw new Error("Orçamento por grupo exige apenas grupo");
-	}
-	if (scope === "category" && (!categoryId || categoryGroupId !== null)) {
-		throw new Error("Orçamento por categoria exige apenas categoria");
+	if (scope === "category" && categoryId === null) {
+		throw new Error("Orçamento por categoria exige uma categoria");
 	}
 
 	if (categoryGroupId) {

@@ -8,6 +8,7 @@ import {
 	createOrUpdateBudget,
 	deleteBudget,
 } from "~/app/_actions/finance-actions";
+import { BudgetFormFields } from "~/app/budgets/budget-form-fields";
 import { AppShell } from "~/components/app-shell";
 import { ConfirmDialog } from "~/components/confirm-dialog";
 import { EmptyState } from "~/components/empty-state";
@@ -64,12 +65,6 @@ type BudgetsPageProps = {
 		historyScope?: string;
 		month?: string;
 	}>;
-};
-
-const scopeLabels = {
-	category: "Categoria",
-	category_group: "Grupo de categoria",
-	month: "Mês geral",
 };
 
 type BudgetRow = typeof monthlyBudgets.$inferSelect;
@@ -497,36 +492,19 @@ function BudgetDialog({
 					<input name="monthKey" type="hidden" value={monthKey} />
 					{budget ? <input name="id" type="hidden" value={budget.id} /> : null}
 					<div className="grid gap-4 sm:grid-cols-2">
-						<SelectField
-							defaultValue={budget?.scope ?? "month"}
-							label="Escopo"
-							name="scope"
-							options={scopeLabels}
-						/>
-						<SelectField
-							defaultValue={budget?.categoryGroupId ?? ""}
-							label="Grupo"
-							name="categoryGroupId"
-							options={{
-								"": "Sem grupo",
-								...Object.fromEntries(
-									groups.map((group) => [String(group.id), group.name]),
-								),
-							}}
-						/>
-						<SelectField
-							defaultValue={budget?.categoryId ?? ""}
-							label="Categoria"
-							name="categoryId"
-							options={{
-								"": "Sem categoria",
-								...Object.fromEntries(
-									categories.map((category) => [
-										String(category.id),
-										category.name,
-									]),
-								),
-							}}
+						<BudgetFormFields
+							categories={categories.map((category) => ({
+								id: category.id,
+								name: category.name,
+							}))}
+							defaultCategoryGroupId={budget?.categoryGroupId ?? null}
+							defaultCategoryId={budget?.categoryId ?? null}
+							defaultScope={budget?.scope ?? "month"}
+							groups={groups.map((group) => ({
+								id: group.id,
+								name: group.name,
+							}))}
+							selectClassName={selectClass}
 						/>
 						<div className="grid gap-2">
 							<Label htmlFor="budget-amount">Valor</Label>
@@ -554,36 +532,6 @@ function BudgetDialog({
 				</form>
 			</DialogContent>
 		</Dialog>
-	);
-}
-
-function SelectField({
-	label,
-	name,
-	options,
-	defaultValue,
-}: {
-	label: string;
-	name: string;
-	options: Record<string, string>;
-	defaultValue?: string | number;
-}) {
-	return (
-		<div className="grid gap-2">
-			<Label htmlFor={`budget-${name}`}>{label}</Label>
-			<select
-				className={selectClass}
-				defaultValue={defaultValue}
-				id={`budget-${name}`}
-				name={name}
-			>
-				{Object.entries(options).map(([value, label]) => (
-					<option key={value} value={value}>
-						{label}
-					</option>
-				))}
-			</select>
-		</div>
 	);
 }
 
