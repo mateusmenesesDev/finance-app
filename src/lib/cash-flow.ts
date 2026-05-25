@@ -250,6 +250,11 @@ export function aggregateCashFlow(input: {
 			movement.accountId !== input.accountFilter
 		)
 			continue;
+		if (
+			movement.movementType !== "credit_card_payment" &&
+			creditCardAccountIds.has(movement.accountId)
+		)
+			continue;
 		const bucket = byKey.get(bucketKey(movement.occurredOn, input.granularity));
 		if (bucket) addMovement(bucket, movement, "planned");
 	}

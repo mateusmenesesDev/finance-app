@@ -93,3 +93,28 @@ A importação CSV tem duas etapas: lote e linhas. Linhas importadas devem ser r
 Status do lote: rascunho, em revisão, confirmado, cancelado e revertido.
 
 Status da linha: pendente de revisão, válida, inválida, ignorada, duplicada e importada.
+
+## Dois contextos de cálculo
+
+O sistema distingue dois contextos diferentes ao trabalhar com transações financeiras:
+
+### Fluxo de caixa mensal (saldo)
+
+Usado pelo dashboard (`calculateMonthlyBalanceTotals`, `aggregateCashFlow`, `projectedBalanceCents`) para responder: **quanto dinheiro real entrou ou saiu neste mês?**
+
+Regras:
+- `income` em qualquer conta → **conta** como entrada de caixa.
+- `expense` em conta bancária (`checking`, `savings`, `cash`, `investment`) → **conta** como saída de caixa (`cashExpenseCents`).
+- `credit_card_payment` → **conta** como saída de caixa (`invoicePaymentCents`), pois é o momento em que o dinheiro sai do banco.
+- `expense` em conta `credit_card` → **não conta**; o dinheiro só sai no momento do pagamento da fatura.
+
+Isso vale tanto para transações confirmadas/previstas no fluxo histórico quanto para movimentos gerados por recorrências (`extraPlannedMovements`).
+
+### Análise de gastos (relatórios, orçamentos, rankings)
+
+Usado por `rankMonthlyCategories`, `rankMonthlyGroups` e `buildBudgetUsage` para responder: **em que o usuário gastou neste mês?**
+
+Regras:
+- Todas as `expense` confirmadas no período são contabilizadas, independentemente do tipo de conta.
+- `credit_card_payment` é excluído (evita dupla contagem com a despesa original do cartão).
+- O objetivo é refletir o consumo real por categoria/grupo, não o movimento de caixa.

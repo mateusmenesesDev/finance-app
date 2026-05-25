@@ -180,6 +180,28 @@ describe("cash flow", () => {
 		expect(result.totals.plannedExpense).toBe(0);
 	});
 
+	test("planned credit_card_payment appears in plannedExpense as a projected cash outflow", () => {
+		const result = aggregateCashFlow({
+			accounts,
+			transactions: [
+				tx({
+					accountId: 1,
+					destinationAccountId: 2,
+					movementType: "credit_card_payment",
+					amountCents: 50_00,
+					status: "planned",
+					occurredOn: "2026-05-20",
+				}),
+			],
+			window: { start: "2026-05-01", end: "2026-05-31" },
+			granularity: "month",
+			today: "2026-05-01",
+		});
+
+		expect(result.totals.plannedExpense).toBe(50_00);
+		expect(result.totals.realizedExpense).toBe(0);
+	});
+
 	test("credit card payment from a normal account remains in realized expense", () => {
 		const result = aggregateCashFlow({
 			accounts,
@@ -328,6 +350,29 @@ describe("cash flow", () => {
 		expect(comparePlannedVsRealized(aggregate.buckets)[0]?.deltaPercent).toBe(
 			null,
 		);
+	});
+
+	test("recurrence expenses on a credit card account do not inflate plannedExpense", () => {
+		// recurrencesToPlannedMovements generates PlannedMovements without knowing
+		// account type; aggregateCashFlow must apply the same card-purchase guard to
+		// extraPlannedMovements that it applies to transactions.
+		const result = aggregateCashFlow({
+			accounts,
+			transactions: [],
+			window: { start: "2026-05-01", end: "2026-05-31" },
+			granularity: "month",
+			today: "2026-05-01",
+			extraPlannedMovements: [
+				{
+					accountId: 2, // credit_card account
+					amountCents: 60_00,
+					movementType: "expense",
+					occurredOn: "2026-05-15",
+				},
+			],
+		});
+
+		expect(result.totals.plannedExpense).toBe(0);
 	});
 
 	test("extra planned movements shift bucket totals", () => {
