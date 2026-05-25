@@ -902,8 +902,22 @@ export const financialAccountRelations = relations(
 			relationName: "destinationAccount",
 		}),
 		importBatches: many(importBatches),
-		importRows: many(importRows),
-		importCategoryRules: many(importCategoryRules),
+		importRows: many(importRows, { relationName: "importRowAccount" }),
+		suggestedSourceImportRows: many(importRows, {
+			relationName: "importRowSuggestedSourceAccount",
+		}),
+		suggestedDestinationImportRows: many(importRows, {
+			relationName: "importRowSuggestedDestinationAccount",
+		}),
+		importCategoryRules: many(importCategoryRules, {
+			relationName: "importCategoryRuleAccount",
+		}),
+		sourceImportCategoryRules: many(importCategoryRules, {
+			relationName: "importCategoryRuleSourceAccount",
+		}),
+		destinationImportCategoryRules: many(importCategoryRules, {
+			relationName: "importCategoryRuleDestinationAccount",
+		}),
 		transactionSavedFilters: many(transactionSavedFilters),
 		recurrences: many(recurrences),
 	}),
@@ -998,6 +1012,7 @@ export const importRowRelations = relations(importRows, ({ one }) => ({
 	account: one(financialAccounts, {
 		fields: [importRows.accountId],
 		references: [financialAccounts.id],
+		relationName: "importRowAccount",
 	}),
 	suggestedCategory: one(categories, {
 		fields: [importRows.suggestedCategoryId],
@@ -1006,10 +1021,12 @@ export const importRowRelations = relations(importRows, ({ one }) => ({
 	suggestedSourceAccount: one(financialAccounts, {
 		fields: [importRows.suggestedSourceAccountId],
 		references: [financialAccounts.id],
+		relationName: "importRowSuggestedSourceAccount",
 	}),
 	suggestedDestinationAccount: one(financialAccounts, {
 		fields: [importRows.suggestedDestinationAccountId],
 		references: [financialAccounts.id],
+		relationName: "importRowSuggestedDestinationAccount",
 	}),
 	suggestedRule: one(importCategoryRules, {
 		fields: [importRows.suggestedRuleId],
@@ -1049,14 +1066,17 @@ export const importCategoryRuleRelations = relations(
 		account: one(financialAccounts, {
 			fields: [importCategoryRules.accountId],
 			references: [financialAccounts.id],
+			relationName: "importCategoryRuleAccount",
 		}),
 		sourceAccount: one(financialAccounts, {
 			fields: [importCategoryRules.sourceAccountId],
 			references: [financialAccounts.id],
+			relationName: "importCategoryRuleSourceAccount",
 		}),
 		destinationAccount: one(financialAccounts, {
 			fields: [importCategoryRules.destinationAccountId],
 			references: [financialAccounts.id],
+			relationName: "importCategoryRuleDestinationAccount",
 		}),
 	}),
 );
