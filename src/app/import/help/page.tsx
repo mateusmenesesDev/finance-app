@@ -1,18 +1,13 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 
 import { AppShell } from "~/components/app-shell";
 import { PageHeader } from "~/components/page-header";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
-import { getSession } from "~/server/better-auth/server";
 
-export default async function ImportHelpPage() {
-	const session = await getSession();
-	if (!session?.user.id) redirect("/");
-
+export default function ImportHelpPage() {
 	return (
-		<AppShell user={{ name: session.user.name, email: session.user.email }}>
+		<AppShell>
 			<PageHeader
 				description="Guia genérico para preparar extratos CSV sem depender de telas específicas de bancos ou cartões."
 				eyebrow="Ajuda CSV"

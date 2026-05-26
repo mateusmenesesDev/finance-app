@@ -13,9 +13,17 @@ export function middleware(request: NextRequest) {
 		return NextResponse.redirect(new URL("/", request.url));
 	}
 
+	if (pathname === "/esqueci-senha" && sessionCookie) {
+		return NextResponse.redirect(new URL("/", request.url));
+	}
+
+	if (pathname === "/import/help" && !sessionCookie) {
+		return NextResponse.redirect(new URL("/", request.url));
+	}
+
 	return NextResponse.next();
 }
 
 export const config = {
-	matcher: ["/", "/entrar"],
+	matcher: ["/", "/entrar", "/esqueci-senha", "/import/help"],
 };

@@ -1,16 +1,10 @@
-import { redirect } from "next/navigation";
-
 import { ForgotPasswordForm } from "~/app/esqueci-senha/forgot-password-form";
-import { getSession } from "~/server/better-auth/server";
 
 export const metadata = {
 	title: "Esqueci minha senha · Finance App",
 };
 
-export default async function ForgotPasswordPage() {
-	const session = await getSession();
-	if (session) redirect("/");
-
+export default function ForgotPasswordPage() {
 	return (
 		<main className="min-h-screen bg-background px-6 py-10 text-foreground">
 			<div className="mx-auto flex w-full max-w-md flex-col gap-8">

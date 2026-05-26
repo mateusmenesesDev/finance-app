@@ -10,7 +10,7 @@ import {
 import { UserMenu } from "~/components/user-menu";
 
 type Props = {
-	user: { name: string; email: string };
+	user?: { name: string; email: string };
 	children: React.ReactNode;
 };
 
@@ -28,7 +28,7 @@ export function AppShell({ user, children }: Props) {
 					<div className="ml-auto flex items-center gap-2">
 						<CommandPalette />
 						<ThemeToggle />
-						<UserMenu email={user.email} name={user.name} />
+						<UserMenu email={user?.email} name={user?.name} />
 					</div>
 				</header>
 				<main className="flex flex-1 flex-col gap-6 px-4 py-6 md:px-8 md:py-8">

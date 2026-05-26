@@ -4,6 +4,7 @@ import { LogOut, Settings, User } from "lucide-react";
 import Link from "next/link";
 
 import { signOutAction } from "~/app/_actions/auth-actions";
+import { authClient } from "~/server/better-auth/client";
 import { Avatar, AvatarFallback } from "~/components/ui/avatar";
 import { Button } from "~/components/ui/button";
 import {
@@ -22,11 +23,15 @@ function initials(name: string) {
 }
 
 type Props = {
-	name: string;
-	email: string;
+	name?: string;
+	email?: string;
 };
 
-export function UserMenu({ name, email }: Props) {
+export function UserMenu({ name: nameProp, email: emailProp }: Props) {
+	const { data: session } = authClient.useSession();
+	const name = nameProp ?? session?.user.name ?? "";
+	const email = emailProp ?? session?.user.email ?? "";
+
 	return (
 		<DropdownMenu>
 			<DropdownMenuTrigger asChild>
