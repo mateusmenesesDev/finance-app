@@ -1,4 +1,5 @@
 import { asc, desc, eq } from "drizzle-orm";
+import { unstable_cache } from "next/cache";
 import { CreditCard, Plus, Wallet } from "lucide-react";
 import { redirect } from "next/navigation";
 
@@ -28,6 +29,7 @@ import { formatDate, formatMoney } from "~/lib/formatters";
 import { getSession } from "~/server/better-auth/server";
 import { db } from "~/server/db";
 import { financialAccounts, transactions } from "~/server/db/schema";
+import { userTag } from "~/server/invalidate";
 
 const accountTypeLabels = {
 	checking: "Conta corrente",
@@ -41,18 +43,7 @@ export default async function AccountsPage() {
 	const session = await getSession();
 	if (!session?.user.id) redirect("/");
 
-	const [allAccounts, allTransactions] = await Promise.all([
-		db
-			.select()
-			.from(financialAccounts)
-			.where(eq(financialAccounts.userId, session.user.id))
-			.orderBy(asc(financialAccounts.name)),
-		db
-			.select()
-			.from(transactions)
-			.where(eq(transactions.userId, session.user.id))
-			.orderBy(desc(transactions.occurredOn), desc(transactions.id)),
-	]);
+	const { allAccounts, allTransactions } = await loadAccountsData(session.user.id);
 	const activeAccounts = allAccounts.filter((account) => !account.isArchived);
 	const balances = calculateAccountBalances(allAccounts, allTransactions);
 	const normalConsolidated = activeAccounts.reduce(
@@ -175,6 +166,31 @@ export default async function AccountsPage() {
 			</Card>
 		</AppShell>
 	);
+}
+
+function loadAccountsData(userId: string) {
+	return unstable_cache(
+		async () => {
+			const [allAccounts, allTransactions] = await Promise.all([
+				db
+					.select()
+					.from(financialAccounts)
+					.where(eq(financialAccounts.userId, userId))
+					.orderBy(asc(financialAccounts.name)),
+				db
+					.select()
+					.from(transactions)
+					.where(eq(transactions.userId, userId))
+					.orderBy(desc(transactions.occurredOn), desc(transactions.id)),
+			]);
+			return { allAccounts, allTransactions };
+		},
+		[`accounts-data:${userId}`],
+		{
+			tags: [userTag(userId, "accounts"), userTag(userId, "transactions")],
+			revalidate: 3600,
+		},
+	)();
 }
 
 function CreateAccountDialog() {

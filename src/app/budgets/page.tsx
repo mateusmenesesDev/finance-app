@@ -1,4 +1,5 @@
 import { asc, desc, eq } from "drizzle-orm";
+import { unstable_cache } from "next/cache";
 import { AlertTriangle, PiggyBank, Plus } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -56,6 +57,7 @@ import {
 	monthlyBudgetTemplates,
 	transactions,
 } from "~/server/db/schema";
+import { userTag } from "~/server/invalidate";
 
 type BudgetsPageProps = {
 	searchParams?: Promise<{
@@ -82,37 +84,8 @@ export default async function BudgetsPage({ searchParams }: BudgetsPageProps) {
 		period.key,
 		...historyMonthKeys,
 	]);
-	const [allBudgets, allBudgetTemplates, allCategories, allGroups, allTransactions] =
-		await Promise.all([
-			db
-				.select()
-				.from(monthlyBudgets)
-				.where(eq(monthlyBudgets.userId, session.user.id))
-				.orderBy(asc(monthlyBudgets.monthKey), asc(monthlyBudgets.scope)),
-			db
-				.select()
-				.from(monthlyBudgetTemplates)
-				.where(eq(monthlyBudgetTemplates.userId, session.user.id))
-				.orderBy(
-					asc(monthlyBudgetTemplates.scope),
-					asc(monthlyBudgetTemplates.startsAtMonthKey),
-				),
-			db
-				.select()
-				.from(categories)
-				.where(eq(categories.userId, session.user.id))
-				.orderBy(asc(categories.kind), asc(categories.name)),
-			db
-				.select()
-				.from(categoryGroups)
-				.where(eq(categoryGroups.userId, session.user.id))
-				.orderBy(asc(categoryGroups.kind), asc(categoryGroups.name)),
-			db
-				.select()
-				.from(transactions)
-				.where(eq(transactions.userId, session.user.id))
-				.orderBy(desc(transactions.occurredOn), desc(transactions.id)),
-		]);
+	const { allBudgets, allBudgetTemplates, allCategories, allGroups, allTransactions } =
+		await loadBudgetsData(session.user.id);
 
 	const activeExpenseGroups = allGroups.filter(
 		(group) => group.kind === "expense" && !group.isArchived,
@@ -380,6 +353,65 @@ export default async function BudgetsPage({ searchParams }: BudgetsPageProps) {
 			</Card>
 		</AppShell>
 	);
+}
+
+function loadBudgetsData(userId: string) {
+	return unstable_cache(
+		async () => {
+			const [
+				allBudgets,
+				allBudgetTemplates,
+				allCategories,
+				allGroups,
+				allTransactions,
+			] = await Promise.all([
+				db
+					.select()
+					.from(monthlyBudgets)
+					.where(eq(monthlyBudgets.userId, userId))
+					.orderBy(asc(monthlyBudgets.monthKey), asc(monthlyBudgets.scope)),
+				db
+					.select()
+					.from(monthlyBudgetTemplates)
+					.where(eq(monthlyBudgetTemplates.userId, userId))
+					.orderBy(
+						asc(monthlyBudgetTemplates.scope),
+						asc(monthlyBudgetTemplates.startsAtMonthKey),
+					),
+				db
+					.select()
+					.from(categories)
+					.where(eq(categories.userId, userId))
+					.orderBy(asc(categories.kind), asc(categories.name)),
+				db
+					.select()
+					.from(categoryGroups)
+					.where(eq(categoryGroups.userId, userId))
+					.orderBy(asc(categoryGroups.kind), asc(categoryGroups.name)),
+				db
+					.select()
+					.from(transactions)
+					.where(eq(transactions.userId, userId))
+					.orderBy(desc(transactions.occurredOn), desc(transactions.id)),
+			]);
+			return {
+				allBudgets,
+				allBudgetTemplates,
+				allCategories,
+				allGroups,
+				allTransactions,
+			};
+		},
+		[`budgets-data:${userId}`],
+		{
+			tags: [
+				userTag(userId, "budgets"),
+				userTag(userId, "transactions"),
+				userTag(userId, "categories"),
+			],
+			revalidate: 3600,
+		},
+	)();
 }
 
 type UsageRow = ReturnType<typeof buildBudgetUsage>[number];

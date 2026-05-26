@@ -1,4 +1,5 @@
 import { and, asc, eq, isNotNull } from "drizzle-orm";
+import { unstable_cache } from "next/cache";
 import { CalendarClock, Plus, Repeat } from "lucide-react";
 import { redirect } from "next/navigation";
 
@@ -38,6 +39,7 @@ import {
 	recurrences,
 	transactions,
 } from "~/server/db/schema";
+import { userTag } from "~/server/invalidate";
 
 const frequencyOptions = {
 	once: "Uma vez",
@@ -66,36 +68,8 @@ export default async function RecurrencesPage() {
 	const today = isoToday();
 	const nextWindow = { start: today, end: addDaysIso(today, 30) };
 
-	const [allRecurrences, allAccounts, allCategories, confirmedRows] =
-		await Promise.all([
-			db
-				.select()
-				.from(recurrences)
-				.where(eq(recurrences.userId, session.user.id))
-				.orderBy(asc(recurrences.isArchived), asc(recurrences.name)),
-			db
-				.select()
-				.from(financialAccounts)
-				.where(eq(financialAccounts.userId, session.user.id))
-				.orderBy(asc(financialAccounts.name)),
-			db
-				.select()
-				.from(categories)
-				.where(eq(categories.userId, session.user.id))
-				.orderBy(asc(categories.kind), asc(categories.name)),
-			db
-				.select({
-					recurrenceId: transactions.recurrenceId,
-					occurrenceOn: transactions.recurrenceOccurrenceOn,
-				})
-				.from(transactions)
-				.where(
-					and(
-						eq(transactions.userId, session.user.id),
-						isNotNull(transactions.recurrenceId),
-					),
-				),
-		]);
+	const { allRecurrences, allAccounts, allCategories, confirmedRows } =
+		await loadRecurrencesData(session.user.id);
 
 	const confirmed = confirmedRows.flatMap((row) =>
 		row.recurrenceId && row.occurrenceOn
@@ -305,15 +279,63 @@ export default async function RecurrencesPage() {
 							))}
 						</div>
 					) : (
-						<EmptyState
-							description="Nenhuma recorrência arquivada."
-							title="Sem arquivadas"
-						/>
-					)}
-				</CardContent>
-			</Card>
-		</AppShell>
+					<EmptyState
+						description="Nenhuma recorrência arquivada."
+						title="Sem arquivadas"
+					/>
+				)}
+			</CardContent>
+		</Card>
+	</AppShell>
 	);
+}
+
+function loadRecurrencesData(userId: string) {
+	return unstable_cache(
+		async () => {
+			const [allRecurrences, allAccounts, allCategories, confirmedRows] =
+				await Promise.all([
+					db
+						.select()
+						.from(recurrences)
+						.where(eq(recurrences.userId, userId))
+						.orderBy(asc(recurrences.isArchived), asc(recurrences.name)),
+					db
+						.select()
+						.from(financialAccounts)
+						.where(eq(financialAccounts.userId, userId))
+						.orderBy(asc(financialAccounts.name)),
+					db
+						.select()
+						.from(categories)
+						.where(eq(categories.userId, userId))
+						.orderBy(asc(categories.kind), asc(categories.name)),
+					db
+						.select({
+							recurrenceId: transactions.recurrenceId,
+							occurrenceOn: transactions.recurrenceOccurrenceOn,
+						})
+						.from(transactions)
+						.where(
+							and(
+								eq(transactions.userId, userId),
+								isNotNull(transactions.recurrenceId),
+							),
+						),
+				]);
+			return { allRecurrences, allAccounts, allCategories, confirmedRows };
+		},
+		[`recurrences-data:${userId}`],
+		{
+			tags: [
+				userTag(userId, "recurrences"),
+				userTag(userId, "transactions"),
+				userTag(userId, "accounts"),
+				userTag(userId, "categories"),
+			],
+			revalidate: 3600,
+		},
+	)();
 }
 
 function OccurrenceRow({
