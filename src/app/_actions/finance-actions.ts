@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq, inArray, or, sql } from "drizzle-orm";
+import { and, eq, gte, inArray, or, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
@@ -23,9 +23,11 @@ import {
 	categoryActionError,
 } from "~/lib/category-errors";
 import { normalizeBudgetScopeSelection } from "~/lib/budget-form";
+import type { BudgetTemplateLike } from "~/lib/budget-templates";
 import { MAX_AMOUNT_CENTS, moneyToCents } from "~/lib/money";
 import { maskSensitive } from "~/lib/sensitive-data";
 import { regenerateAssistantSuggestionsForUser } from "~/server/assistant";
+import { ensureBudgetTemplatesMaterialized } from "~/server/budget-templates";
 import {
 	diffTransaction,
 	recordAudit,
@@ -42,6 +44,8 @@ import {
 	importRows,
 	importTemplates,
 	monthlyBudgets,
+	monthlyBudgetTemplates,
+	monthlyBudgetTemplateSkips,
 	recurrences,
 	transactionSavedFilters,
 	transactions,
@@ -1347,17 +1351,42 @@ async function budgetValues(userId: string, formData: FormData) {
 	};
 }
 
-export async function createOrUpdateBudget(formData: FormData) {
-	const userId = await requireUserId();
-	const values = await budgetValues(userId, formData);
+function sameBudgetTarget(
+	candidate: Pick<BudgetTemplateLike, "scope" | "categoryGroupId" | "categoryId">,
+	target: Pick<BudgetTemplateLike, "scope" | "categoryGroupId" | "categoryId">,
+) {
+	return (
+		candidate.scope === target.scope &&
+		candidate.categoryGroupId === target.categoryGroupId &&
+		candidate.categoryId === target.categoryId
+	);
+}
+
+async function upsertBudgetMonth(
+	values: Awaited<ReturnType<typeof budgetValues>>,
+	options?: {
+		templateId?: number | null;
+	},
+) {
+	const set =
+		options?.templateId !== undefined
+			? {
+					amountCents: values.amountCents,
+					templateId: options.templateId,
+					updatedAt: new Date(),
+				}
+			: {
+					amountCents: values.amountCents,
+					updatedAt: new Date(),
+				};
 	await db
 		.insert(monthlyBudgets)
-		.values(values)
+		.values({
+			...values,
+			templateId: options?.templateId ?? null,
+		})
 		.onConflictDoUpdate({
-			set: {
-				amountCents: values.amountCents,
-				updatedAt: new Date(),
-			},
+			set,
 			target: [
 				monthlyBudgets.userId,
 				monthlyBudgets.monthKey,
@@ -1366,19 +1395,241 @@ export async function createOrUpdateBudget(formData: FormData) {
 				monthlyBudgets.categoryId,
 			],
 		});
+}
+
+async function syncTemplateBudgetAmounts(input: {
+	amountCents: number;
+	fromMonthKey: string;
+	previousAmountCents: number;
+	templateId: number;
+	userId: string;
+}) {
+	if (input.amountCents === input.previousAmountCents) return;
+	await db
+		.update(monthlyBudgets)
+		.set({
+			amountCents: input.amountCents,
+			updatedAt: new Date(),
+		})
+		.where(
+			and(
+				eq(monthlyBudgets.userId, input.userId),
+				eq(monthlyBudgets.templateId, input.templateId),
+				gte(monthlyBudgets.monthKey, input.fromMonthKey),
+				eq(monthlyBudgets.amountCents, input.previousAmountCents),
+			),
+		);
+}
+
+async function upsertRecurringBudgetTemplate(
+	userId: string,
+	values: Pick<
+		Awaited<ReturnType<typeof budgetValues>>,
+		"amountCents" | "categoryGroupId" | "categoryId" | "scope"
+	> & {
+		startsAtMonthKey: string;
+	},
+) {
+	const templates = await db
+		.select()
+		.from(monthlyBudgetTemplates)
+		.where(eq(monthlyBudgetTemplates.userId, userId));
+	const existing = templates.find((template) => sameBudgetTarget(template, values));
+	if (!existing) {
+		const [created] = await db
+			.insert(monthlyBudgetTemplates)
+			.values({
+				...values,
+				userId,
+			})
+			.returning({ id: monthlyBudgetTemplates.id });
+		if (!created) throw new Error("Não foi possível criar o orçamento recorrente");
+		return { previousAmountCents: values.amountCents, templateId: created.id };
+	}
+
+	await db
+		.update(monthlyBudgetTemplates)
+		.set({
+			amountCents: values.amountCents,
+			isArchived: false,
+			startsAtMonthKey: values.startsAtMonthKey,
+			updatedAt: new Date(),
+		})
+		.where(
+			and(
+				eq(monthlyBudgetTemplates.id, existing.id),
+				eq(monthlyBudgetTemplates.userId, userId),
+			),
+		);
+	await db
+		.delete(monthlyBudgetTemplateSkips)
+		.where(
+			and(
+				eq(monthlyBudgetTemplateSkips.templateId, existing.id),
+				eq(monthlyBudgetTemplateSkips.userId, userId),
+				gte(monthlyBudgetTemplateSkips.monthKey, values.startsAtMonthKey),
+			),
+		);
+	return {
+		previousAmountCents: existing.amountCents,
+		templateId: existing.id,
+	};
+}
+
+async function archiveBudgetTemplateFromMonth(
+	userId: string,
+	templateId: number,
+	fromMonthKey: string,
+) {
+	await db
+		.update(monthlyBudgetTemplates)
+		.set({
+			isArchived: true,
+			updatedAt: new Date(),
+		})
+		.where(
+			and(
+				eq(monthlyBudgetTemplates.id, templateId),
+				eq(monthlyBudgetTemplates.userId, userId),
+			),
+		);
+	await db
+		.delete(monthlyBudgets)
+		.where(
+			and(
+				eq(monthlyBudgets.userId, userId),
+				eq(monthlyBudgets.templateId, templateId),
+				gte(monthlyBudgets.monthKey, fromMonthKey),
+			),
+		);
+	await db
+		.delete(monthlyBudgetTemplateSkips)
+		.where(
+			and(
+				eq(monthlyBudgetTemplateSkips.userId, userId),
+				eq(monthlyBudgetTemplateSkips.templateId, templateId),
+				gte(monthlyBudgetTemplateSkips.monthKey, fromMonthKey),
+			),
+		);
+}
+
+export async function createOrUpdateBudget(formData: FormData) {
+	const userId = await requireUserId();
+	const values = await budgetValues(userId, formData);
+	if (boolField(formData, "repeatEveryMonth")) {
+		const template = await upsertRecurringBudgetTemplate(userId, {
+			amountCents: values.amountCents,
+			categoryGroupId: values.categoryGroupId,
+			categoryId: values.categoryId,
+			scope: values.scope,
+			startsAtMonthKey: values.monthKey,
+		});
+		await syncTemplateBudgetAmounts({
+			amountCents: values.amountCents,
+			fromMonthKey: values.monthKey,
+			previousAmountCents: template.previousAmountCents,
+			templateId: template.templateId,
+			userId,
+		});
+		await upsertBudgetMonth(values, { templateId: template.templateId });
+	} else {
+		await upsertBudgetMonth(values);
+	}
 	revalidateBudgetViews();
 }
 
 export async function deleteBudget(formData: FormData) {
 	const userId = await requireUserId();
-	await db
-		.delete(monthlyBudgets)
+	const id = intField(formData, "id");
+	const deleteMode = optionalString(formData, "deleteMode");
+	const [budget] = await db
+		.select({
+			id: monthlyBudgets.id,
+			monthKey: monthlyBudgets.monthKey,
+			templateId: monthlyBudgets.templateId,
+		})
+		.from(monthlyBudgets)
+		.where(and(eq(monthlyBudgets.id, id), eq(monthlyBudgets.userId, userId)))
+		.limit(1);
+	if (!budget) throw new Error("Orçamento inválido");
+
+	if (deleteMode === "month_only") {
+		if (!budget.templateId) throw new Error("Este orçamento não é recorrente");
+		await db.insert(monthlyBudgetTemplateSkips).values({
+			monthKey: budget.monthKey,
+			templateId: budget.templateId,
+			userId,
+		}).onConflictDoNothing({
+			target: [
+				monthlyBudgetTemplateSkips.templateId,
+				monthlyBudgetTemplateSkips.monthKey,
+			],
+		});
+	}
+
+	if (deleteMode === "template") {
+		if (!budget.templateId) throw new Error("Este orçamento não é recorrente");
+		await archiveBudgetTemplateFromMonth(userId, budget.templateId, budget.monthKey);
+	} else {
+		await db
+			.delete(monthlyBudgets)
+			.where(
+				and(
+					eq(monthlyBudgets.id, id),
+					eq(monthlyBudgets.userId, userId),
+				),
+			);
+	}
+	revalidateBudgetViews();
+}
+
+export async function updateBudgetTemplate(formData: FormData) {
+	const userId = await requireUserId();
+	const id = intField(formData, "id");
+	const amountCents = moneyToCents(requiredString(formData, "amount"), {
+		allowZero: false,
+	});
+	const currentMonthKey = monthKeyField(formData, "currentMonthKey");
+	const [template] = await db
+		.select()
+		.from(monthlyBudgetTemplates)
 		.where(
 			and(
-				eq(monthlyBudgets.id, intField(formData, "id")),
-				eq(monthlyBudgets.userId, userId),
+				eq(monthlyBudgetTemplates.id, id),
+				eq(monthlyBudgetTemplates.userId, userId),
+			),
+		)
+		.limit(1);
+	if (!template) throw new Error("Orçamento recorrente inválido");
+
+	await db
+		.update(monthlyBudgetTemplates)
+		.set({
+			amountCents,
+			isArchived: false,
+			updatedAt: new Date(),
+		})
+		.where(
+			and(
+				eq(monthlyBudgetTemplates.id, id),
+				eq(monthlyBudgetTemplates.userId, userId),
 			),
 		);
+	await syncTemplateBudgetAmounts({
+		amountCents,
+		fromMonthKey: currentMonthKey,
+		previousAmountCents: template.amountCents,
+		templateId: id,
+		userId,
+	});
+	revalidateBudgetViews();
+}
+
+export async function archiveBudgetTemplate(formData: FormData) {
+	const userId = await requireUserId();
+	const templateId = intField(formData, "templateId");
+	const currentMonthKey = monthKeyField(formData, "currentMonthKey");
+	await archiveBudgetTemplateFromMonth(userId, templateId, currentMonthKey);
 	revalidateBudgetViews();
 }
 
@@ -1389,6 +1640,7 @@ export async function copyBudgetMonth(formData: FormData) {
 	if (sourceMonthKey === targetMonthKey) {
 		throw new Error("Escolha meses diferentes para copiar orçamento");
 	}
+	await ensureBudgetTemplatesMaterialized(userId, [sourceMonthKey, targetMonthKey]);
 	const sourceBudgets = await db
 		.select()
 		.from(monthlyBudgets)

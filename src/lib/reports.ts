@@ -18,6 +18,7 @@ import {
 } from "./finance-rules";
 
 export type { Granularity } from "./cash-flow";
+export { monthKeysForDateRange } from "./budget-templates";
 export type ReportPreset =
 	| "current_month"
 	| "last_30d"

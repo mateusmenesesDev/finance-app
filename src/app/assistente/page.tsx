@@ -54,6 +54,7 @@ import {
 	recurrences,
 	transactions,
 } from "~/server/db/schema";
+import { ensureBudgetTemplatesMaterialized } from "~/server/budget-templates";
 
 const lowBalanceThresholdCents = 20_000;
 
@@ -77,6 +78,7 @@ export default async function AssistantPage() {
 	const userId = session.user.id;
 	const period = getMonthPeriod();
 	const today = toIsoDate(new Date());
+	await ensureBudgetTemplatesMaterialized(userId, [period.key]);
 	const cutoff =
 		today >= period.start && today <= period.end ? today : period.end;
 

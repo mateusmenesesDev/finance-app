@@ -28,10 +28,12 @@ import {
 	granularityWarning,
 	groupRanking,
 	incomeExpenseSeries,
+	monthKeysForDateRange,
 	parseReportFilters,
 	type ReportPanelId,
 } from "~/lib/reports";
 import { getSession } from "~/server/better-auth/server";
+import { ensureBudgetTemplatesMaterialized } from "~/server/budget-templates";
 import { db } from "~/server/db";
 import {
 	categories,
@@ -60,6 +62,10 @@ export default async function ReportsPage({ searchParams }: Props) {
 	const params = await searchParams;
 	const today = new Date().toISOString().slice(0, 10);
 	const filters = parseReportFilters(params, today);
+	await ensureBudgetTemplatesMaterialized(
+		session.user.id,
+		monthKeysForDateRange({ from: filters.from, to: filters.to }),
+	);
 	const [accounts, groups, cats, txs, budgets] = await Promise.all([
 		db
 			.select()

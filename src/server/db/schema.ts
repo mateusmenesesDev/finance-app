@@ -313,6 +313,67 @@ export const categories = createFinanceTable(
 	],
 );
 
+export const monthlyBudgetTemplates = createFinanceTable(
+	"monthly_budget_templates",
+	{
+		id: integer().primaryKey().generatedByDefaultAsIdentity(),
+		userId: text("user_id")
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
+		scope: monthlyBudgetScope().notNull(),
+		categoryGroupId: integer("category_group_id"),
+		categoryId: integer("category_id"),
+		amountCents: integer("amount_cents").notNull(),
+		startsAtMonthKey: varchar("starts_at_month_key", { length: 7 }).notNull(),
+		isArchived: boolean("is_archived").notNull().default(false),
+		createdAt: timestamp("created_at", { withTimezone: true })
+			.$defaultFn(() => new Date())
+			.notNull(),
+		updatedAt: timestamp("updated_at", { withTimezone: true }).$onUpdate(
+			() => new Date(),
+		),
+	},
+	(t) => [
+		index("finance_app_monthly_budget_templates_user_idx").on(t.userId),
+		index("finance_app_monthly_budget_templates_user_archived_idx").on(
+			t.userId,
+			t.isArchived,
+		),
+		unique("finance_app_monthly_budget_templates_id_user_unique").on(
+			t.id,
+			t.userId,
+		),
+		uniqueIndex("finance_app_monthly_budget_templates_unique_scope_idx").on(
+			t.userId,
+			t.scope,
+			t.categoryGroupId,
+			t.categoryId,
+		),
+		foreignKey({
+			columns: [t.categoryGroupId, t.userId],
+			foreignColumns: [categoryGroups.id, categoryGroups.userId],
+			name: "finance_app_monthly_budget_templates_group_user_fk",
+		}),
+		foreignKey({
+			columns: [t.categoryId, t.userId],
+			foreignColumns: [categories.id, categories.userId],
+			name: "finance_app_monthly_budget_templates_category_user_fk",
+		}),
+		check(
+			"finance_app_monthly_budget_templates_month_key_valid",
+			sql`${t.startsAtMonthKey} ~ '^\\d{4}-\\d{2}$'`,
+		),
+		check(
+			"finance_app_monthly_budget_templates_amount_positive",
+			sql`${t.amountCents} > 0`,
+		),
+		check(
+			"finance_app_monthly_budget_templates_scope_columns_valid",
+			sql`(${t.scope} = 'month' AND ${t.categoryGroupId} IS NULL AND ${t.categoryId} IS NULL) OR (${t.scope} = 'category_group' AND ${t.categoryGroupId} IS NOT NULL AND ${t.categoryId} IS NULL) OR (${t.scope} = 'category' AND ${t.categoryGroupId} IS NULL AND ${t.categoryId} IS NOT NULL)`,
+		),
+	],
+);
+
 export const monthlyBudgets = createFinanceTable(
 	"monthly_budgets",
 	{
@@ -324,6 +385,7 @@ export const monthlyBudgets = createFinanceTable(
 		scope: monthlyBudgetScope().notNull(),
 		categoryGroupId: integer("category_group_id"),
 		categoryId: integer("category_id"),
+		templateId: integer("template_id"),
 		amountCents: integer("amount_cents").notNull(),
 		notes: text("notes"),
 		createdAt: timestamp("created_at", { withTimezone: true })
@@ -356,6 +418,11 @@ export const monthlyBudgets = createFinanceTable(
 			foreignColumns: [categories.id, categories.userId],
 			name: "finance_app_monthly_budgets_category_user_fk",
 		}),
+		foreignKey({
+			columns: [t.templateId, t.userId],
+			foreignColumns: [monthlyBudgetTemplates.id, monthlyBudgetTemplates.userId],
+			name: "finance_app_monthly_budgets_template_user_fk",
+		}),
 		check(
 			"finance_app_monthly_budgets_month_key_valid",
 			sql`${t.monthKey} ~ '^\\d{4}-\\d{2}$'`,
@@ -367,6 +434,44 @@ export const monthlyBudgets = createFinanceTable(
 		check(
 			"finance_app_monthly_budgets_scope_columns_valid",
 			sql`(${t.scope} = 'month' AND ${t.categoryGroupId} IS NULL AND ${t.categoryId} IS NULL) OR (${t.scope} = 'category_group' AND ${t.categoryGroupId} IS NOT NULL AND ${t.categoryId} IS NULL) OR (${t.scope} = 'category' AND ${t.categoryGroupId} IS NULL AND ${t.categoryId} IS NOT NULL)`,
+		),
+	],
+);
+
+export const monthlyBudgetTemplateSkips = createFinanceTable(
+	"monthly_budget_template_skips",
+	{
+		id: integer().primaryKey().generatedByDefaultAsIdentity(),
+		userId: text("user_id")
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
+		templateId: integer("template_id").notNull(),
+		monthKey: varchar("month_key", { length: 7 }).notNull(),
+		createdAt: timestamp("created_at", { withTimezone: true })
+			.$defaultFn(() => new Date())
+			.notNull(),
+	},
+	(t) => [
+		index("finance_app_monthly_budget_template_skips_user_idx").on(t.userId),
+		index("finance_app_monthly_budget_template_skips_template_idx").on(
+			t.templateId,
+		),
+		unique("finance_app_monthly_budget_template_skips_id_user_unique").on(
+			t.id,
+			t.userId,
+		),
+		uniqueIndex("finance_app_monthly_budget_template_skips_unique_idx").on(
+			t.templateId,
+			t.monthKey,
+		),
+		foreignKey({
+			columns: [t.templateId, t.userId],
+			foreignColumns: [monthlyBudgetTemplates.id, monthlyBudgetTemplates.userId],
+			name: "finance_app_monthly_budget_template_skips_template_user_fk",
+		}).onDelete("cascade"),
+		check(
+			"finance_app_monthly_budget_template_skips_month_key_valid",
+			sql`${t.monthKey} ~ '^\\d{4}-\\d{2}$'`,
 		),
 	],
 );
@@ -871,6 +976,8 @@ export const userRelations = relations(user, ({ many }) => ({
 	financialAccounts: many(financialAccounts),
 	categoryGroups: many(categoryGroups),
 	categories: many(categories),
+	monthlyBudgetTemplates: many(monthlyBudgetTemplates),
+	monthlyBudgetTemplateSkips: many(monthlyBudgetTemplateSkips),
 	monthlyBudgets: many(monthlyBudgets),
 	transactions: many(transactions),
 	transactionSavedFilters: many(transactionSavedFilters),
@@ -928,6 +1035,7 @@ export const categoryGroupRelations = relations(
 	({ many, one }) => ({
 		user: one(user, { fields: [categoryGroups.userId], references: [user.id] }),
 		categories: many(categories),
+		monthlyBudgetTemplates: many(monthlyBudgetTemplates),
 		monthlyBudgets: many(monthlyBudgets),
 	}),
 );
@@ -941,6 +1049,7 @@ export const categoryRelations = relations(categories, ({ many, one }) => ({
 	transactions: many(transactions),
 	recurrences: many(recurrences),
 	importCategoryRules: many(importCategoryRules),
+	monthlyBudgetTemplates: many(monthlyBudgetTemplates),
 	monthlyBudgets: many(monthlyBudgets),
 	transactionSavedFilters: many(transactionSavedFilters),
 }));
@@ -973,7 +1082,45 @@ export const monthlyBudgetRelations = relations(monthlyBudgets, ({ one }) => ({
 		fields: [monthlyBudgets.categoryId],
 		references: [categories.id],
 	}),
+	template: one(monthlyBudgetTemplates, {
+		fields: [monthlyBudgets.templateId],
+		references: [monthlyBudgetTemplates.id],
+	}),
 }));
+
+export const monthlyBudgetTemplateRelations = relations(
+	monthlyBudgetTemplates,
+	({ many, one }) => ({
+		user: one(user, {
+			fields: [monthlyBudgetTemplates.userId],
+			references: [user.id],
+		}),
+		categoryGroup: one(categoryGroups, {
+			fields: [monthlyBudgetTemplates.categoryGroupId],
+			references: [categoryGroups.id],
+		}),
+		category: one(categories, {
+			fields: [monthlyBudgetTemplates.categoryId],
+			references: [categories.id],
+		}),
+		monthlyBudgets: many(monthlyBudgets),
+		skips: many(monthlyBudgetTemplateSkips),
+	}),
+);
+
+export const monthlyBudgetTemplateSkipRelations = relations(
+	monthlyBudgetTemplateSkips,
+	({ one }) => ({
+		user: one(user, {
+			fields: [monthlyBudgetTemplateSkips.userId],
+			references: [user.id],
+		}),
+		template: one(monthlyBudgetTemplates, {
+			fields: [monthlyBudgetTemplateSkips.templateId],
+			references: [monthlyBudgetTemplates.id],
+		}),
+	}),
+);
 
 export const importTemplateRelations = relations(
 	importTemplates,

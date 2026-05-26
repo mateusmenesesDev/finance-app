@@ -19,6 +19,8 @@ import {
 	importRows,
 	importTemplates,
 	monthlyBudgets,
+	monthlyBudgetTemplates,
+	monthlyBudgetTemplateSkips,
 	recurrences,
 	transactions,
 } from "~/server/db/schema";
@@ -34,6 +36,8 @@ export type UserDataExport = {
 		categoryGroups: unknown[];
 		categories: unknown[];
 		monthlyBudgets: unknown[];
+		monthlyBudgetTemplates: unknown[];
+		monthlyBudgetTemplateSkips: unknown[];
 		recurrences: unknown[];
 		transactions: unknown[];
 		importTemplates: unknown[];
@@ -53,6 +57,8 @@ export async function exportUserFinancialData(
 		groupsRows,
 		categoriesRows,
 		budgetsRows,
+		budgetTemplatesRows,
+		budgetTemplateSkipsRows,
 		recurrencesRows,
 		transactionsRows,
 		templatesRows,
@@ -69,6 +75,14 @@ export async function exportUserFinancialData(
 		db.select().from(categoryGroups).where(eq(categoryGroups.userId, userId)),
 		db.select().from(categories).where(eq(categories.userId, userId)),
 		db.select().from(monthlyBudgets).where(eq(monthlyBudgets.userId, userId)),
+		db
+			.select()
+			.from(monthlyBudgetTemplates)
+			.where(eq(monthlyBudgetTemplates.userId, userId)),
+		db
+			.select()
+			.from(monthlyBudgetTemplateSkips)
+			.where(eq(monthlyBudgetTemplateSkips.userId, userId)),
 		db.select().from(recurrences).where(eq(recurrences.userId, userId)),
 		db.select().from(transactions).where(eq(transactions.userId, userId)),
 		db.select().from(importTemplates).where(eq(importTemplates.userId, userId)),
@@ -94,6 +108,8 @@ export async function exportUserFinancialData(
 			categoryGroups: groupsRows,
 			categories: categoriesRows,
 			monthlyBudgets: budgetsRows,
+			monthlyBudgetTemplates: budgetTemplatesRows,
+			monthlyBudgetTemplateSkips: budgetTemplateSkipsRows,
 			recurrences: recurrencesRows,
 			transactions: transactionsRows,
 			importTemplates: templatesRows,
@@ -239,6 +255,18 @@ export async function purgeUserFinancialData(
 			.where(eq(monthlyBudgets.userId, userId))
 			.returning({ id: monthlyBudgets.id });
 		counts.monthlyBudgets = budgetsDeleted.length;
+
+		const budgetTemplateSkipsDeleted = await tx
+			.delete(monthlyBudgetTemplateSkips)
+			.where(eq(monthlyBudgetTemplateSkips.userId, userId))
+			.returning({ id: monthlyBudgetTemplateSkips.id });
+		counts.monthlyBudgetTemplateSkips = budgetTemplateSkipsDeleted.length;
+
+		const budgetTemplatesDeleted = await tx
+			.delete(monthlyBudgetTemplates)
+			.where(eq(monthlyBudgetTemplates.userId, userId))
+			.returning({ id: monthlyBudgetTemplates.id });
+		counts.monthlyBudgetTemplates = budgetTemplatesDeleted.length;
 
 		const categoriesDeleted = await tx
 			.delete(categories)

@@ -72,6 +72,7 @@ import {
 	recurrences,
 	transactions,
 } from "~/server/db/schema";
+import { ensureBudgetTemplatesMaterialized } from "~/server/budget-templates";
 
 type HomeProps = {
 	searchParams?: Promise<{ month?: string }>;
@@ -87,6 +88,7 @@ export default async function Home({ searchParams }: HomeProps) {
 		: getMonthPeriod();
 	const previousPeriod = previousMonthPeriod(period.key);
 	const today = toIsoDate(new Date());
+	await ensureBudgetTemplatesMaterialized(session.user.id, [period.key]);
 	const monthCutoff =
 		today >= period.start && today <= period.end ? today : period.end;
 

@@ -13,12 +13,14 @@ import {
 	csvHeaders,
 	groupRanking,
 	incomeExpenseSeries,
+	monthKeysForDateRange,
 	parseReportFilters,
 	type ReportPanelId,
 	reportPanelIds,
 	serializeCsv,
 } from "~/lib/reports";
 import { getSession } from "~/server/better-auth/server";
+import { ensureBudgetTemplatesMaterialized } from "~/server/budget-templates";
 import { db } from "~/server/db";
 import {
 	categories,
@@ -37,6 +39,10 @@ export async function GET(request: Request) {
 		return new Response("Painel inválido", { status: 400 });
 	const today = new Date().toISOString().slice(0, 10);
 	const filters = parseReportFilters(url.searchParams, today);
+	await ensureBudgetTemplatesMaterialized(
+		session.user.id,
+		monthKeysForDateRange({ from: filters.from, to: filters.to }),
+	);
 	const [accounts, groups, cats, txs, budgets] = await Promise.all([
 		db
 			.select()

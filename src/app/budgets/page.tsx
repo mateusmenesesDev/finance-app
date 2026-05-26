@@ -4,10 +4,13 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import {
+	archiveBudgetTemplate,
 	copyBudgetMonth,
 	createOrUpdateBudget,
 	deleteBudget,
+	updateBudgetTemplate,
 } from "~/app/_actions/finance-actions";
+import { BudgetDeleteDialog } from "~/app/budgets/budget-delete-dialog";
 import { BudgetFormFields } from "~/app/budgets/budget-form-fields";
 import { ActionDialog } from "~/components/action-dialog";
 import { AppShell } from "~/components/app-shell";
@@ -44,11 +47,13 @@ import {
 	formatPercent,
 } from "~/lib/formatters";
 import { getSession } from "~/server/better-auth/server";
+import { ensureBudgetTemplatesMaterialized } from "~/server/budget-templates";
 import { db } from "~/server/db";
 import {
 	categories,
 	categoryGroups,
 	monthlyBudgets,
+	monthlyBudgetTemplates,
 	transactions,
 } from "~/server/db/schema";
 
@@ -60,6 +65,7 @@ type BudgetsPageProps = {
 };
 
 type BudgetRow = typeof monthlyBudgets.$inferSelect;
+type BudgetTemplateRow = typeof monthlyBudgetTemplates.$inferSelect;
 type CategoryRow = typeof categories.$inferSelect;
 type GroupRow = typeof categoryGroups.$inferSelect;
 
@@ -71,13 +77,26 @@ export default async function BudgetsPage({ searchParams }: BudgetsPageProps) {
 	const period = params?.month
 		? (parseMonthPeriod(params.month) ?? getMonthPeriod())
 		: getMonthPeriod();
-	const [allBudgets, allCategories, allGroups, allTransactions] =
+	const historyMonthKeys = lastMonthKeys(period.key, 6);
+	await ensureBudgetTemplatesMaterialized(session.user.id, [
+		period.key,
+		...historyMonthKeys,
+	]);
+	const [allBudgets, allBudgetTemplates, allCategories, allGroups, allTransactions] =
 		await Promise.all([
 			db
 				.select()
 				.from(monthlyBudgets)
 				.where(eq(monthlyBudgets.userId, session.user.id))
 				.orderBy(asc(monthlyBudgets.monthKey), asc(monthlyBudgets.scope)),
+			db
+				.select()
+				.from(monthlyBudgetTemplates)
+				.where(eq(monthlyBudgetTemplates.userId, session.user.id))
+				.orderBy(
+					asc(monthlyBudgetTemplates.scope),
+					asc(monthlyBudgetTemplates.startsAtMonthKey),
+				),
 			db
 				.select()
 				.from(categories)
@@ -101,9 +120,13 @@ export default async function BudgetsPage({ searchParams }: BudgetsPageProps) {
 	const activeExpenseCategories = allCategories.filter(
 		(category) => category.kind === "expense" && !category.isArchived,
 	);
+	const activeRecurringTemplates = allBudgetTemplates.filter(
+		(template) => !template.isArchived,
+	);
 	const monthBudgets = allBudgets.filter(
 		(budget) => budget.monthKey === period.key,
 	);
+	const monthBudgetById = new Map(monthBudgets.map((budget) => [budget.id, budget]));
 	const usageRows = buildBudgetUsage(
 		monthBudgets,
 		allTransactions,
@@ -137,7 +160,6 @@ export default async function BudgetsPage({ searchParams }: BudgetsPageProps) {
 		allCategories,
 	);
 	const historySelection = parseHistorySelection(params?.historyScope);
-	const historyMonthKeys = lastMonthKeys(period.key, 6);
 	const historyRows = buildBudgetHistory(
 		allBudgets,
 		allTransactions,
@@ -235,6 +257,7 @@ export default async function BudgetsPage({ searchParams }: BudgetsPageProps) {
 			) : null}
 
 			<BudgetTable
+				budgetRowsById={monthBudgetById}
 				categories={activeExpenseCategories}
 				groups={activeExpenseGroups}
 				monthKey={period.key}
@@ -242,6 +265,7 @@ export default async function BudgetsPage({ searchParams }: BudgetsPageProps) {
 				title="Mês geral"
 			/>
 			<BudgetTable
+				budgetRowsById={monthBudgetById}
 				categories={activeExpenseCategories}
 				groups={activeExpenseGroups}
 				monthKey={period.key}
@@ -249,11 +273,18 @@ export default async function BudgetsPage({ searchParams }: BudgetsPageProps) {
 				title="Por grupo"
 			/>
 			<BudgetTable
+				budgetRowsById={monthBudgetById}
 				categories={activeExpenseCategories}
 				groups={activeExpenseGroups}
 				monthKey={period.key}
 				rows={usageRows.filter((row) => row.scope === "category")}
 				title="Por categoria"
+			/>
+			<RecurringBudgetTable
+				categories={activeExpenseCategories}
+				groups={activeExpenseGroups}
+				monthKey={period.key}
+				rows={activeRecurringTemplates}
 			/>
 
 			<Card>
@@ -354,12 +385,14 @@ export default async function BudgetsPage({ searchParams }: BudgetsPageProps) {
 type UsageRow = ReturnType<typeof buildBudgetUsage>[number];
 
 function BudgetTable({
+	budgetRowsById,
 	monthKey,
 	rows,
 	title,
 	groups,
 	categories,
 }: {
+	budgetRowsById: Map<number, BudgetRow>;
 	monthKey: string;
 	rows: UsageRow[];
 	title: string;
@@ -392,7 +425,10 @@ function BudgetTable({
 								</tr>
 							</thead>
 							<tbody>
-								{rows.map((row) => (
+								{rows.map((row) => {
+									const budget =
+										budgetRowsById.get(row.budgetId) ?? rowToBudget(row, monthKey);
+									return (
 									<tr className="border-b" key={row.budgetId}>
 										<td className="py-3 pr-4">{row.name}</td>
 										<td className="py-3 pr-4">
@@ -412,29 +448,21 @@ function BudgetTable({
 										<td className="py-3 pr-4">
 											<div className="flex gap-2">
 												<BudgetDialog
-													budget={rowToBudget(row, monthKey)}
+													budget={budget}
 													categories={categories}
 													groups={groups}
 													monthKey={monthKey}
 												/>
-												<ConfirmDialog
+												<BudgetDeleteDialog
 													action={deleteBudget}
-													confirmLabel="Excluir"
-													destructive
-													errorMessage="Não foi possível excluir o orçamento."
-													hidden={{ id: row.budgetId }}
-													successMessage="Orçamento excluído."
-													title="Excluir orçamento?"
-													trigger={
-														<Button size="sm" variant="destructive">
-															Excluir
-														</Button>
-													}
+													budgetId={row.budgetId}
+													isRecurring={Boolean(budget.templateId)}
 												/>
 											</div>
 										</td>
 									</tr>
-								))}
+									);
+								})}
 							</tbody>
 						</table>
 					</div>
@@ -455,14 +483,25 @@ function BudgetDialog({
 	categories: CategoryRow[];
 	budget?: BudgetRow;
 }) {
+	const isTemplateOverride = Boolean(budget?.templateId);
 	return (
 		<ActionDialog
 			action={createOrUpdateBudget}
-			description="Use mês geral, grupo ou categoria de despesa. Valores são salvos em BRL."
+			description={
+				isTemplateOverride
+					? "Este valor sobrescreve apenas este mês. Os próximos meses continuam seguindo o orçamento recorrente."
+					: "Use mês geral, grupo ou categoria de despesa. Valores são salvos em BRL."
+			}
 			formClassName="grid gap-4"
 			pendingLabel={budget ? "Salvando..." : "Cadastrando..."}
 			submitLabel={budget ? "Salvar" : "Cadastrar"}
-			successMessage={budget ? "Orçamento atualizado." : "Orçamento criado."}
+			successMessage={
+				budget
+					? isTemplateOverride
+						? "Override do mês salvo."
+						: "Orçamento atualizado."
+					: "Orçamento criado."
+			}
 			title={budget ? "Editar orçamento" : "Novo orçamento"}
 			trigger={
 				<Button
@@ -511,6 +550,152 @@ function BudgetDialog({
 				Para mês geral, deixe grupo e categoria vazios. Para grupo, selecione só
 				grupo. Para categoria, selecione só categoria.
 			</p>
+			{budget ? null : (
+				<label className="flex items-start gap-2 rounded-md border p-3 text-sm">
+					<input className="mt-1" name="repeatEveryMonth" type="checkbox" />
+					<span>
+						Repetir todo mês a partir de <strong>{monthKey}</strong>.
+					</span>
+				</label>
+			)}
+		</ActionDialog>
+	);
+}
+
+function RecurringBudgetTable({
+	categories,
+	groups,
+	monthKey,
+	rows,
+}: {
+	categories: CategoryRow[];
+	groups: GroupRow[];
+	monthKey: string;
+	rows: BudgetTemplateRow[];
+}) {
+	return (
+		<Card>
+			<CardHeader>
+				<CardTitle>Orçamentos recorrentes</CardTitle>
+				<CardDescription>
+					Esses valores são aplicados automaticamente quando um novo mês é usado.
+				</CardDescription>
+			</CardHeader>
+			<CardContent>
+				{rows.length === 0 ? (
+					<EmptyState
+						description="Marque 'Repetir todo mês' ao criar um orçamento para transformar em recorrente."
+						icon={PiggyBank}
+						title="Sem recorrências"
+					/>
+				) : (
+					<div className="overflow-x-auto">
+						<table className="w-full min-w-[820px] text-left text-sm">
+							<thead className="text-muted-foreground">
+								<tr className="border-b">
+									<th className="py-2 pr-4">Nome</th>
+									<th className="py-2 pr-4">Escopo</th>
+									<th className="py-2 pr-4">Valor padrão</th>
+									<th className="py-2 pr-4">Ativo desde</th>
+									<th className="py-2 pr-4">Ações</th>
+								</tr>
+							</thead>
+							<tbody>
+								{rows.map((row) => (
+									<tr className="border-b" key={row.id}>
+										<td className="py-3 pr-4">
+											{budgetTargetLabel(row, categories, groups)}
+										</td>
+										<td className="py-3 pr-4">{scopeLabel(row.scope)}</td>
+										<td className="py-3 pr-4">
+											{formatMoney(row.amountCents)}
+										</td>
+										<td className="py-3 pr-4">
+											{formatMonthLabel(
+												parseMonthPeriod(row.startsAtMonthKey) ?? {
+													key: row.startsAtMonthKey,
+													start: `${row.startsAtMonthKey}-01`,
+													end: `${row.startsAtMonthKey}-01`,
+												},
+											)}
+										</td>
+										<td className="py-3 pr-4">
+											<div className="flex gap-2">
+												<RecurringBudgetDialog
+													monthKey={monthKey}
+													name={budgetTargetLabel(row, categories, groups)}
+													template={row}
+												/>
+												<ConfirmDialog
+													action={archiveBudgetTemplate}
+													confirmLabel="Excluir"
+													destructive
+													description="Remove o orçamento recorrente do mês atual em diante."
+													errorMessage="Não foi possível excluir o orçamento recorrente."
+													hidden={{
+														currentMonthKey: monthKey,
+														templateId: row.id,
+													}}
+													successMessage="Orçamento recorrente excluído."
+													title="Excluir orçamento recorrente?"
+													trigger={
+														<Button size="sm" variant="destructive">
+															Excluir
+														</Button>
+													}
+												/>
+											</div>
+										</td>
+									</tr>
+								))}
+							</tbody>
+						</table>
+					</div>
+				)}
+			</CardContent>
+		</Card>
+	);
+}
+
+function RecurringBudgetDialog({
+	monthKey,
+	name,
+	template,
+}: {
+	monthKey: string;
+	name: string;
+	template: BudgetTemplateRow;
+}) {
+	return (
+		<ActionDialog
+			action={updateBudgetTemplate}
+			description={`Atualiza o valor padrão recorrente para ${name}. Overrides já feitos em meses específicos continuam preservados.`}
+			formClassName="grid gap-4"
+			pendingLabel="Salvando..."
+			submitLabel="Salvar"
+			successMessage="Orçamento recorrente atualizado."
+			title="Editar orçamento recorrente"
+			trigger={
+				<Button size="sm" variant="outline">
+					Editar
+				</Button>
+			}
+		>
+			<input name="currentMonthKey" type="hidden" value={monthKey} />
+			<input name="id" type="hidden" value={template.id} />
+			<div className="grid gap-2">
+				<Label htmlFor={`budget-template-amount-${template.id}`}>Valor padrão</Label>
+				<Input
+					defaultValue={formatMoneyInput(template.amountCents)}
+					id={`budget-template-amount-${template.id}`}
+					name="amount"
+					placeholder="Valor"
+				/>
+			</div>
+			<p className="text-muted-foreground text-xs">
+				Ativo desde {template.startsAtMonthKey}. Para trocar escopo, exclua este
+				recorrente e crie outro.
+			</p>
 		</ActionDialog>
 	);
 }
@@ -523,6 +708,7 @@ function rowToBudget(row: UsageRow, monthKey: string): BudgetRow {
 		scope: row.scope,
 		categoryGroupId: row.scope === "category_group" ? row.refId : null,
 		categoryId: row.scope === "category" ? row.refId : null,
+		templateId: null,
 		amountCents: row.plannedCents,
 		notes: null,
 		createdAt: new Date(),
@@ -592,6 +778,14 @@ function statusLabel(status: UsageRow["status"] | "ok" | "near" | "over") {
 	return { near: "Perto", ok: "OK", over: "Acima" }[status];
 }
 
+function scopeLabel(scope: BudgetScope) {
+	return {
+		category: "Categoria",
+		category_group: "Grupo",
+		month: "Mês geral",
+	}[scope];
+}
+
 function statusTone(status: "ok" | "near" | "over") {
 	return { near: "warning", ok: "success", over: "destructive" }[status] as
 		| "destructive"
@@ -601,6 +795,24 @@ function statusTone(status: "ok" | "near" | "over") {
 
 function moneyOrDash(value: number | null) {
 	return value === null ? "—" : formatMoney(value);
+}
+
+function budgetTargetLabel(
+	target: Pick<BudgetTemplateRow, "scope" | "categoryGroupId" | "categoryId">,
+	categories: CategoryRow[],
+	groups: GroupRow[],
+) {
+	if (target.scope === "month") return "Mês geral";
+	if (target.scope === "category_group") {
+		return (
+			groups.find((group) => group.id === target.categoryGroupId)?.name ??
+			"Grupo removido"
+		);
+	}
+	return (
+		categories.find((category) => category.id === target.categoryId)?.name ??
+		"Categoria removida"
+	);
 }
 
 function lastMonthKeys(monthKey: string, count: number) {
