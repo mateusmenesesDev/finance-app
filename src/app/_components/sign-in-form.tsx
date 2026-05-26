@@ -76,7 +76,7 @@ export function SignInForm() {
 							return;
 						}
 
-						router.refresh();
+						router.push("/");
 					}}
 				>
 					{isSignUp ? (
