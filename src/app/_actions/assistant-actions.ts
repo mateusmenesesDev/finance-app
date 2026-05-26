@@ -68,4 +68,5 @@ export async function rejectAssistantSuggestion(formData: FormData) {
 			),
 		);
 	revalidatePath("/assistente");
+	revalidatePath("/");
 }

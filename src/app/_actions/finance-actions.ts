@@ -2800,6 +2800,11 @@ export async function confirmImportBatch(
 	revalidatePath("/");
 	revalidatePath("/import");
 	revalidatePath("/assistente");
+	revalidatePath("/transactions");
+	revalidatePath("/cash-flow");
+	revalidatePath("/budgets");
+	revalidatePath("/analysis");
+	revalidatePath("/reports");
 	return confirmImportBatchInitialState;
 }
 
