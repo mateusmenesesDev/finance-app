@@ -1,4 +1,5 @@
 import { and, asc, eq } from "drizzle-orm";
+import { unstable_cache } from "next/cache";
 import { redirect } from "next/navigation";
 
 import {
@@ -20,6 +21,7 @@ import { Label } from "~/components/ui/label";
 import { getSession } from "~/server/better-auth/server";
 import { db } from "~/server/db";
 import { financialAccounts } from "~/server/db/schema";
+import { userTag } from "~/server/invalidate";
 
 const accountTypeLabels: Record<string, string> = {
 	checking: "Conta corrente",
@@ -29,26 +31,40 @@ const accountTypeLabels: Record<string, string> = {
 	investment: "Investimento",
 };
 
+function makeDadosLoader(userId: string) {
+	return unstable_cache(
+		async () => {
+			const archivedAccounts = await db
+				.select({
+					id: financialAccounts.id,
+					name: financialAccounts.name,
+					type: financialAccounts.type,
+				})
+				.from(financialAccounts)
+				.where(
+					and(
+						eq(financialAccounts.userId, userId),
+						eq(financialAccounts.isArchived, true),
+					),
+				)
+				.orderBy(asc(financialAccounts.name));
+			return { archivedAccounts };
+		},
+		[`dados-data:${userId}`],
+		{
+			tags: [userTag(userId, "accounts")],
+			revalidate: 3600,
+		},
+	);
+}
+
 export default async function DadosPage() {
 	const session = await getSession();
 	if (!session?.user.id) redirect("/");
 	const userId = session.user.id;
 	const userEmail = session.user.email;
 
-	const archivedAccounts = await db
-		.select({
-			id: financialAccounts.id,
-			name: financialAccounts.name,
-			type: financialAccounts.type,
-		})
-		.from(financialAccounts)
-		.where(
-			and(
-				eq(financialAccounts.userId, userId),
-				eq(financialAccounts.isArchived, true),
-			),
-		)
-		.orderBy(asc(financialAccounts.name));
+	const { archivedAccounts } = await makeDadosLoader(userId)();
 
 	return (
 		<div className="flex flex-col gap-6">

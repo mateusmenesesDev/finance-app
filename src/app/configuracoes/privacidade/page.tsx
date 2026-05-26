@@ -1,4 +1,5 @@
 import { and, desc, eq } from "drizzle-orm";
+import { unstable_cache } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { runSanitizeHistory } from "~/app/configuracoes/actions";
@@ -25,33 +26,48 @@ import { sensitiveDataRules } from "~/lib/sensitive-data";
 import { getSession } from "~/server/better-auth/server";
 import { db } from "~/server/db";
 import { auditEvents, importBatches } from "~/server/db/schema";
+import { userTag } from "~/server/invalidate";
+
+function makePrivacidadeLoader(userId: string) {
+	return unstable_cache(
+		async () => {
+			const [lastSanitize, batchSummary] = await Promise.all([
+				db.query.auditEvents.findFirst({
+					where: and(
+						eq(auditEvents.userId, userId),
+						eq(auditEvents.action, "sanitized"),
+					),
+					orderBy: desc(auditEvents.createdAt),
+				}),
+				db
+					.select({
+						id: importBatches.id,
+						originalFileName: importBatches.originalFileName,
+						rawFileStored: importBatches.rawFileStored,
+						createdAt: importBatches.createdAt,
+						status: importBatches.status,
+					})
+					.from(importBatches)
+					.where(eq(importBatches.userId, userId))
+					.orderBy(desc(importBatches.createdAt))
+					.limit(20),
+			]);
+			return { lastSanitize, batchSummary };
+		},
+		[`privacidade-data:${userId}`],
+		{
+			tags: [userTag(userId, "privacy"), userTag(userId, "imports")],
+			revalidate: 3600,
+		},
+	);
+}
 
 export default async function PrivacidadePage() {
 	const session = await getSession();
 	if (!session?.user.id) redirect("/");
 	const userId = session.user.id;
 
-	const [lastSanitize, batchSummary] = await Promise.all([
-		db.query.auditEvents.findFirst({
-			where: and(
-				eq(auditEvents.userId, userId),
-				eq(auditEvents.action, "sanitized"),
-			),
-			orderBy: desc(auditEvents.createdAt),
-		}),
-		db
-			.select({
-				id: importBatches.id,
-				originalFileName: importBatches.originalFileName,
-				rawFileStored: importBatches.rawFileStored,
-				createdAt: importBatches.createdAt,
-				status: importBatches.status,
-			})
-			.from(importBatches)
-			.where(eq(importBatches.userId, userId))
-			.orderBy(desc(importBatches.createdAt))
-			.limit(20),
-	]);
+	const { lastSanitize, batchSummary } = await makePrivacidadeLoader(userId)();
 
 	return (
 		<div className="flex flex-col gap-6">
@@ -106,8 +122,8 @@ export default async function PrivacidadePage() {
 				</CardHeader>
 				<CardContent>
 					{lastSanitize ? (
-						<p className="mb-3 text-muted-foreground text-sm">
-							Última execução em {formatDateTime(lastSanitize.createdAt)} —{" "}
+					<p className="mb-3 text-muted-foreground text-sm">
+						Última execução em {formatDateTime(new Date(lastSanitize.createdAt))} —{" "}
 							{lastSanitize.summary}
 						</p>
 					) : (
@@ -155,7 +171,7 @@ export default async function PrivacidadePage() {
 												{batch.status}
 											</TableCell>
 											<TableCell className="text-muted-foreground">
-												{formatDateTime(batch.createdAt)}
+												{formatDateTime(new Date(batch.createdAt))}
 											</TableCell>
 											<TableCell>
 												<Badge

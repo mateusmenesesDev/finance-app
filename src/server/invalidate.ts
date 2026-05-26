@@ -8,7 +8,8 @@ export type CacheDomain =
 	| "budgets"
 	| "imports"
 	| "assistant"
-	| "reports";
+	| "reports"
+	| "privacy";
 
 const ALL_DOMAINS: CacheDomain[] = [
 	"accounts",
@@ -19,6 +20,7 @@ const ALL_DOMAINS: CacheDomain[] = [
 	"imports",
 	"assistant",
 	"reports",
+	"privacy",
 ];
 
 export function userTag(userId: string, domain: CacheDomain): string {
@@ -57,6 +59,10 @@ export function invalidateAfterImportMutation(userId: string): void {
 
 export function invalidateAfterAssistantMutation(userId: string): void {
 	invalidate(userId, "assistant", "transactions");
+}
+
+export function invalidateAfterSanitizeMutation(userId: string): void {
+	invalidate(userId, "privacy", "imports", "transactions", "recurrences");
 }
 
 export function invalidateAllUserData(userId: string): void {

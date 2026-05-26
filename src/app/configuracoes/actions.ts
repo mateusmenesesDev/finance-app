@@ -1,6 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { recordAudit } from "~/server/audit";
@@ -12,7 +11,10 @@ import {
 	deleteFinancialAccount,
 	purgeUserFinancialData,
 } from "~/server/user-data";
-import { invalidateAllUserData } from "~/server/invalidate";
+import {
+	invalidateAfterSanitizeMutation,
+	invalidateAllUserData,
+} from "~/server/invalidate";
 
 async function requireSession() {
 	const session = await getSession();
@@ -65,8 +67,7 @@ export async function runSanitizeHistory() {
 		summary: `Re-sanitização aplicada (${totalChanged} campo(s) alterado(s))`,
 		diff: report,
 	});
-	revalidatePath("/configuracoes/privacidade");
-	revalidatePath("/configuracoes/auditoria");
+	invalidateAfterSanitizeMutation(userId);
 }
 
 export async function deleteAccountForever(formData: FormData) {
@@ -77,9 +78,6 @@ export async function deleteAccountForever(formData: FormData) {
 	const accountId = intField(formData, "accountId");
 	await deleteFinancialAccount(userId, accountId);
 	invalidateAllUserData(userId);
-	revalidatePath("/accounts");
-	revalidatePath("/configuracoes/dados");
-	revalidatePath("/configuracoes/auditoria");
 }
 
 export async function purgeAllFinancialData(formData: FormData) {
@@ -92,11 +90,6 @@ export async function purgeAllFinancialData(formData: FormData) {
 		throw new Error('Digite exatamente "APAGAR TUDO" para confirmar');
 	}
 	await purgeUserFinancialData(userId);
-	// Mantém a sessão do usuário (Better Auth) intacta; apenas os dados
-	// financeiros foram apagados.
-	void auth; // referencia mantida para upgrades futuros (delete user)
+	void auth;
 	invalidateAllUserData(userId);
-	revalidatePath("/configuracoes/dados");
-	revalidatePath("/configuracoes/privacidade");
-	revalidatePath("/configuracoes/auditoria");
 }
