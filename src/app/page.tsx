@@ -1,4 +1,5 @@
 import { and, asc, desc, eq, isNotNull, sql } from "drizzle-orm";
+import { unstable_cache } from "next/cache";
 import {
 	AlertTriangle,
 	ArrowDownUp,
@@ -73,6 +74,7 @@ import {
 	transactions,
 } from "~/server/db/schema";
 import { ensureBudgetTemplatesMaterialized } from "~/server/budget-templates";
+import { userTag } from "~/server/invalidate";
 
 type HomeProps = {
 	searchParams?: Promise<{ month?: string }>;
@@ -92,7 +94,7 @@ export default async function Home({ searchParams }: HomeProps) {
 	const monthCutoff =
 		today >= period.start && today <= period.end ? today : period.end;
 
-	const [
+	const {
 		allAccounts,
 		allGroups,
 		allCategories,
@@ -103,69 +105,7 @@ export default async function Home({ searchParams }: HomeProps) {
 		allRecurrences,
 		confirmedOccurrences,
 		assistantPending,
-	] = await Promise.all([
-		db
-			.select()
-			.from(financialAccounts)
-			.where(eq(financialAccounts.userId, session.user.id))
-			.orderBy(asc(financialAccounts.name)),
-		db
-			.select()
-			.from(categoryGroups)
-			.where(eq(categoryGroups.userId, session.user.id))
-			.orderBy(asc(categoryGroups.kind), asc(categoryGroups.name)),
-		db
-			.select()
-			.from(categories)
-			.where(eq(categories.userId, session.user.id))
-			.orderBy(asc(categories.kind), asc(categories.name)),
-		db
-			.select()
-			.from(transactions)
-			.where(eq(transactions.userId, session.user.id))
-			.orderBy(desc(transactions.occurredOn), desc(transactions.id)),
-		db
-			.select()
-			.from(importBatches)
-			.where(eq(importBatches.userId, session.user.id))
-			.orderBy(desc(importBatches.createdAt), desc(importBatches.id)),
-		db
-			.select()
-			.from(importRows)
-			.where(eq(importRows.userId, session.user.id))
-			.orderBy(asc(importRows.batchId), asc(importRows.rowNumber)),
-		db
-			.select()
-			.from(monthlyBudgets)
-			.where(eq(monthlyBudgets.userId, session.user.id))
-			.orderBy(asc(monthlyBudgets.scope), asc(monthlyBudgets.amountCents)),
-		db
-			.select()
-			.from(recurrences)
-			.where(eq(recurrences.userId, session.user.id))
-			.orderBy(asc(recurrences.name)),
-		db
-			.select({
-				recurrenceId: transactions.recurrenceId,
-				occurrenceOn: transactions.recurrenceOccurrenceOn,
-			})
-			.from(transactions)
-			.where(
-				and(
-					eq(transactions.userId, session.user.id),
-					isNotNull(transactions.recurrenceId),
-				),
-			),
-		db
-			.select({ count: sql<number>`count(*)::int` })
-			.from(assistantSuggestions)
-			.where(
-				and(
-					eq(assistantSuggestions.userId, session.user.id),
-					eq(assistantSuggestions.status, "pending"),
-				),
-			),
-	]);
+	} = await loadDashboardData(session.user.id, period.key);
 	const pendingAssistantCount = assistantPending[0]?.count ?? 0;
 
 	const activeAccounts = allAccounts.filter((account) => !account.isArchived);
@@ -810,6 +750,112 @@ export default async function Home({ searchParams }: HomeProps) {
 			</section>
 		</AppShell>
 	);
+}
+
+function loadDashboardData(userId: string, periodKey: string) {
+	return unstable_cache(
+		async () => {
+			const [
+				allAccounts,
+				allGroups,
+				allCategories,
+				allTransactions,
+				batches,
+				rows,
+				budgetRows,
+				allRecurrences,
+				confirmedOccurrences,
+				assistantPending,
+			] = await Promise.all([
+				db
+					.select()
+					.from(financialAccounts)
+					.where(eq(financialAccounts.userId, userId))
+					.orderBy(asc(financialAccounts.name)),
+				db
+					.select()
+					.from(categoryGroups)
+					.where(eq(categoryGroups.userId, userId))
+					.orderBy(asc(categoryGroups.kind), asc(categoryGroups.name)),
+				db
+					.select()
+					.from(categories)
+					.where(eq(categories.userId, userId))
+					.orderBy(asc(categories.kind), asc(categories.name)),
+				db
+					.select()
+					.from(transactions)
+					.where(eq(transactions.userId, userId))
+					.orderBy(desc(transactions.occurredOn), desc(transactions.id)),
+				db
+					.select()
+					.from(importBatches)
+					.where(eq(importBatches.userId, userId))
+					.orderBy(desc(importBatches.createdAt), desc(importBatches.id)),
+				db
+					.select()
+					.from(importRows)
+					.where(eq(importRows.userId, userId))
+					.orderBy(asc(importRows.batchId), asc(importRows.rowNumber)),
+				db
+					.select()
+					.from(monthlyBudgets)
+					.where(eq(monthlyBudgets.userId, userId))
+					.orderBy(asc(monthlyBudgets.scope), asc(monthlyBudgets.amountCents)),
+				db
+					.select()
+					.from(recurrences)
+					.where(eq(recurrences.userId, userId))
+					.orderBy(asc(recurrences.name)),
+				db
+					.select({
+						recurrenceId: transactions.recurrenceId,
+						occurrenceOn: transactions.recurrenceOccurrenceOn,
+					})
+					.from(transactions)
+					.where(
+						and(
+							eq(transactions.userId, userId),
+							isNotNull(transactions.recurrenceId),
+						),
+					),
+				db
+					.select({ count: sql<number>`count(*)::int` })
+					.from(assistantSuggestions)
+					.where(
+						and(
+							eq(assistantSuggestions.userId, userId),
+							eq(assistantSuggestions.status, "pending"),
+						),
+					),
+			]);
+			return {
+				allAccounts,
+				allGroups,
+				allCategories,
+				allTransactions,
+				batches,
+				rows,
+				budgetRows,
+				allRecurrences,
+				confirmedOccurrences,
+				assistantPending,
+			};
+		},
+		[`dashboard-data:${userId}:${periodKey}`],
+		{
+			tags: [
+				userTag(userId, "accounts"),
+				userTag(userId, "categories"),
+				userTag(userId, "transactions"),
+				userTag(userId, "recurrences"),
+				userTag(userId, "budgets"),
+				userTag(userId, "imports"),
+				userTag(userId, "assistant"),
+			],
+			revalidate: 3600,
+		},
+	)();
 }
 
 function MiniStat({

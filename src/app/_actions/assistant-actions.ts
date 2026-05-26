@@ -10,6 +10,7 @@ import {
 import { getSession } from "~/server/better-auth/server";
 import { db } from "~/server/db";
 import { assistantSuggestions } from "~/server/db/schema";
+import { invalidateAfterAssistantMutation } from "~/server/invalidate";
 
 async function requireUserId() {
 	const session = await getSession();
@@ -31,7 +32,7 @@ export async function regenerateAssistantSuggestions() {
 	const userId = await requireUserId();
 	await regenerateAssistantSuggestionsForUser(userId);
 	revalidatePath("/assistente");
-	revalidatePath("/");
+	invalidateAfterAssistantMutation(userId);
 }
 
 export async function acceptAssistantSuggestion(formData: FormData) {
@@ -49,7 +50,7 @@ export async function acceptAssistantSuggestion(formData: FormData) {
 			),
 		);
 	revalidatePath("/assistente");
-	revalidatePath("/");
+	invalidateAfterAssistantMutation(userId);
 	revalidatePath("/transactions");
 	revalidatePath("/import");
 }
@@ -68,5 +69,5 @@ export async function rejectAssistantSuggestion(formData: FormData) {
 			),
 		);
 	revalidatePath("/assistente");
-	revalidatePath("/");
+	invalidateAfterAssistantMutation(userId);
 }

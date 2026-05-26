@@ -12,6 +12,7 @@ import {
 	deleteFinancialAccount,
 	purgeUserFinancialData,
 } from "~/server/user-data";
+import { invalidateAllUserData } from "~/server/invalidate";
 
 async function requireSession() {
 	const session = await getSession();
@@ -75,7 +76,7 @@ export async function deleteAccountForever(formData: FormData) {
 	assertConfirmChecked(formData);
 	const accountId = intField(formData, "accountId");
 	await deleteFinancialAccount(userId, accountId);
-	revalidatePath("/");
+	invalidateAllUserData(userId);
 	revalidatePath("/accounts");
 	revalidatePath("/configuracoes/dados");
 	revalidatePath("/configuracoes/auditoria");
@@ -94,7 +95,7 @@ export async function purgeAllFinancialData(formData: FormData) {
 	// Mantém a sessão do usuário (Better Auth) intacta; apenas os dados
 	// financeiros foram apagados.
 	void auth; // referencia mantida para upgrades futuros (delete user)
-	revalidatePath("/");
+	invalidateAllUserData(userId);
 	revalidatePath("/configuracoes/dados");
 	revalidatePath("/configuracoes/privacidade");
 	revalidatePath("/configuracoes/auditoria");

@@ -2,6 +2,15 @@
 
 import { and, eq, gte, inArray, or, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+
+import {
+	invalidateAfterAccountMutation,
+	invalidateAfterBudgetMutation,
+	invalidateAfterCategoryMutation,
+	invalidateAfterImportMutation,
+	invalidateAfterRecurrenceMutation,
+	invalidateAfterTransactionMutation,
+} from "~/server/invalidate";
 import { redirect } from "next/navigation";
 
 import { buildImportBatchRows } from "~/features/imports/batch-domain";
@@ -289,14 +298,14 @@ function moneyOrCents(
 	throw new Error("Valor inválido");
 }
 
-function revalidateRecurrenceViews() {
-	revalidatePath("/");
+function revalidateRecurrenceViews(userId: string) {
+	invalidateAfterRecurrenceMutation(userId);
 	revalidatePath("/cash-flow");
 	revalidatePath("/recurrences");
 }
 
-function revalidateBudgetViews() {
-	revalidatePath("/");
+function revalidateBudgetViews(userId: string) {
+	invalidateAfterBudgetMutation(userId);
 	revalidatePath("/budgets");
 }
 
@@ -337,7 +346,7 @@ export async function createAccount(formData: FormData) {
 		creditCardDueDay:
 			type === "credit_card" ? cardDay(formData, "dueDay") : null,
 	});
-	revalidatePath("/");
+	invalidateAfterAccountMutation(userId);
 }
 
 export async function updateAccount(formData: FormData) {
@@ -376,7 +385,7 @@ export async function updateAccount(formData: FormData) {
 		.where(
 			and(eq(financialAccounts.id, id), eq(financialAccounts.userId, userId)),
 		);
-	revalidatePath("/");
+	invalidateAfterAccountMutation(userId);
 }
 
 export async function archiveAccount(formData: FormData) {
@@ -404,7 +413,7 @@ export async function archiveAccount(formData: FormData) {
 			summary: `Conta "${before.name}" arquivada`,
 		});
 	});
-	revalidatePath("/");
+	invalidateAfterAccountMutation(userId);
 }
 
 async function ensureDefaultCategoryGroup(
@@ -471,7 +480,7 @@ export async function createDefaultCategories(
 				);
 			}
 		}
-		revalidatePath("/");
+		invalidateAfterCategoryMutation(userId);
 		return { error: null };
 	} catch (error) {
 		return handleCategoryActionError(error);
@@ -490,7 +499,7 @@ export async function createCategoryGroup(
 			kind: enumField(formData, "kind", categoryKinds),
 			cashFlowRole: enumField(formData, "cashFlowRole", cashFlowRoles),
 		});
-		revalidatePath("/");
+		invalidateAfterCategoryMutation(userId);
 		return { error: null };
 	} catch (error) {
 		return handleCategoryActionError(error);
@@ -515,7 +524,7 @@ export async function updateCategoryGroup(
 					eq(categoryGroups.userId, userId),
 				),
 			);
-		revalidatePath("/");
+		invalidateAfterCategoryMutation(userId);
 		return { error: null };
 	} catch (error) {
 		return handleCategoryActionError(error);
@@ -533,7 +542,7 @@ export async function archiveCategoryGroup(formData: FormData) {
 		.update(categories)
 		.set({ isArchived: true })
 		.where(and(eq(categories.groupId, id), eq(categories.userId, userId)));
-	revalidatePath("/");
+	invalidateAfterCategoryMutation(userId);
 }
 
 export async function createCategory(
@@ -556,7 +565,7 @@ export async function createCategory(
 			kind: group.kind,
 			name: requiredString(formData, "name"),
 		});
-		revalidatePath("/");
+		invalidateAfterCategoryMutation(userId);
 		return { error: null };
 	} catch (error) {
 		return handleCategoryActionError(error);
@@ -590,7 +599,7 @@ export async function updateCategory(
 					eq(categories.userId, userId),
 				),
 			);
-		revalidatePath("/");
+		invalidateAfterCategoryMutation(userId);
 		return { error: null };
 	} catch (error) {
 		return handleCategoryActionError(error);
@@ -608,7 +617,7 @@ export async function archiveCategory(formData: FormData) {
 				eq(categories.userId, userId),
 			),
 		);
-	revalidatePath("/");
+	invalidateAfterCategoryMutation(userId);
 }
 
 async function transactionValues(userId: string, formData: FormData) {
@@ -753,7 +762,7 @@ export async function createTransaction(formData: FormData) {
 			summary: `Transação criada (${values.movementType}, ${values.amountCents} centavos)`,
 		});
 	});
-	revalidatePath("/");
+	invalidateAfterTransactionMutation(userId);
 	revalidatePath("/transactions");
 }
 
@@ -780,12 +789,12 @@ export async function updateTransaction(formData: FormData) {
 				entityType: "transaction",
 				entityId: id,
 				action: "updated",
-				summary: `Transação ${id} atualizada (${diff.length} campo(s))`,
-				diff,
-			});
+			summary: `Transação ${id} atualizada (${diff.length} campo(s))`,
+			diff,
+		});
 		}
 	});
-	revalidatePath("/");
+	invalidateAfterTransactionMutation(userId);
 	revalidatePath("/transactions");
 }
 
@@ -811,7 +820,7 @@ export async function archiveTransaction(formData: FormData) {
 			diff: [{ field: "isArchived", from: false, to: true }],
 		});
 	});
-	revalidatePath("/");
+	invalidateAfterTransactionMutation(userId);
 	revalidatePath("/transactions");
 }
 
@@ -932,7 +941,7 @@ export async function quickCategorizeTransaction(formData: FormData) {
 		});
 	});
 	revalidatePath("/transactions");
-	revalidatePath("/");
+	invalidateAfterTransactionMutation(userId);
 }
 
 export async function bulkUpdateTransactions(formData: FormData) {
@@ -1055,13 +1064,13 @@ export async function bulkUpdateTransactions(formData: FormData) {
 				entityType: "transaction",
 				entityId: before.id,
 				action: "updated",
-				summary: `Transação ${before.id} atualizada em massa (${diff.length} campo(s))`,
-				diff,
-			});
+			summary: `Transação ${before.id} atualizada em massa (${diff.length} campo(s))`,
+			diff,
+		});
 		}
 	});
 	revalidatePath("/transactions");
-	revalidatePath("/");
+	invalidateAfterTransactionMutation(userId);
 }
 
 function toTransactionSnapshot(row: {
@@ -1172,7 +1181,7 @@ async function recurrenceValues(userId: string, formData: FormData) {
 export async function createRecurrence(formData: FormData) {
 	const userId = await requireUserId();
 	await db.insert(recurrences).values(await recurrenceValues(userId, formData));
-	revalidateRecurrenceViews();
+	revalidateRecurrenceViews(userId);
 }
 
 export async function updateRecurrence(formData: FormData) {
@@ -1182,7 +1191,7 @@ export async function updateRecurrence(formData: FormData) {
 		.update(recurrences)
 		.set(await recurrenceValues(userId, formData))
 		.where(and(eq(recurrences.id, id), eq(recurrences.userId, userId)));
-	revalidateRecurrenceViews();
+	revalidateRecurrenceViews(userId);
 }
 
 export async function archiveRecurrence(formData: FormData) {
@@ -1196,7 +1205,7 @@ export async function archiveRecurrence(formData: FormData) {
 				eq(recurrences.userId, userId),
 			),
 		);
-	revalidateRecurrenceViews();
+	revalidateRecurrenceViews(userId);
 }
 
 export async function confirmRecurrenceOccurrence(formData: FormData) {
@@ -1238,7 +1247,7 @@ export async function confirmRecurrenceOccurrence(formData: FormData) {
 		}
 		throw error;
 	}
-	revalidateRecurrenceViews();
+	revalidateRecurrenceViews(userId);
 }
 
 export async function linkTransactionToRecurrence(formData: FormData) {
@@ -1277,7 +1286,7 @@ export async function linkTransactionToRecurrence(formData: FormData) {
 		}
 		throw error;
 	}
-	revalidateRecurrenceViews();
+	revalidateRecurrenceViews(userId);
 }
 
 export async function unlinkTransactionFromRecurrence(formData: FormData) {
@@ -1291,7 +1300,7 @@ export async function unlinkTransactionFromRecurrence(formData: FormData) {
 				eq(transactions.userId, userId),
 			),
 		);
-	revalidateRecurrenceViews();
+	revalidateRecurrenceViews(userId);
 }
 
 async function budgetValues(userId: string, formData: FormData) {
@@ -1535,7 +1544,7 @@ export async function createOrUpdateBudget(formData: FormData) {
 	} else {
 		await upsertBudgetMonth(values);
 	}
-	revalidateBudgetViews();
+	revalidateBudgetViews(userId);
 }
 
 export async function deleteBudget(formData: FormData) {
@@ -1580,7 +1589,7 @@ export async function deleteBudget(formData: FormData) {
 				),
 			);
 	}
-	revalidateBudgetViews();
+	revalidateBudgetViews(userId);
 }
 
 export async function updateBudgetTemplate(formData: FormData) {
@@ -1622,7 +1631,7 @@ export async function updateBudgetTemplate(formData: FormData) {
 		templateId: id,
 		userId,
 	});
-	revalidateBudgetViews();
+	revalidateBudgetViews(userId);
 }
 
 export async function archiveBudgetTemplate(formData: FormData) {
@@ -1630,7 +1639,7 @@ export async function archiveBudgetTemplate(formData: FormData) {
 	const templateId = intField(formData, "templateId");
 	const currentMonthKey = monthKeyField(formData, "currentMonthKey");
 	await archiveBudgetTemplateFromMonth(userId, templateId, currentMonthKey);
-	revalidateBudgetViews();
+	revalidateBudgetViews(userId);
 }
 
 export async function copyBudgetMonth(formData: FormData) {
@@ -1673,7 +1682,7 @@ export async function copyBudgetMonth(formData: FormData) {
 				],
 			});
 	}
-	revalidateBudgetViews();
+	revalidateBudgetViews(userId);
 }
 
 function csvTokens(value: string | null, fallback: string[]) {
@@ -2797,7 +2806,7 @@ export async function confirmImportBatch(
 
 	await regenerateAssistantSuggestionsForUser(userId);
 
-	revalidatePath("/");
+	invalidateAfterImportMutation(userId);
 	revalidatePath("/import");
 	revalidatePath("/assistente");
 	revalidatePath("/transactions");
@@ -2886,6 +2895,6 @@ export async function revertImportBatch(formData: FormData) {
 		});
 	});
 
-	revalidatePath("/");
+	invalidateAfterImportMutation(userId);
 	revalidatePath("/import");
 }
