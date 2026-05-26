@@ -1,5 +1,6 @@
 import { and, asc, desc, eq, isNotNull } from "drizzle-orm";
 import Link from "next/link";
+import { unstable_cache } from "next/cache";
 import { redirect } from "next/navigation";
 import {
 	comparisonText,
@@ -65,10 +66,83 @@ import {
 	recurrences,
 	transactions,
 } from "~/server/db/schema";
+import { userTag } from "~/server/invalidate";
 
 type AnalysisPageProps = {
 	searchParams?: Promise<{ month?: string }>;
 };
+
+function makeAnalysisLoader(userId: string) {
+	return unstable_cache(
+		async () => {
+			const [
+				allAccounts,
+				allGroups,
+				allCategories,
+				allTransactions,
+				allRecurrences,
+				confirmedOccurrences,
+			] = await Promise.all([
+				db
+					.select()
+					.from(financialAccounts)
+					.where(eq(financialAccounts.userId, userId))
+					.orderBy(asc(financialAccounts.name)),
+				db
+					.select()
+					.from(categoryGroups)
+					.where(eq(categoryGroups.userId, userId))
+					.orderBy(asc(categoryGroups.kind), asc(categoryGroups.name)),
+				db
+					.select()
+					.from(categories)
+					.where(eq(categories.userId, userId))
+					.orderBy(asc(categories.kind), asc(categories.name)),
+				db
+					.select()
+					.from(transactions)
+					.where(eq(transactions.userId, userId))
+					.orderBy(desc(transactions.occurredOn), desc(transactions.id)),
+				db
+					.select()
+					.from(recurrences)
+					.where(eq(recurrences.userId, userId))
+					.orderBy(asc(recurrences.name)),
+				db
+					.select({
+						recurrenceId: transactions.recurrenceId,
+						occurrenceOn: transactions.recurrenceOccurrenceOn,
+					})
+					.from(transactions)
+					.where(
+						and(
+							eq(transactions.userId, userId),
+							isNotNull(transactions.recurrenceId),
+							isNotNull(transactions.recurrenceOccurrenceOn),
+						),
+					),
+			]);
+			return {
+				allAccounts,
+				allGroups,
+				allCategories,
+				allTransactions,
+				allRecurrences,
+				confirmedOccurrences,
+			};
+		},
+		[`analysis-data:${userId}`],
+		{
+			tags: [
+				userTag(userId, "accounts"),
+				userTag(userId, "categories"),
+				userTag(userId, "transactions"),
+				userTag(userId, "recurrences"),
+			],
+			revalidate: 3600,
+		},
+	);
+}
 
 export default async function AnalysisPage({
 	searchParams,
@@ -83,53 +157,14 @@ export default async function AnalysisPage({
 	const trendWindow = buildMonthWindow(period, 6);
 	const comparisonWindow = buildMonthWindow(period, 13);
 
-	const [
+	const {
 		allAccounts,
 		allGroups,
 		allCategories,
 		allTransactions,
 		allRecurrences,
 		confirmedOccurrences,
-	] = await Promise.all([
-		db
-			.select()
-			.from(financialAccounts)
-			.where(eq(financialAccounts.userId, session.user.id))
-			.orderBy(asc(financialAccounts.name)),
-		db
-			.select()
-			.from(categoryGroups)
-			.where(eq(categoryGroups.userId, session.user.id))
-			.orderBy(asc(categoryGroups.kind), asc(categoryGroups.name)),
-		db
-			.select()
-			.from(categories)
-			.where(eq(categories.userId, session.user.id))
-			.orderBy(asc(categories.kind), asc(categories.name)),
-		db
-			.select()
-			.from(transactions)
-			.where(eq(transactions.userId, session.user.id))
-			.orderBy(desc(transactions.occurredOn), desc(transactions.id)),
-		db
-			.select()
-			.from(recurrences)
-			.where(eq(recurrences.userId, session.user.id))
-			.orderBy(asc(recurrences.name)),
-		db
-			.select({
-				recurrenceId: transactions.recurrenceId,
-				occurrenceOn: transactions.recurrenceOccurrenceOn,
-			})
-			.from(transactions)
-			.where(
-				and(
-					eq(transactions.userId, session.user.id),
-					isNotNull(transactions.recurrenceId),
-					isNotNull(transactions.recurrenceOccurrenceOn),
-				),
-			),
-	]);
+	} = await makeAnalysisLoader(session.user.id)();
 
 	const totals = calculateMonthlyTotalsByCashFlowRole(
 		allTransactions,

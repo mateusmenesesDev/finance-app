@@ -1,5 +1,6 @@
 import { and, asc, desc, eq, isNotNull } from "drizzle-orm";
 import Link from "next/link";
+import { unstable_cache } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { regenerateAssistantSuggestions } from "~/app/_actions/assistant-actions";
@@ -55,8 +56,93 @@ import {
 	transactions,
 } from "~/server/db/schema";
 import { ensureBudgetTemplatesMaterialized } from "~/server/budget-templates";
+import { userTag } from "~/server/invalidate";
 
 const lowBalanceThresholdCents = 20_000;
+
+function makeAssistanteLoader(userId: string) {
+	return unstable_cache(
+		async () => {
+			const [
+				suggestions,
+				allAccounts,
+				allTransactions,
+				allCategories,
+				allGroups,
+				allRecurrences,
+				confirmedOccurrences,
+				batches,
+				budgetRows,
+			] = await Promise.all([
+				db
+					.select()
+					.from(assistantSuggestions)
+					.where(eq(assistantSuggestions.userId, userId))
+					.orderBy(
+						asc(assistantSuggestions.status),
+						asc(assistantSuggestions.kind),
+						desc(assistantSuggestions.createdAt),
+					),
+				db
+					.select()
+					.from(financialAccounts)
+					.where(eq(financialAccounts.userId, userId))
+					.orderBy(asc(financialAccounts.name)),
+				db
+					.select()
+					.from(transactions)
+					.where(eq(transactions.userId, userId))
+					.orderBy(desc(transactions.occurredOn), desc(transactions.id)),
+				db
+					.select()
+					.from(categories)
+					.where(eq(categories.userId, userId))
+					.orderBy(asc(categories.kind), asc(categories.name)),
+				db.select().from(categoryGroups).where(eq(categoryGroups.userId, userId)),
+				db.select().from(recurrences).where(eq(recurrences.userId, userId)),
+				db
+					.select({
+						recurrenceId: transactions.recurrenceId,
+						occurrenceOn: transactions.recurrenceOccurrenceOn,
+					})
+					.from(transactions)
+					.where(
+						and(
+							eq(transactions.userId, userId),
+							isNotNull(transactions.recurrenceId),
+							isNotNull(transactions.recurrenceOccurrenceOn),
+						),
+					),
+				db.select().from(importBatches).where(eq(importBatches.userId, userId)),
+				db.select().from(monthlyBudgets).where(eq(monthlyBudgets.userId, userId)),
+			]);
+			return {
+				suggestions,
+				allAccounts,
+				allTransactions,
+				allCategories,
+				allGroups,
+				allRecurrences,
+				confirmedOccurrences,
+				batches,
+				budgetRows,
+			};
+		},
+		[`assistente-data:${userId}`],
+		{
+			tags: [
+				userTag(userId, "assistant"),
+				userTag(userId, "accounts"),
+				userTag(userId, "transactions"),
+				userTag(userId, "categories"),
+				userTag(userId, "recurrences"),
+				userTag(userId, "imports"),
+				userTag(userId, "budgets"),
+			],
+			revalidate: 3600,
+		},
+	);
+}
 
 const kindLabels: Record<Suggestion["kind"], string> = {
 	category_for_transaction: "Categorias para transações",
@@ -82,7 +168,7 @@ export default async function AssistantPage() {
 	const cutoff =
 		today >= period.start && today <= period.end ? today : period.end;
 
-	const [
+	const {
 		suggestions,
 		allAccounts,
 		allTransactions,
@@ -92,49 +178,7 @@ export default async function AssistantPage() {
 		confirmedOccurrences,
 		batches,
 		budgetRows,
-	] = await Promise.all([
-		db
-			.select()
-			.from(assistantSuggestions)
-			.where(eq(assistantSuggestions.userId, userId))
-			.orderBy(
-				asc(assistantSuggestions.status),
-				asc(assistantSuggestions.kind),
-				desc(assistantSuggestions.createdAt),
-			),
-		db
-			.select()
-			.from(financialAccounts)
-			.where(eq(financialAccounts.userId, userId))
-			.orderBy(asc(financialAccounts.name)),
-		db
-			.select()
-			.from(transactions)
-			.where(eq(transactions.userId, userId))
-			.orderBy(desc(transactions.occurredOn), desc(transactions.id)),
-		db
-			.select()
-			.from(categories)
-			.where(eq(categories.userId, userId))
-			.orderBy(asc(categories.kind), asc(categories.name)),
-		db.select().from(categoryGroups).where(eq(categoryGroups.userId, userId)),
-		db.select().from(recurrences).where(eq(recurrences.userId, userId)),
-		db
-			.select({
-				recurrenceId: transactions.recurrenceId,
-				occurrenceOn: transactions.recurrenceOccurrenceOn,
-			})
-			.from(transactions)
-			.where(
-				and(
-					eq(transactions.userId, userId),
-					isNotNull(transactions.recurrenceId),
-					isNotNull(transactions.recurrenceOccurrenceOn),
-				),
-			),
-		db.select().from(importBatches).where(eq(importBatches.userId, userId)),
-		db.select().from(monthlyBudgets).where(eq(monthlyBudgets.userId, userId)),
-	]);
+	} = await makeAssistanteLoader(userId)();
 
 	const pending = suggestions.filter((s) => s.status === "pending");
 	const decided = suggestions
@@ -467,11 +511,11 @@ export default async function AssistantPage() {
 										>
 											{row.status === "accepted" ? "Aceita" : "Rejeitada"}
 										</p>
-										{row.decidedAt ? (
-											<p className="text-muted-foreground">
-												{row.decidedAt.toLocaleString("pt-BR")}
-											</p>
-										) : null}
+									{row.decidedAt ? (
+										<p className="text-muted-foreground">
+											{new Date(row.decidedAt).toLocaleString("pt-BR")}
+										</p>
+									) : null}
 									</div>
 								</div>
 							))}
