@@ -254,6 +254,43 @@ export function matchImportedRowToRecurrence(
 	confirmed: ConfirmedOccurrenceKey[],
 	_today: string,
 ): { recurrenceId: number; occurrenceOn: string } | null {
+	return matchImportedRowToRecurrenceOccurrence(
+		row,
+		recurrences,
+		confirmed,
+		false,
+	);
+}
+
+export function matchImportedRowToConfirmedRecurrence(
+	row: {
+		accountId: number;
+		movementType: "income" | "expense";
+		amountCents: number;
+		occurredOn: string;
+	},
+	recurrences: RecurrenceInput[],
+	confirmed: ConfirmedOccurrenceKey[],
+): { recurrenceId: number; occurrenceOn: string } | null {
+	return matchImportedRowToRecurrenceOccurrence(
+		row,
+		recurrences,
+		confirmed,
+		true,
+	);
+}
+
+function matchImportedRowToRecurrenceOccurrence(
+	row: {
+		accountId: number;
+		movementType: "income" | "expense";
+		amountCents: number;
+		occurredOn: string;
+	},
+	recurrences: RecurrenceInput[],
+	confirmed: ConfirmedOccurrenceKey[],
+	confirmedOnly: boolean,
+): { recurrenceId: number; occurrenceOn: string } | null {
 	const confirmedKeys = keySet(confirmed);
 	const window = {
 		start: addDaysIso(row.occurredOn, -MATCH_DATE_TOLERANCE_DAYS),
@@ -267,7 +304,11 @@ export function matchImportedRowToRecurrence(
 				recurrence.movementType === row.movementType,
 		)
 		.flatMap((recurrence) => generateOccurrences(recurrence, window))
-		.filter((occurrence) => !confirmedKeys.has(occurrenceKey(occurrence)))
+		.filter((occurrence) =>
+			confirmedOnly
+				? confirmedKeys.has(occurrenceKey(occurrence))
+				: !confirmedKeys.has(occurrenceKey(occurrence)),
+		)
 		.map((occurrence) => ({
 			occurrence,
 			dayDelta: Math.abs(daysBetween(row.occurredOn, occurrence.occurrenceOn)),

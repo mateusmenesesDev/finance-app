@@ -629,7 +629,7 @@ function RowBlock({
 			)}
 			{!isIgnoreSuggestion &&
 				row.suggestedRecurrenceId &&
-				suggestionVisible && (
+				row.suggestedRecurrenceOccurrenceOn && (
 					<label className="flex items-center gap-2 text-info text-sm">
 						<input
 							defaultChecked

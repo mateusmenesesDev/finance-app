@@ -91,6 +91,55 @@ describe("buildImportBatchRows", () => {
 		]);
 	});
 
+	test("warns when an imported income looks like an already confirmed recurrence", () => {
+		const result = buildImportBatchRows({
+			userId: "user-1",
+			batchId: 10,
+			accountId: 1,
+			parsedRows: [
+				{
+					...baseRow,
+					movementType: "income",
+					amountCents: 5000_00,
+					occurredOn: "2026-05-06",
+					originalDescription: "Salario",
+					normalizedDescription: "salario",
+				},
+			],
+			existingTransactions: [],
+			previousImportRows: [],
+			previousActiveBatchIds: new Set(),
+			rules: [],
+			recurrenceContext: {
+				activeRecurrences: [
+					{
+						id: 4,
+						accountId: 1,
+						categoryId: 2,
+						movementType: "income",
+						amountCents: 5000_00,
+						frequency: "monthly",
+						intervalCount: 1,
+						anchorDay: 5,
+						anchorWeekday: null,
+						startsOn: "2026-01-05",
+						endsOn: null,
+						isSubscription: false,
+						isBill: false,
+						isArchived: false,
+						name: "Salário",
+					},
+				],
+				confirmedOccurrences: [{ recurrenceId: 4, occurrenceOn: "2026-05-05" }],
+			},
+		});
+
+		expect(result.rowValues[0]?.status).toBe("pending_review");
+		expect(result.rowValues[0]?.validationError).toContain(
+			"possível duplicidade com recorrência já confirmada (2026-05-05)",
+		);
+	});
+
 	test("applies import rule suggestions only to pending review rows", () => {
 		const rule: ImportCategoryRule = {
 			id: 7,

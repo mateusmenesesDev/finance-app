@@ -1,5 +1,6 @@
 import {
 	ArrowDownUp,
+	BanknoteArrowDown,
 	BarChart3,
 	Bot,
 	CreditCard,
@@ -33,6 +34,7 @@ export const navGroups: NavGroup[] = [
 		items: [
 			{ href: "/", label: "Dashboard", icon: LayoutDashboard },
 			{ href: "/transactions", label: "Transações", icon: ArrowDownUp },
+			{ href: "/receitas", label: "Receitas", icon: BanknoteArrowDown },
 			{ href: "/accounts", label: "Contas", icon: Wallet },
 			{ href: "/cards", label: "Cartões", icon: CreditCard },
 			{ href: "/categories", label: "Categorias", icon: Tags },

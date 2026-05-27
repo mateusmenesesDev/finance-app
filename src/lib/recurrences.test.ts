@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test";
 import {
 	generateOccurrences,
 	lateRecurrences,
+	matchImportedRowToConfirmedRecurrence,
 	matchImportedRowToRecurrence,
 	type RecurrenceInput,
 	rankFixedExpenses,
@@ -286,6 +287,42 @@ describe("recurrences", () => {
 		).toBe(null);
 	});
 
+	test("confirmed recurrence matching only finds already confirmed occurrences", () => {
+		const input = recurrence({
+			id: 3,
+			movementType: "income",
+			amountCents: 5000_00,
+			startsOn: "2024-01-05",
+			anchorDay: 5,
+		});
+
+		expect(
+			matchImportedRowToConfirmedRecurrence(
+				{
+					accountId: 10,
+					movementType: "income",
+					amountCents: 4999_00,
+					occurredOn: "2024-02-06",
+				},
+				[input],
+				[{ recurrenceId: 3, occurrenceOn: "2024-02-05" }],
+			),
+		).toEqual({ recurrenceId: 3, occurrenceOn: "2024-02-05" });
+
+		expect(
+			matchImportedRowToConfirmedRecurrence(
+				{
+					accountId: 10,
+					movementType: "income",
+					amountCents: 5000_00,
+					occurredOn: "2024-03-05",
+				},
+				[input],
+				[{ recurrenceId: 3, occurrenceOn: "2024-02-05" }],
+			),
+		).toBe(null);
+	});
+
 	test("batch-level recurrence matching prevents reusing the same occurrence", () => {
 		const input = recurrence({ startsOn: "2024-01-10", anchorDay: 10 });
 		const confirmed: { recurrenceId: number; occurrenceOn: string }[] = [];
@@ -313,5 +350,29 @@ describe("recurrences", () => {
 			"2024-02-10",
 		);
 		expect(second).toBe(null);
+	});
+
+	test("import matching supports income recurrences and skips expense recurrences", () => {
+		const salary = recurrence({
+			id: 7,
+			movementType: "income",
+			amountCents: 5000_00,
+			startsOn: "2024-01-05",
+			anchorDay: 5,
+		});
+
+		expect(
+			matchImportedRowToRecurrence(
+				{
+					accountId: 10,
+					movementType: "income",
+					amountCents: 5000_00,
+					occurredOn: "2024-02-06",
+				},
+				[salary, recurrence({ id: 8, amountCents: 5000_00 })],
+				[],
+				"2024-02-06",
+			),
+		).toEqual({ recurrenceId: 7, occurrenceOn: "2024-02-05" });
 	});
 });

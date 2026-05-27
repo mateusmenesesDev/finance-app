@@ -404,6 +404,7 @@ function moneyOrCents(
 function revalidateRecurrenceViews(userId: string) {
 	invalidateAfterRecurrenceMutation(userId);
 	revalidatePath("/cash-flow");
+	revalidatePath("/receitas");
 	revalidatePath("/recurrences");
 }
 
@@ -1120,6 +1121,7 @@ export async function createTransaction(formData: FormData) {
 		});
 	});
 	invalidateAfterTransactionMutation(userId);
+	revalidatePath("/receitas");
 	revalidatePath("/transactions");
 }
 
@@ -1152,6 +1154,7 @@ export async function updateTransaction(formData: FormData) {
 		}
 	});
 	invalidateAfterTransactionMutation(userId);
+	revalidatePath("/receitas");
 	revalidatePath("/transactions");
 }
 
@@ -1178,6 +1181,7 @@ export async function archiveTransaction(formData: FormData) {
 		});
 	});
 	invalidateAfterTransactionMutation(userId);
+	revalidatePath("/receitas");
 	revalidatePath("/transactions");
 }
 
@@ -1297,8 +1301,9 @@ export async function quickCategorizeTransaction(formData: FormData) {
 			],
 		});
 	});
-	revalidatePath("/transactions");
 	invalidateAfterTransactionMutation(userId);
+	revalidatePath("/receitas");
+	revalidatePath("/transactions");
 }
 
 export async function bulkUpdateTransactions(formData: FormData) {
@@ -1426,8 +1431,9 @@ export async function bulkUpdateTransactions(formData: FormData) {
 			});
 		}
 	});
-	revalidatePath("/transactions");
 	invalidateAfterTransactionMutation(userId);
+	revalidatePath("/receitas");
+	revalidatePath("/transactions");
 }
 
 function toTransactionSnapshot(row: {

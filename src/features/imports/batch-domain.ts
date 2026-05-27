@@ -1,5 +1,6 @@
 import {
 	type ConfirmedOccurrenceKey,
+	matchImportedRowToConfirmedRecurrence,
 	matchImportedRowToRecurrence,
 	type RecurrenceInput,
 } from "~/lib/recurrences";
@@ -159,6 +160,27 @@ export function buildImportBatchRows(input: BuildImportBatchRowsInput) {
 			fileKeys.add(key);
 		}
 		if (duplicateReason) rowStatus = "duplicate";
+		const confirmedRecurrenceMatch =
+			!duplicateReason &&
+			rowStatus === "pending_review" &&
+			input.accountId !== null &&
+			row.occurredOn &&
+			row.amountCents &&
+			(row.movementType === "income" || row.movementType === "expense")
+				? matchImportedRowToConfirmedRecurrence(
+						{
+							accountId: input.accountId,
+							movementType: row.movementType,
+							amountCents: row.amountCents,
+							occurredOn: row.occurredOn,
+						},
+						input.recurrenceContext.activeRecurrences,
+						input.recurrenceContext.confirmedOccurrences,
+					)
+				: null;
+		const recurrenceDuplicateWarning = confirmedRecurrenceMatch
+			? `possível duplicidade com recorrência já confirmada (${confirmedRecurrenceMatch.occurrenceOn})`
+			: null;
 		const suggestion =
 			rowStatus === "pending_review" && input.accountId !== null
 				? matchImportCategoryRule(
@@ -209,8 +231,9 @@ export function buildImportBatchRows(input: BuildImportBatchRowsInput) {
 					: "rule"
 				: null,
 			validationError:
-				[row.validationError, duplicateReason].filter(Boolean).join("; ") ||
-				null,
+				[row.validationError, duplicateReason, recurrenceDuplicateWarning]
+					.filter(Boolean)
+					.join("; ") || null,
 			parsedData: row.parsedData,
 		} satisfies ImportRowInsert;
 	});
