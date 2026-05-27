@@ -19,11 +19,9 @@ import {
 	ChartTooltip,
 	ChartTooltipContent,
 } from "~/components/ui/chart";
+import { formatMoney } from "~/lib/formatters";
 
-const money = (value: unknown) =>
-	new Intl.NumberFormat("pt-BR", { currency: "BRL", style: "currency" }).format(
-		(Number(value) || 0) / 100,
-	);
+const money = (value: unknown) => formatMoney(Number(value) || 0);
 
 const incomeExpenseConfig = {
 	mainIncomeCents: { label: "Receita principal", color: "var(--chart-1)" },
@@ -89,7 +87,9 @@ export function IncomeExpenseChart({ rows }: { rows: Row[] }) {
 				<CartesianGrid vertical={false} />
 				<XAxis dataKey="label" />
 				<YAxis tickFormatter={(v) => money(v)} />
-				<ChartTooltip content={<ChartTooltipContent />} />
+				<ChartTooltip
+					content={<ChartTooltipContent valueFormatter={money} />}
+				/>
 				<ChartLegend content={<ChartLegendContent />} />
 				<Bar dataKey="mainIncomeCents" fill="var(--color-mainIncomeCents)" />
 				<Bar
@@ -110,7 +110,9 @@ export function CategoryRankingChart({ rows }: { rows: Row[] }) {
 				<CartesianGrid horizontal={false} />
 				<XAxis tickFormatter={(v) => money(v)} type="number" />
 				<YAxis dataKey="name" type="category" width={120} />
-				<ChartTooltip content={<ChartTooltipContent />} />
+				<ChartTooltip
+					content={<ChartTooltipContent valueFormatter={money} />}
+				/>
 				<Bar dataKey="totalCents" fill="var(--color-totalCents)" />
 			</BarChart>
 		</EmptyChart>
@@ -128,7 +130,9 @@ export function AccountMovementChart({ rows }: { rows: Row[] }) {
 				<CartesianGrid horizontal={false} />
 				<XAxis tickFormatter={(v) => money(v)} type="number" />
 				<YAxis dataKey="accountName" type="category" width={120} />
-				<ChartTooltip content={<ChartTooltipContent />} />
+				<ChartTooltip
+					content={<ChartTooltipContent valueFormatter={money} />}
+				/>
 				<ChartLegend content={<ChartLegendContent />} />
 				<Bar dataKey="inflowCents" fill="var(--color-inflowCents)" />
 				<Bar dataKey="outflowCents" fill="var(--color-outflowCents)" />
@@ -145,7 +149,9 @@ export function CardInvoiceChart({ rows }: { rows: Row[] }) {
 				<CartesianGrid vertical={false} />
 				<XAxis dataKey="monthKey" />
 				<YAxis tickFormatter={(v) => money(v)} />
-				<ChartTooltip content={<ChartTooltipContent />} />
+				<ChartTooltip
+					content={<ChartTooltipContent valueFormatter={money} />}
+				/>
 				<ChartLegend content={<ChartLegendContent />} />
 				<Bar dataKey="totalCents" fill="var(--color-totalCents)" />
 			</BarChart>
@@ -160,7 +166,9 @@ export function BudgetVsActualChart({ rows }: { rows: Row[] }) {
 				<CartesianGrid vertical={false} />
 				<XAxis dataKey="name" />
 				<YAxis tickFormatter={(v) => money(v)} />
-				<ChartTooltip content={<ChartTooltipContent />} />
+				<ChartTooltip
+					content={<ChartTooltipContent valueFormatter={money} />}
+				/>
 				<ChartLegend content={<ChartLegendContent />} />
 				<Bar dataKey="plannedCents" fill="var(--color-plannedCents)" />
 				<Bar dataKey="spentCents" fill="var(--color-spentCents)" />
@@ -176,7 +184,9 @@ export function CashFlowLineChart({ rows }: { rows: Row[] }) {
 				<CartesianGrid vertical={false} />
 				<XAxis dataKey="label" />
 				<YAxis tickFormatter={(v) => money(v)} />
-				<ChartTooltip content={<ChartTooltipContent />} />
+				<ChartTooltip
+					content={<ChartTooltipContent valueFormatter={money} />}
+				/>
 				<ChartLegend content={<ChartLegendContent />} />
 				<Line dataKey="realizedIncome" stroke="var(--color-realizedIncome)" />
 				<Line dataKey="plannedIncome" stroke="var(--color-plannedIncome)" />
