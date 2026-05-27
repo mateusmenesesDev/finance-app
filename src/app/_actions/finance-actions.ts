@@ -25,6 +25,7 @@ import {
 } from "~/lib/category-errors";
 import { MAX_AMOUNT_CENTS, moneyToCents } from "~/lib/money";
 import { maskSensitive } from "~/lib/sensitive-data";
+import { recurrenceLinkForTransactionUpdate } from "~/lib/transaction-recurrence";
 import { regenerateAssistantSuggestionsForUser } from "~/server/assistant";
 import {
 	diffTransaction,
@@ -1129,18 +1130,30 @@ export async function updateTransaction(formData: FormData) {
 	const userId = await requireUserId();
 	const id = intField(formData, "id");
 	const values = await transactionValues(userId, formData);
+	const formHasRecurrenceFields =
+		formData.has("recurrenceId") || formData.has("recurrenceOccurrenceOn");
 	await db.transaction(async (tx) => {
 		const before = await tx.query.transactions.findFirst({
 			where: and(eq(transactions.id, id), eq(transactions.userId, userId)),
 		});
 		if (!before) throw new Error("Transação não encontrada");
+		const recurrenceLink = recurrenceLinkForTransactionUpdate({
+			formHasRecurrenceFields,
+			existing: before,
+			nextMovementType: values.movementType,
+			parsedLink: {
+				recurrenceId: values.recurrenceId,
+				recurrenceOccurrenceOn: values.recurrenceOccurrenceOn,
+			},
+		});
+		const nextValues = { ...values, ...recurrenceLink };
 		await tx
 			.update(transactions)
-			.set(values)
+			.set(nextValues)
 			.where(and(eq(transactions.id, id), eq(transactions.userId, userId)));
 		const diff = diffTransaction(
 			toTransactionSnapshot(before),
-			toTransactionSnapshot({ ...before, ...values }),
+			toTransactionSnapshot({ ...before, ...nextValues }),
 		);
 		if (diff.length > 0) {
 			await recordAudit(tx, {

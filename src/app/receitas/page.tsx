@@ -11,6 +11,8 @@ import {
 	confirmRecurrenceOccurrence,
 	createRecurrence,
 	createTransaction,
+	linkTransactionToRecurrence,
+	updateRecurrence,
 } from "~/app/_actions/finance-actions";
 import { ActionDialog } from "~/components/action-dialog";
 import { AppShell } from "~/components/app-shell";
@@ -24,7 +26,7 @@ import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
-import { formatDate, formatMoney } from "~/lib/formatters";
+import { formatDate, formatMoney, formatMoneyInput } from "~/lib/formatters";
 import {
 	generateOccurrences,
 	lateRecurrences,
@@ -44,6 +46,7 @@ type AccountRow = typeof financialAccounts.$inferSelect;
 type CategoryRow = typeof categories.$inferSelect;
 type GroupRow = typeof categoryGroups.$inferSelect;
 type TransactionRow = typeof transactions.$inferSelect;
+type RecurrenceRow = typeof recurrences.$inferSelect;
 
 const frequencyOptions = {
 	once: "Uma vez",
@@ -177,6 +180,14 @@ export default async function ReceitasPage() {
 	const categoryOptions = Object.fromEntries(
 		incomeCategories.map((category) => [String(category.id), category.name]),
 	);
+	const receivableWithMatches = receivable.map((item) => ({
+		...item,
+		matchingTransaction: findMatchingUnlinkedIncome(
+			item.recurrence,
+			item.occurrenceOn,
+			incomeTransactions,
+		),
+	}));
 	const receivableTotal = receivable.reduce(
 		(total, item) => total + item.recurrence.amountCents,
 		0,
@@ -249,18 +260,49 @@ export default async function ReceitasPage() {
 
 			<Card>
 				<CardHeader>
-					<CardTitle>A receber</CardTitle>
+					<CardTitle>Receitas recorrentes</CardTitle>
 				</CardHeader>
 				<CardContent>
-					{receivable.length > 0 ? (
+					{activeRecurrences.length > 0 ? (
 						<div className="grid gap-3">
-							{receivable.map(({ recurrence, occurrenceOn }) => (
-								<ReceivableRow
-									key={`${recurrence.id}-${occurrenceOn}`}
-									occurrenceOn={occurrenceOn}
+							{activeRecurrences.map((recurrence) => (
+								<RecurringIncomeRow
+									accountOptions={accountOptions}
+									categoryOptions={categoryOptions}
+									key={recurrence.id}
 									recurrence={recurrence}
 								/>
 							))}
+						</div>
+					) : (
+						<EmptyState
+							description="Nenhuma receita recorrente cadastrada."
+							icon={CalendarClock}
+							title="Sem recorrentes"
+						/>
+					)}
+				</CardContent>
+			</Card>
+
+			<Card>
+				<CardHeader>
+					<CardTitle>A receber</CardTitle>
+				</CardHeader>
+				<CardContent>
+					{receivableWithMatches.length > 0 ? (
+						<div className="grid gap-3">
+							{receivableWithMatches.map(
+								({ recurrence, occurrenceOn, matchingTransaction }) => (
+									<ReceivableRow
+										accountOptions={accountOptions}
+										categoryOptions={categoryOptions}
+										key={`${recurrence.id}-${occurrenceOn}`}
+										matchingTransaction={matchingTransaction}
+										occurrenceOn={occurrenceOn}
+										recurrence={recurrence}
+									/>
+								),
+							)}
 						</div>
 					) : (
 						<EmptyState
@@ -383,46 +425,108 @@ export default async function ReceitasPage() {
 function ReceivableRow({
 	recurrence,
 	occurrenceOn,
+	matchingTransaction,
+	accountOptions,
+	categoryOptions,
 }: {
-	recurrence: RecurrenceInput;
+	recurrence: RecurrenceInput & Partial<Pick<RecurrenceRow, "description">>;
 	occurrenceOn: string;
+	matchingTransaction: TransactionRow | null;
+	accountOptions: Record<string, string>;
+	categoryOptions: Record<string, string>;
 }) {
 	const late = occurrenceOn < isoToday();
 	return (
-		<form
-			action={confirmRecurrenceOccurrence}
-			className="grid gap-3 rounded-md border bg-muted/20 p-4 md:grid-cols-[1fr_auto] md:items-end"
-		>
-			<div>
-				<div className="flex flex-wrap items-center gap-2">
-					<p className="font-medium">{recurrence.name}</p>
-					<Badge variant={late ? "destructive" : "secondary"}>
-						{late ? "Atrasada" : "Prevista"}
-					</Badge>
-				</div>
-				<p className="text-muted-foreground text-xs">
-					{formatDate(occurrenceOn)} · {formatMoney(recurrence.amountCents)}
-				</p>
-				<input name="recurrenceId" type="hidden" value={recurrence.id} />
-				<input name="occurrenceOn" type="hidden" value={occurrenceOn} />
-				<input
-					name="amountCents"
-					type="hidden"
-					value={recurrence.amountCents}
-				/>
-				<div className="mt-3 grid gap-3 md:grid-cols-3">
-					<Input defaultValue={recurrence.name} name="description" />
-					<Input defaultValue={occurrenceOn} name="occurredOn" type="date" />
-					<Input
-						defaultValue={moneyValue(recurrence.amountCents)}
-						name="amount"
+		<div className="grid gap-3 rounded-md border bg-muted/20 p-4 md:grid-cols-[1fr_auto] md:items-end">
+			<form action={confirmRecurrenceOccurrence} className="contents">
+				<div>
+					<div className="flex flex-wrap items-center gap-2">
+						<p className="font-medium">{recurrence.name}</p>
+						<Badge variant={late ? "destructive" : "secondary"}>
+							{late ? "Atrasada" : "Prevista"}
+						</Badge>
+					</div>
+					<p className="text-muted-foreground text-xs">
+						{formatDate(occurrenceOn)} · {formatMoney(recurrence.amountCents)}
+					</p>
+					<input name="recurrenceId" type="hidden" value={recurrence.id} />
+					<input name="occurrenceOn" type="hidden" value={occurrenceOn} />
+					<input
+						name="amountCents"
+						type="hidden"
+						value={recurrence.amountCents}
 					/>
+					<div className="mt-3 grid gap-3 md:grid-cols-3">
+						<Input defaultValue={recurrence.name} name="description" />
+						<Input defaultValue={occurrenceOn} name="occurredOn" type="date" />
+						<Input
+							defaultValue={moneyValue(recurrence.amountCents)}
+							name="amount"
+						/>
+					</div>
 				</div>
+				<div className="grid gap-2">
+					<SubmitButton pendingLabel="Confirmando...">
+						Confirmar recebimento
+					</SubmitButton>
+					{matchingTransaction ? (
+						<div className="rounded-md border border-warning/40 bg-warning/10 p-3 text-warning text-xs">
+							<p>
+								Já existe uma receita parecida lançada em{" "}
+								{formatDate(matchingTransaction.occurredOn)} no valor de{" "}
+								{formatMoney(matchingTransaction.amountCents)}.
+							</p>
+							<button
+								className="mt-2 underline"
+								formAction={linkTransactionToRecurrence}
+								type="submit"
+							>
+								Vincular como recebida
+							</button>
+							<input
+								name="transactionId"
+								type="hidden"
+								value={matchingTransaction.id}
+							/>
+						</div>
+					) : null}
+				</div>
+			</form>
+			<div className="md:col-start-2">
+				<IncomeRecurrenceDialog
+					accountOptions={accountOptions}
+					categoryOptions={categoryOptions}
+					recurrence={recurrence}
+				/>
 			</div>
-			<SubmitButton pendingLabel="Confirmando...">
-				Confirmar recebimento
-			</SubmitButton>
-		</form>
+		</div>
+	);
+}
+
+function RecurringIncomeRow({
+	recurrence,
+	accountOptions,
+	categoryOptions,
+}: {
+	recurrence: RecurrenceRow;
+	accountOptions: Record<string, string>;
+	categoryOptions: Record<string, string>;
+}) {
+	return (
+		<div className="flex flex-col gap-3 rounded-md border bg-muted/20 p-4 sm:flex-row sm:items-center sm:justify-between">
+			<div>
+				<p className="font-medium">{recurrence.name}</p>
+				<p className="text-muted-foreground text-xs">
+					{formatMoney(recurrence.amountCents)} · {frequencyLabel(recurrence)} ·
+					início em {formatDate(recurrence.startsOn)}
+				</p>
+			</div>
+			<IncomeRecurrenceDialog
+				accountOptions={accountOptions}
+				categoryOptions={categoryOptions}
+				recurrence={recurrence}
+			/>
+		</div>
 	);
 }
 
@@ -504,65 +608,106 @@ function IncomeDialog({
 function IncomeRecurrenceDialog({
 	accountOptions,
 	categoryOptions,
+	recurrence,
 }: {
 	accountOptions: Record<string, string>;
 	categoryOptions: Record<string, string>;
+	recurrence?: RecurrenceInput & Partial<Pick<RecurrenceRow, "description">>;
 }) {
 	return (
 		<ActionDialog
-			action={createRecurrence}
+			action={recurrence ? updateRecurrence : createRecurrence}
 			contentClassName="sm:max-w-3xl"
 			description="Use para salário, aluguéis e outras receitas esperadas. Depois confirme cada recebimento em A receber."
 			footerClassName="sm:col-span-2 lg:col-span-3"
 			formClassName="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
-			pendingLabel="Cadastrando..."
-			submitLabel="Cadastrar"
-			successMessage="Receita recorrente criada."
-			title="Receita recorrente"
+			pendingLabel={recurrence ? "Salvando..." : "Cadastrando..."}
+			submitLabel={recurrence ? "Salvar" : "Cadastrar"}
+			successMessage={
+				recurrence
+					? "Receita recorrente atualizada."
+					: "Receita recorrente criada."
+			}
+			title={recurrence ? "Editar receita recorrente" : "Receita recorrente"}
 			trigger={
-				<Button variant="outline">
-					<Plus className="size-4" />
-					Receita recorrente
+				<Button size={recurrence ? "sm" : "default"} variant="outline">
+					{recurrence ? (
+						"Editar recorrente"
+					) : (
+						<>
+							<Plus className="size-4" />
+							Receita recorrente
+						</>
+					)}
 				</Button>
 			}
 		>
+			{recurrence ? (
+				<input name="id" type="hidden" value={recurrence.id} />
+			) : null}
 			<input name="movementType" type="hidden" value="income" />
-			<Field label="Nome" name="name" />
-			<Field label="Valor" name="amount" />
-			<SelectField label="Conta" name="accountId" options={accountOptions} />
+			<Field defaultValue={recurrence?.name} label="Nome" name="name" />
+			<Field
+				defaultValue={
+					recurrence ? moneyValue(recurrence.amountCents) : undefined
+				}
+				label="Valor"
+				name="amount"
+			/>
 			<SelectField
+				defaultValue={
+					recurrence?.accountId ? String(recurrence.accountId) : undefined
+				}
+				label="Conta"
+				name="accountId"
+				options={accountOptions}
+			/>
+			<SelectField
+				defaultValue={
+					recurrence?.categoryId ? String(recurrence.categoryId) : undefined
+				}
 				label="Categoria"
 				name="categoryId"
 				options={categoryOptions}
 			/>
 			<SelectField
-				defaultValue="monthly"
+				defaultValue={recurrence?.frequency ?? "monthly"}
 				label="Frequência"
 				name="frequency"
 				options={frequencyOptions}
 			/>
 			<Field
-				defaultValue={1}
+				defaultValue={recurrence?.intervalCount ?? 1}
 				label="A cada"
 				min={1}
 				name="intervalCount"
 				type="number"
 			/>
 			<Field
-				defaultValue={isoToday()}
+				defaultValue={recurrence?.startsOn ?? isoToday()}
 				label="Início"
 				name="startsOn"
 				type="date"
 			/>
-			<Field label="Fim" name="endsOn" type="date" />
 			<Field
+				defaultValue={recurrence?.endsOn ?? ""}
+				label="Fim"
+				name="endsOn"
+				type="date"
+			/>
+			<Field
+				defaultValue={recurrence?.anchorDay ?? ""}
 				label="Dia do mês"
 				max={31}
 				min={1}
 				name="anchorDay"
 				type="number"
 			/>
-			<Field label="Descrição" name="description" />
+			<Field
+				defaultValue={recurrence?.description ?? ""}
+				label="Descrição"
+				name="description"
+			/>
 		</ActionDialog>
 	);
 }
@@ -634,8 +779,63 @@ function maxIso(left: string, right: string) {
 	return left > right ? left : right;
 }
 
+function frequencyLabel(
+	recurrence: Pick<RecurrenceRow, "frequency" | "intervalCount">,
+) {
+	const interval = recurrence.intervalCount > 1 ? recurrence.intervalCount : 1;
+	if (recurrence.frequency === "once") return "Uma vez";
+	if (recurrence.frequency === "weekly") {
+		return interval === 1 ? "Semanal" : `A cada ${interval} semanas`;
+	}
+	if (recurrence.frequency === "monthly") {
+		return interval === 1 ? "Mensal" : `A cada ${interval} meses`;
+	}
+	return interval === 1 ? "Anual" : `A cada ${interval} anos`;
+}
+
+function findMatchingUnlinkedIncome(
+	recurrence: RecurrenceInput,
+	occurrenceOn: string,
+	transactions: TransactionRow[],
+) {
+	return (
+		transactions
+			.filter(
+				(transaction) =>
+					!transaction.isArchived &&
+					transaction.status === "confirmed" &&
+					transaction.movementType === "income" &&
+					transaction.recurrenceId === null &&
+					transaction.accountId === recurrence.accountId &&
+					(recurrence.categoryId === null ||
+						transaction.categoryId === recurrence.categoryId),
+			)
+			.map((transaction) => ({
+				transaction,
+				dayDelta: Math.abs(daysBetween(transaction.occurredOn, occurrenceOn)),
+				valueDelta: Math.abs(transaction.amountCents - recurrence.amountCents),
+			}))
+			.filter(
+				(candidate) =>
+					candidate.dayDelta <= 3 &&
+					candidate.valueDelta <=
+						Math.max(100, Math.round(recurrence.amountCents * 0.05)),
+			)
+			.sort(
+				(left, right) =>
+					left.dayDelta - right.dayDelta || left.valueDelta - right.valueDelta,
+			)[0]?.transaction ?? null
+	);
+}
+
+function daysBetween(left: string, right: string) {
+	const leftDate = new Date(`${left}T00:00:00Z`);
+	const rightDate = new Date(`${right}T00:00:00Z`);
+	return Math.round((rightDate.valueOf() - leftDate.valueOf()) / 86_400_000);
+}
+
 function moneyValue(cents: number) {
-	return (cents / 100).toFixed(2);
+	return formatMoneyInput(cents);
 }
 
 const selectClass =
