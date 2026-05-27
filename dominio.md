@@ -27,10 +27,23 @@ Tipos suportados:
 - Conta corrente
 - Conta poupança
 - Carteira/dinheiro
-- Cartão de crédito
 - Investimento, incluindo caixinhas/reservas resgatáveis
 
-Bancos, carteiras e cartões são modelados como contas.
+Contas representam dinheiro real. Cartões de crédito não são contas.
+
+## Cartões e faturas
+
+Cartões de crédito são entidades próprias, com instituição, dia de fechamento, dia de vencimento, limite opcional e conta padrão opcional para pagamento.
+
+Cada compra de cartão pertence a uma fatura persistida, identificada pelo cartão e pelo mês de vencimento (`YYYY-MM`). Se a fatura ainda não existe, cadastro manual e importação podem criá-la. Se já existe, a compra é adicionada nela.
+
+Compra de cartão continua sendo despesa para análise de gastos na data da compra. Ela não é saída de caixa; a saída de caixa acontece no pagamento da fatura.
+
+Pagamento de fatura é uma movimentação que sai de uma conta real e abate uma fatura específica. Pagamentos parciais, múltiplos e acima do saldo são permitidos. Pagamento acima do saldo representa crédito/adiantamento.
+
+Estorno/crédito do cartão é abatimento da fatura, não receita.
+
+Parcelamentos criam um grupo de parcelas e lançamentos futuros nas faturas futuras. Cada parcela conta no mês/data da própria parcela.
 
 ## Categorias
 
@@ -47,7 +60,7 @@ Tipos:
 - Receita
 - Despesa
 - Transferência
-- Pagamento de fatura de cartão
+- Pagamento de fatura de cartão, sempre vinculado a uma fatura específica
 - Ajuste de saldo
 
 Transferência usa origem e destino reais. Exemplo: depósito na caixinha é Nubank → Caixinha; resgate da caixinha é Caixinha → Nubank, mesmo quando a linha veio do extrato Nubank.
@@ -89,6 +102,8 @@ Garantias:
 ## Importação
 
 A importação CSV tem duas etapas: lote e linhas. Linhas importadas devem ser revisadas antes de virarem transações definitivas. Na revisão, uma linha pode virar receita, despesa ou transferência. Regras de importação podem sugerir transferência com origem/destino reais para casos recorrentes como caixinhas Nubank.
+
+Importação de cartão exige cartão e mês de vencimento da fatura no lote. As linhas entram na fatura escolhida, com possibilidade de revisão antes de confirmar. Importação de conta bancária que contenha pagamento de fatura deve vincular a linha à fatura específica paga.
 
 Status do lote: rascunho, em revisão, confirmado, cancelado e revertido.
 

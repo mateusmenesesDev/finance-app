@@ -94,15 +94,18 @@ export function rankAccountsByExpense(
 	>();
 	for (const transaction of transactions) {
 		if (!isConfirmedExpenseInPeriod(transaction, period)) continue;
-		const row = rows.get(transaction.accountId) ?? {
-			accountId: transaction.accountId,
-			accountName: accountNames.get(transaction.accountId) ?? "Conta removida",
+		const accountId = transaction.accountId ?? -1;
+		const row = rows.get(accountId) ?? {
+			accountId,
+			accountName: transaction.accountId
+				? (accountNames.get(transaction.accountId) ?? "Conta removida")
+				: "Cartão",
 			amountCents: 0,
 			transactionCount: 0,
 		};
 		row.amountCents += transaction.amountCents;
 		row.transactionCount++;
-		rows.set(transaction.accountId, row);
+		rows.set(accountId, row);
 	}
 	return [...rows.values()]
 		.sort(byAmountThenName("accountName"))
@@ -177,7 +180,9 @@ export function rankLargestExpenses(
 				transaction.originalDescription ??
 				"Sem descrição",
 			amountCents: transaction.amountCents,
-			accountName: accountNames.get(transaction.accountId) ?? "Conta removida",
+			accountName: transaction.accountId
+				? (accountNames.get(transaction.accountId) ?? "Conta removida")
+				: "Cartão",
 			categoryName: transaction.categoryId
 				? (categoryNames.get(transaction.categoryId) ?? "Categoria removida")
 				: "Sem categoria",

@@ -28,13 +28,24 @@ export type RuleAccount = {
 };
 
 export type RuleTransaction = {
-	accountId: number;
+	accountId: number | null;
 	destinationAccountId: number | null;
 	categoryId?: number | null;
+	cardId?: number | null;
+	cardInvoiceId?: number | null;
+	cardEntryKind?: "charge" | "credit" | null;
 	movementType: MovementType;
 	status: TransactionStatus;
 	amountCents: number;
 	occurredOn: string;
+	isArchived: boolean;
+};
+
+export type RuleCardInvoice = {
+	id: number;
+	accountId: number;
+	key: string;
+	totalCents: number;
 	isArchived: boolean;
 };
 
@@ -135,11 +146,15 @@ export function calculateAccountBalances(
 	for (const transaction of transactions) {
 		if (!affectsReports(transaction)) continue;
 
-		const source = accountsById.get(transaction.accountId);
+		const source = transaction.accountId
+			? accountsById.get(transaction.accountId)
+			: undefined;
 		const destination = transaction.destinationAccountId
 			? accountsById.get(transaction.destinationAccountId)
 			: undefined;
-		const sourceBalance = balances.get(transaction.accountId);
+		const sourceBalance = transaction.accountId
+			? balances.get(transaction.accountId)
+			: undefined;
 		const destinationBalance = transaction.destinationAccountId
 			? balances.get(transaction.destinationAccountId)
 			: undefined;
@@ -186,6 +201,60 @@ export function calculateAccountBalances(
 	}
 
 	return balances;
+}
+
+export function calculateCardInvoiceBalances(
+	invoices: RuleCardInvoice[],
+	transactions: RuleTransaction[],
+) {
+	const rows = invoices
+		.filter((invoice) => !invoice.isArchived)
+		.map((invoice) => ({
+			accountId: invoice.accountId,
+			invoiceId: invoice.id,
+			key: invoice.key,
+			paidCents: 0,
+			remainingCents: invoice.totalCents,
+			totalCents: invoice.totalCents,
+		}));
+	const invoiceById = new Map(
+		rows.map((invoice) => [invoice.invoiceId, invoice]),
+	);
+	let unallocatedPaymentCents = 0;
+
+	for (const transaction of transactions) {
+		if (!affectsReports(transaction)) continue;
+		if (transaction.movementType !== "credit_card_payment") continue;
+
+		const invoiceId = transaction.cardInvoiceId ?? null;
+		if (invoiceId === null) {
+			unallocatedPaymentCents += transaction.amountCents;
+			continue;
+		}
+
+		const invoice = invoiceById.get(invoiceId);
+		if (!invoice) continue;
+		invoice.paidCents += transaction.amountCents;
+		invoice.remainingCents = Math.max(
+			0,
+			invoice.totalCents - invoice.paidCents,
+		);
+	}
+
+	const cardDebtByAccountId = new Map<number, number>();
+	for (const invoice of rows) {
+		cardDebtByAccountId.set(
+			invoice.accountId,
+			(cardDebtByAccountId.get(invoice.accountId) ?? 0) +
+				invoice.remainingCents,
+		);
+	}
+
+	return {
+		invoices: rows,
+		cardDebtByAccountId,
+		unallocatedPaymentCents,
+	};
 }
 
 export function getMonthPeriod(reference = new Date()): MonthPeriod {
@@ -297,7 +366,10 @@ function isMonthlyBalanceTransaction(
 	if (transaction.movementType === "income") return true;
 	if (transaction.movementType === "credit_card_payment") return true;
 	if (transaction.movementType === "expense") {
-		return !creditCardAccountIds.has(transaction.accountId);
+		return (
+			transaction.accountId !== null &&
+			!creditCardAccountIds.has(transaction.accountId)
+		);
 	}
 	return false;
 }
@@ -310,9 +382,7 @@ export function calculateMonthlyBalanceTotals(
 	accounts: RuleAccount[],
 ) {
 	const creditCardAccountIds = new Set(
-		accounts
-			.filter((a) => a.type === "credit_card")
-			.map((a) => a.id),
+		accounts.filter((a) => a.type === "credit_card").map((a) => a.id),
 	);
 	const groupRoleByCategory = new Map(
 		categories.map((category) => [

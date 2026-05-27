@@ -37,7 +37,9 @@ import {
 import { getSession } from "~/server/better-auth/server";
 import { db } from "~/server/db";
 import {
+	cardInvoices,
 	categories,
+	creditCards,
 	financialAccounts,
 	importBatches,
 	importCategoryRules,
@@ -67,37 +69,54 @@ export default async function ImportPage({ searchParams }: ImportPageProps) {
 
 	const params = await searchParams;
 	const selectedBatchId = params?.batchId ? Number(params.batchId) : null;
-	const [accounts, activeCategories, templates, batches, rules] =
-		await Promise.all([
-			db
-				.select()
-				.from(financialAccounts)
-				.where(eq(financialAccounts.userId, session.user.id))
-				.orderBy(asc(financialAccounts.name)),
-			db
-				.select()
-				.from(categories)
-				.where(eq(categories.userId, session.user.id))
-				.orderBy(asc(categories.kind), asc(categories.name)),
-			db
-				.select()
-				.from(importTemplates)
-				.where(eq(importTemplates.userId, session.user.id))
-				.orderBy(asc(importTemplates.name)),
-			db
-				.select()
-				.from(importBatches)
-				.where(eq(importBatches.userId, session.user.id))
-				.orderBy(desc(importBatches.createdAt), desc(importBatches.id)),
-			db
-				.select()
-				.from(importCategoryRules)
-				.where(eq(importCategoryRules.userId, session.user.id))
-				.orderBy(
-					desc(importCategoryRules.createdAt),
-					desc(importCategoryRules.id),
-				),
-		]);
+	const [
+		accounts,
+		cards,
+		invoices,
+		activeCategories,
+		templates,
+		batches,
+		rules,
+	] = await Promise.all([
+		db
+			.select()
+			.from(financialAccounts)
+			.where(eq(financialAccounts.userId, session.user.id))
+			.orderBy(asc(financialAccounts.name)),
+		db
+			.select()
+			.from(creditCards)
+			.where(eq(creditCards.userId, session.user.id))
+			.orderBy(asc(creditCards.name)),
+		db
+			.select()
+			.from(cardInvoices)
+			.where(eq(cardInvoices.userId, session.user.id))
+			.orderBy(desc(cardInvoices.dueDate)),
+		db
+			.select()
+			.from(categories)
+			.where(eq(categories.userId, session.user.id))
+			.orderBy(asc(categories.kind), asc(categories.name)),
+		db
+			.select()
+			.from(importTemplates)
+			.where(eq(importTemplates.userId, session.user.id))
+			.orderBy(asc(importTemplates.name)),
+		db
+			.select()
+			.from(importBatches)
+			.where(eq(importBatches.userId, session.user.id))
+			.orderBy(desc(importBatches.createdAt), desc(importBatches.id)),
+		db
+			.select()
+			.from(importCategoryRules)
+			.where(eq(importCategoryRules.userId, session.user.id))
+			.orderBy(
+				desc(importCategoryRules.createdAt),
+				desc(importCategoryRules.id),
+			),
+	]);
 	const selectedBatch = selectedBatchId
 		? batches.find((batch) => batch.id === selectedBatchId)
 		: batches[0];
@@ -127,8 +146,10 @@ export default async function ImportPage({ searchParams }: ImportPageProps) {
 		templates.map((template) => [template.id, template]),
 	);
 	const usableAccounts = accounts.filter(
-		(account) => !account.isArchived && account.isActive,
+		(account) =>
+			!account.isArchived && account.isActive && account.type !== "credit_card",
 	);
+	const usableCards = cards.filter((card) => !card.isArchived && card.isActive);
 	const activeTemplates = templates.filter((template) => !template.isArchived);
 	const usableCategories = activeCategories.filter(
 		(category) => !category.isArchived,
@@ -136,6 +157,16 @@ export default async function ImportPage({ searchParams }: ImportPageProps) {
 	const categoryById = new Map(
 		activeCategories.map((category) => [category.id, category]),
 	);
+	const cardById = new Map(cards.map((card) => [card.id, card]));
+	const invoiceOptions = invoices
+		.filter((invoice) => !invoice.isArchived)
+		.map((invoice) => ({
+			id: invoice.id,
+			cardId: invoice.cardId,
+			cardName: cardById.get(invoice.cardId)?.name ?? "Cartão removido",
+			monthKey: invoice.monthKey,
+			dueDate: invoice.dueDate,
+		}));
 
 	return (
 		<AppShell user={{ name: session.user.name, email: session.user.email }}>
@@ -388,14 +419,37 @@ export default async function ImportPage({ searchParams }: ImportPageProps) {
 										hint="Todas as linhas vão para esta conta."
 										label="Conta de destino"
 									>
-										<select className={inputClass} name="accountId" required>
-											<option value="">Escolha uma conta</option>
+										<select className={inputClass} name="accountId">
+											<option value="">Importar cartão abaixo</option>
 											{usableAccounts.map((account) => (
 												<option key={account.id} value={account.id}>
 													{account.name}
 												</option>
 											))}
 										</select>
+									</FieldLabel>
+									<FieldLabel
+										hint="Para CSV de fatura, escolha cartão e mês de vencimento."
+										label="Cartão"
+									>
+										<select className={inputClass} name="cardId">
+											<option value="">Importar conta acima</option>
+											{usableCards.map((card) => (
+												<option key={card.id} value={card.id}>
+													{card.name}
+												</option>
+											))}
+										</select>
+									</FieldLabel>
+									<FieldLabel
+										hint="Mês de vencimento da fatura do cartão."
+										label="Mês da fatura"
+									>
+										<input
+											className={inputClass}
+											name="invoiceMonthKey"
+											type="month"
+										/>
 									</FieldLabel>
 									<FieldLabel
 										hint="Define como o CSV vai ser interpretado."
@@ -484,8 +538,11 @@ export default async function ImportPage({ searchParams }: ImportPageProps) {
 											{statusLabels[batch.status]} · {batch.rowCount} linha(s)
 										</p>
 										<p className="mt-1 text-muted-foreground text-xs">
-											Conta: {accountById.get(batch.accountId)?.name ?? "—"} ·
-											Modelo:{" "}
+											Conta:{" "}
+											{batch.accountId
+												? (accountById.get(batch.accountId)?.name ?? "—")
+												: "Cartão"}{" "}
+											· Modelo:{" "}
 											{batch.importTemplateId
 												? (templateById.get(batch.importTemplateId)?.name ??
 													"arquivado")
@@ -511,6 +568,7 @@ export default async function ImportPage({ searchParams }: ImportPageProps) {
 						>
 							{selectedBatch ? (
 								<BatchReview
+									invoiceOptions={invoiceOptions}
 									reviewAccounts={usableAccounts}
 									reviewCategories={usableCategories}
 									reviewRecurrences={suggestedRecurrences.filter((recurrence) =>
@@ -850,6 +908,7 @@ function ImportRulePanel({
 function BatchReview({
 	selectedBatch,
 	rows,
+	invoiceOptions,
 	reviewAccounts,
 	reviewCategories,
 	reviewRules,
@@ -857,6 +916,13 @@ function BatchReview({
 }: {
 	selectedBatch: typeof importBatches.$inferSelect;
 	rows: (typeof importRows.$inferSelect)[];
+	invoiceOptions: {
+		id: number;
+		cardId: number;
+		cardName: string;
+		monthKey: string;
+		dueDate: string;
+	}[];
 	reviewAccounts: (typeof financialAccounts.$inferSelect)[];
 	reviewCategories: (typeof categories.$inferSelect)[];
 	reviewRules: (typeof importCategoryRules.$inferSelect)[];
@@ -882,6 +948,8 @@ function BatchReview({
 					? row.movementType
 					: null,
 		accountId: row.accountId,
+		cardId: row.cardId,
+		cardInvoiceId: row.cardInvoiceId,
 		suggestedSourceAccountId: row.suggestedSourceAccountId,
 		suggestedDestinationAccountId: row.suggestedDestinationAccountId,
 		originalDescription: row.originalDescription,
@@ -1013,6 +1081,7 @@ function BatchReview({
 						kind: category.kind,
 					}))}
 					invalidCount={totals.invalid}
+					invoices={invoiceOptions}
 					rows={reviewFormRows}
 				/>
 			) : (

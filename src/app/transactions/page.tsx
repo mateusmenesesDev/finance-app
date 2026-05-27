@@ -290,7 +290,9 @@ export default async function TransactionsPage({
 						rows={visibleTransactions.map((transaction) => ({
 							id: transaction.id,
 							accountId: transaction.accountId,
-							accountName: accountById.get(transaction.accountId)?.name ?? "—",
+							accountName: transaction.accountId
+								? (accountById.get(transaction.accountId)?.name ?? "—")
+								: "Cartão",
 							amountCents: transaction.amountCents,
 							categoryId: transaction.categoryId,
 							categoryName:

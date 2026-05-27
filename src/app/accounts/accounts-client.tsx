@@ -19,7 +19,7 @@ const accountTypeLabels = {
 	checking: "Conta corrente",
 	savings: "Poupança",
 	cash: "Carteira",
-	credit_card: "Cartão de crédito",
+	credit_card: "Cartão migrado",
 	investment: "Investimento",
 };
 
@@ -29,8 +29,6 @@ type Account = {
 	institution: string | null;
 	type: keyof typeof accountTypeLabels;
 	initialBalanceCents: number;
-	creditCardClosingDay: number | null;
-	creditCardDueDay: number | null;
 	isActive: boolean;
 };
 
@@ -92,10 +90,6 @@ export function AccountsList({
 								<span>
 									Saldo: <Money cents={balance?.normalBalanceCents ?? 0} />
 								</span>
-								<span>
-									Cartão:{" "}
-									<Money cents={balance?.cardDebtCents ?? 0} sign="debit" />
-								</span>
 							</div>
 						</div>
 						<div className="flex flex-wrap gap-2">
@@ -135,7 +129,7 @@ function EditAccountDialog({ account }: { account: Account }) {
 	return (
 		<ActionDialog
 			action={updateAccount}
-			description="Atualize dados da conta ou cartão."
+			description="Atualize dados da conta. Cartões ficam na tela Cartões."
 			formClassName="grid gap-4"
 			pendingLabel="Salvando..."
 			submitLabel="Salvar"
@@ -175,16 +169,6 @@ function EditAccountDialog({ account }: { account: Account }) {
 					defaultValue={formatMoneyInput(account.initialBalanceCents)}
 					label="Saldo inicial"
 					name="initialBalance"
-				/>
-				<Field
-					defaultValue={account.creditCardClosingDay?.toString() ?? ""}
-					label="Fecha"
-					name="closingDay"
-				/>
-				<Field
-					defaultValue={account.creditCardDueDay?.toString() ?? ""}
-					label="Vence"
-					name="dueDay"
 				/>
 			</div>
 			<div className="flex items-center gap-2 text-sm">

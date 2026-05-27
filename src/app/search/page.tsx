@@ -205,8 +205,9 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
 							<SearchTransactionsTable
 								rows={matchedTransactions.map((transaction) => ({
 									id: transaction.id,
-									accountName:
-										accountById.get(transaction.accountId)?.name ?? null,
+									accountName: transaction.accountId
+										? (accountById.get(transaction.accountId)?.name ?? null)
+										: "Cartão",
 									amountCents: transaction.amountCents,
 									categoryName:
 										categoryById.get(transaction.categoryId ?? 0)?.name ?? null,

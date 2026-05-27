@@ -48,7 +48,7 @@ const transactionAuditFields = [
 
 export type TransactionAuditSnapshot = Pick<
 	{
-		accountId: number;
+		accountId: number | null;
 		destinationAccountId: number | null;
 		categoryId: number | null;
 		movementType: string;

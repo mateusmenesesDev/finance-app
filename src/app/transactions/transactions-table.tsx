@@ -35,7 +35,7 @@ export type SelectOption = { id: number; name: string; kind?: string };
 
 export type TransactionRow = {
 	id: number;
-	accountId: number;
+	accountId: number | null;
 	destinationAccountId: number | null;
 	categoryId: number | null;
 	movementType: string;
@@ -271,7 +271,7 @@ function EditTransactionDialog({
 						name="amount"
 					/>
 					<SelectField
-						defaultValue={row.accountId}
+						defaultValue={row.accountId ?? ""}
 						name="accountId"
 						options={accounts}
 					/>

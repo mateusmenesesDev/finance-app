@@ -15,7 +15,8 @@ import {
 } from "./csv-domain";
 
 export type ExistingImportTransaction = {
-	accountId: number;
+	accountId: number | null;
+	cardInvoiceId?: number | null;
 	occurredOn: string;
 	amountCents: number;
 	movementType: string;
@@ -26,7 +27,8 @@ export type ExistingImportTransaction = {
 
 export type PreviousImportRow = {
 	batchId: number;
-	accountId: number;
+	accountId: number | null;
+	cardInvoiceId?: number | null;
 	status: string;
 	occurredOn: string | null;
 	amountCents: number | null;
@@ -38,7 +40,9 @@ export type PreviousImportRow = {
 export type ImportRowInsert = {
 	userId: string;
 	batchId: number;
-	accountId: number;
+	accountId: number | null;
+	cardId?: number | null;
+	cardInvoiceId?: number | null;
 	rowNumber: number;
 	status: "invalid" | "duplicate" | "pending_review";
 	occurredOn: string | null;
@@ -62,7 +66,9 @@ export type ImportRowInsert = {
 export type BuildImportBatchRowsInput = {
 	userId: string;
 	batchId: number;
-	accountId: number;
+	accountId: number | null;
+	cardId?: number | null;
+	cardInvoiceId?: number | null;
 	parsedRows: ParsedImportRow[];
 	existingTransactions: ExistingImportTransaction[];
 	previousImportRows: PreviousImportRow[];
@@ -76,45 +82,49 @@ export type BuildImportBatchRowsInput = {
 
 export function buildImportBatchRows(input: BuildImportBatchRowsInput) {
 	const existingKeys = new Set(
-		input.existingTransactions
-			.filter(
-				(row) =>
-					row.movementType === "income" || row.movementType === "expense",
-			)
-			.map((row) =>
-				duplicateKey({
-					accountId: row.accountId,
-					occurredOn: row.occurredOn,
-					amountCents: row.amountCents,
-					movementType: row.movementType as "income" | "expense",
-					externalId: row.externalId,
-					normalizedDescription: normalizeDescription(
-						row.originalDescription ?? row.description,
-					),
-				}),
-			),
+		input.existingTransactions.flatMap((row) => {
+			const scopeId = row.accountId ?? invoiceDuplicateScope(row.cardInvoiceId);
+			if (
+				scopeId === null ||
+				(row.movementType !== "income" && row.movementType !== "expense")
+			) {
+				return [];
+			}
+			return duplicateKey({
+				accountId: scopeId,
+				occurredOn: row.occurredOn,
+				amountCents: row.amountCents,
+				movementType: row.movementType as "income" | "expense",
+				externalId: row.externalId,
+				normalizedDescription: normalizeDescription(
+					row.originalDescription ?? row.description,
+				),
+			});
+		}),
 	);
 	const previousImportKeys = new Set(
-		input.previousImportRows
-			.filter(
-				(row) =>
-					input.previousActiveBatchIds.has(row.batchId) &&
-					row.status !== "ignored" &&
-					row.status !== "invalid" &&
-					row.occurredOn &&
-					row.amountCents &&
-					(row.movementType === "income" || row.movementType === "expense"),
-			)
-			.map((row) =>
-				duplicateKey({
-					accountId: row.accountId,
-					occurredOn: row.occurredOn ?? "",
-					amountCents: row.amountCents ?? 0,
-					movementType: row.movementType as "income" | "expense",
-					externalId: row.externalId,
-					normalizedDescription: row.normalizedDescription ?? "",
-				}),
-			),
+		input.previousImportRows.flatMap((row) => {
+			const scopeId = row.accountId ?? invoiceDuplicateScope(row.cardInvoiceId);
+			if (
+				!input.previousActiveBatchIds.has(row.batchId) ||
+				row.status === "ignored" ||
+				row.status === "invalid" ||
+				scopeId === null ||
+				!row.occurredOn ||
+				!row.amountCents ||
+				(row.movementType !== "income" && row.movementType !== "expense")
+			) {
+				return [];
+			}
+			return duplicateKey({
+				accountId: scopeId,
+				occurredOn: row.occurredOn,
+				amountCents: row.amountCents,
+				movementType: row.movementType,
+				externalId: row.externalId,
+				normalizedDescription: row.normalizedDescription ?? "",
+			});
+		}),
 	);
 	const fileKeys = new Set<string>();
 	const suggestedRuleMatchCounts = new Map<number, number>();
@@ -123,9 +133,16 @@ export function buildImportBatchRows(input: BuildImportBatchRowsInput) {
 		let rowStatus: "invalid" | "duplicate" | "pending_review" =
 			row.validationError ? "invalid" : "pending_review";
 		let duplicateReason: string | null = null;
-		if (row.occurredOn && row.amountCents && row.movementType) {
+		const duplicateScopeId =
+			input.accountId ?? invoiceDuplicateScope(input.cardInvoiceId);
+		if (
+			duplicateScopeId !== null &&
+			row.occurredOn &&
+			row.amountCents &&
+			row.movementType
+		) {
 			const key = duplicateKey({
-				accountId: input.accountId,
+				accountId: duplicateScopeId,
 				occurredOn: row.occurredOn,
 				amountCents: row.amountCents,
 				movementType: row.movementType,
@@ -143,7 +160,7 @@ export function buildImportBatchRows(input: BuildImportBatchRowsInput) {
 		}
 		if (duplicateReason) rowStatus = "duplicate";
 		const suggestion =
-			rowStatus === "pending_review"
+			rowStatus === "pending_review" && input.accountId !== null
 				? matchImportCategoryRule(
 						{ ...row, accountId: input.accountId },
 						input.rules,
@@ -162,6 +179,8 @@ export function buildImportBatchRows(input: BuildImportBatchRowsInput) {
 			userId: input.userId,
 			batchId: input.batchId,
 			accountId: input.accountId,
+			cardId: input.cardId ?? null,
+			cardInvoiceId: input.cardInvoiceId ?? null,
 			rowNumber: row.rowNumber,
 			status: rowStatus,
 			occurredOn: row.occurredOn,
@@ -205,6 +224,7 @@ export function buildImportBatchRows(input: BuildImportBatchRowsInput) {
 			const match =
 				row.status === "pending_review" &&
 				row.suggestionSource !== "rule_ignore" &&
+				row.accountId !== null &&
 				row.occurredOn &&
 				amountCents &&
 				(row.movementType === "income" || row.movementType === "expense")
@@ -248,6 +268,7 @@ export function buildImportBatchRows(input: BuildImportBatchRowsInput) {
 		if (!row) continue;
 		const amountCents = row.amountCents;
 		const recurrenceSuggestion =
+			row.accountId !== null &&
 			row.occurredOn &&
 			amountCents &&
 			(row.movementType === "income" || row.movementType === "expense")
@@ -273,4 +294,8 @@ export function buildImportBatchRows(input: BuildImportBatchRowsInput) {
 	}
 
 	return { rowValues, suggestionCount, suggestedRuleMatchCounts };
+}
+
+function invoiceDuplicateScope(invoiceId: number | null | undefined) {
+	return invoiceId ? -invoiceId : null;
 }

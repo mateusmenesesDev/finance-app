@@ -84,7 +84,7 @@ export type Suggestion =
 
 export type AssistantTransaction = {
 	id: number;
-	accountId: number;
+	accountId: number | null;
 	categoryId: number | null;
 	movementType: "income" | "expense" | string;
 	status: string;
@@ -147,6 +147,7 @@ export function suggestCategoryForTransactions(input: {
 	for (const tx of input.transactions) {
 		if (tx.isArchived || tx.status !== "confirmed") continue;
 		if (tx.categoryId !== null) continue;
+		if (tx.accountId === null) continue;
 		if (tx.movementType !== "income" && tx.movementType !== "expense") continue;
 
 		const normalized = normalizeDescriptionForImport(

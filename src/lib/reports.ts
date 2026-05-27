@@ -17,8 +17,8 @@ import {
 	type RuleTransaction,
 } from "./finance-rules";
 
-export type { Granularity } from "./cash-flow";
 export { monthKeysForDateRange } from "./budget-templates";
+export type { Granularity } from "./cash-flow";
 export type ReportPreset =
 	| "current_month"
 	| "last_30d"
@@ -285,7 +285,9 @@ export function accountMovement(
 	const byId = new Map(rows.map((row) => [row.accountId, row]));
 	for (const transaction of transactions) {
 		if (transaction.status !== "confirmed") continue;
-		const source = byId.get(transaction.accountId);
+		const source = transaction.accountId
+			? byId.get(transaction.accountId)
+			: undefined;
 		if (transaction.movementType === "income" && source)
 			source.inflowCents += transaction.amountCents;
 		if (
@@ -326,7 +328,9 @@ export function cardInvoiceSeries(
 		}
 	>();
 	for (const transaction of transactions) {
-		const account = cardById.get(transaction.accountId);
+		const account = transaction.accountId
+			? cardById.get(transaction.accountId)
+			: undefined;
 		if (
 			!account ||
 			transaction.status !== "confirmed" ||

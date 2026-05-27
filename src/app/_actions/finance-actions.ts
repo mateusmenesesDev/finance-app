@@ -2,17 +2,7 @@
 
 import { and, eq, gte, inArray, or, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-
-import {
-	invalidateAfterAccountMutation,
-	invalidateAfterBudgetMutation,
-	invalidateAfterCategoryMutation,
-	invalidateAfterImportMutation,
-	invalidateAfterRecurrenceMutation,
-	invalidateAfterTransactionMutation,
-} from "~/server/invalidate";
 import { redirect } from "next/navigation";
-
 import { buildImportBatchRows } from "~/features/imports/batch-domain";
 import { matchImportCategoryRule } from "~/features/imports/category-rules";
 import {
@@ -27,38 +17,50 @@ import {
 	normalizeImportTemplateConfig,
 	parseImportCsv,
 } from "~/features/imports/csv-domain";
+import { normalizeBudgetScopeSelection } from "~/lib/budget-form";
+import type { BudgetTemplateLike } from "~/lib/budget-templates";
 import {
 	type CategoryActionState,
 	categoryActionError,
 } from "~/lib/category-errors";
-import { normalizeBudgetScopeSelection } from "~/lib/budget-form";
-import type { BudgetTemplateLike } from "~/lib/budget-templates";
 import { MAX_AMOUNT_CENTS, moneyToCents } from "~/lib/money";
 import { maskSensitive } from "~/lib/sensitive-data";
 import { regenerateAssistantSuggestionsForUser } from "~/server/assistant";
-import { ensureBudgetTemplatesMaterialized } from "~/server/budget-templates";
 import {
 	diffTransaction,
 	recordAudit,
 	type TransactionAuditSnapshot,
 } from "~/server/audit";
 import { getSession } from "~/server/better-auth/server";
+import { ensureBudgetTemplatesMaterialized } from "~/server/budget-templates";
 import { db } from "~/server/db";
 import {
+	cardInstallmentGroups,
+	cardInvoices,
 	categories,
 	categoryGroups,
+	creditCards,
 	financialAccounts,
 	importBatches,
 	importCategoryRules,
 	importRows,
 	importTemplates,
 	monthlyBudgets,
-	monthlyBudgetTemplates,
 	monthlyBudgetTemplateSkips,
+	monthlyBudgetTemplates,
 	recurrences,
 	transactionSavedFilters,
 	transactions,
 } from "~/server/db/schema";
+import {
+	invalidateAfterAccountMutation,
+	invalidateAfterBudgetMutation,
+	invalidateAfterCardMutation,
+	invalidateAfterCategoryMutation,
+	invalidateAfterImportMutation,
+	invalidateAfterRecurrenceMutation,
+	invalidateAfterTransactionMutation,
+} from "~/server/invalidate";
 
 type AccountType =
 	| "checking"
@@ -80,6 +82,7 @@ type TransactionStatus =
 	| "pending_review";
 type CategoryKind = "income" | "expense";
 type CashFlowRole = "operational" | "financial";
+type CardEntryKind = "charge" | "credit";
 type ImportRuleTextMatchMode = "contains" | "exact";
 type ImportRuleAction = "categorize" | "ignore" | "transfer";
 type MonthlyBudgetScope = "month" | "category_group" | "category";
@@ -108,6 +111,7 @@ const transactionStatuses = new Set<TransactionStatus>([
 ]);
 const categoryKinds = new Set<CategoryKind>(["income", "expense"]);
 const cashFlowRoles = new Set<CashFlowRole>(["operational", "financial"]);
+const cardEntryKinds = new Set<CardEntryKind>(["charge", "credit"]);
 const importRuleTextMatchModes = new Set<ImportRuleTextMatchMode>([
 	"contains",
 	"exact",
@@ -234,6 +238,105 @@ function cardDay(formData: FormData, name: string) {
 	return day;
 }
 
+function optionalMoneyCents(formData: FormData, name: string) {
+	const value = optionalString(formData, name);
+	return value ? moneyToCents(value, { allowZero: false }) : null;
+}
+
+function invoiceDatesFromMonthKey(
+	monthKey: string,
+	closingDay: number,
+	dueDay: number,
+) {
+	const [year, month] = monthKey.split("-").map(Number);
+	if (!year || !month || month < 1 || month > 12) {
+		throw new Error("Mês da fatura inválido");
+	}
+	const dueDate = clampIsoDate(year, month - 1, dueDay);
+	const closingMonthOffset = dueDay > closingDay ? 0 : -1;
+	const closingDate = clampIsoDate(
+		year,
+		month - 1 + closingMonthOffset,
+		closingDay,
+	);
+	return { closingDate, dueDate };
+}
+
+function addMonthsToMonthKey(monthKey: string, months: number) {
+	const [year, month] = monthKey.split("-").map(Number);
+	if (!year || !month) throw new Error("Mês inválido");
+	const date = new Date(year, month - 1 + months, 1);
+	return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function addMonthsIsoDate(dateIso: string, months: number) {
+	const [year, month, day] = dateIso.split("-").map(Number);
+	if (!year || !month || !day) throw new Error("Data inválida");
+	return clampIsoDate(year, month - 1 + months, day);
+}
+
+function clampIsoDate(year: number, month: number, day: number) {
+	const target = new Date(year, month, 1);
+	const lastDay = new Date(
+		target.getFullYear(),
+		target.getMonth() + 1,
+		0,
+	).getDate();
+	return `${target.getFullYear()}-${String(target.getMonth() + 1).padStart(2, "0")}-${String(Math.min(day, lastDay)).padStart(2, "0")}`;
+}
+
+async function ensureCardInvoice(
+	tx: typeof db,
+	input: { userId: string; cardId: number; monthKey: string },
+) {
+	const card = await tx.query.creditCards.findFirst({
+		where: and(
+			eq(creditCards.id, input.cardId),
+			eq(creditCards.userId, input.userId),
+		),
+	});
+	if (!card || card.isArchived) throw new Error("Cartão inválido");
+	const existing = await tx.query.cardInvoices.findFirst({
+		where: and(
+			eq(cardInvoices.userId, input.userId),
+			eq(cardInvoices.cardId, input.cardId),
+			eq(cardInvoices.monthKey, input.monthKey),
+		),
+	});
+	if (existing) return { card, invoice: existing };
+
+	const dates = invoiceDatesFromMonthKey(
+		input.monthKey,
+		card.closingDay,
+		card.dueDay,
+	);
+	const [invoice] = await tx
+		.insert(cardInvoices)
+		.values({
+			userId: input.userId,
+			cardId: input.cardId,
+			monthKey: input.monthKey,
+			closingDate: dates.closingDate,
+			dueDate: dates.dueDate,
+		})
+		.returning();
+	if (!invoice) throw new Error("Não foi possível criar fatura");
+	return { card, invoice };
+}
+
+async function invoiceHasConfirmedPayment(userId: string, invoiceId: number) {
+	const payment = await db.query.transactions.findFirst({
+		where: and(
+			eq(transactions.userId, userId),
+			eq(transactions.cardInvoiceId, invoiceId),
+			eq(transactions.movementType, "credit_card_payment"),
+			eq(transactions.status, "confirmed"),
+			eq(transactions.isArchived, false),
+		),
+	});
+	return Boolean(payment);
+}
+
 function isoDateField(formData: FormData, name: string) {
 	const value = requiredString(formData, name);
 	const [year, month, day] = value.split("-").map(Number);
@@ -329,6 +432,8 @@ async function accountHasTransactions(userId: string, accountId: number) {
 export async function createAccount(formData: FormData) {
 	const userId = await requireUserId();
 	const type = enumField(formData, "type", accountTypes);
+	if (type === "credit_card")
+		throw new Error("Cadastre cartões na tela Cartões");
 
 	await db.insert(financialAccounts).values({
 		userId,
@@ -341,10 +446,8 @@ export async function createAccount(formData: FormData) {
 				allowZero: true,
 			},
 		),
-		creditCardClosingDay:
-			type === "credit_card" ? cardDay(formData, "closingDay") : null,
-		creditCardDueDay:
-			type === "credit_card" ? cardDay(formData, "dueDay") : null,
+		creditCardClosingDay: null,
+		creditCardDueDay: null,
 	});
 	invalidateAfterAccountMutation(userId);
 }
@@ -353,6 +456,8 @@ export async function updateAccount(formData: FormData) {
 	const userId = await requireUserId();
 	const id = intField(formData, "id");
 	const type = enumField(formData, "type", accountTypes);
+	if (type === "credit_card")
+		throw new Error("Cadastre cartões na tela Cartões");
 	const existing = await db.query.financialAccounts.findFirst({
 		where: and(
 			eq(financialAccounts.id, id),
@@ -377,10 +482,8 @@ export async function updateAccount(formData: FormData) {
 				},
 			),
 			isActive: formData.get("isActive") === "on",
-			creditCardClosingDay:
-				type === "credit_card" ? cardDay(formData, "closingDay") : null,
-			creditCardDueDay:
-				type === "credit_card" ? cardDay(formData, "dueDay") : null,
+			creditCardClosingDay: null,
+			creditCardDueDay: null,
 		})
 		.where(
 			and(eq(financialAccounts.id, id), eq(financialAccounts.userId, userId)),
@@ -414,6 +517,81 @@ export async function archiveAccount(formData: FormData) {
 		});
 	});
 	invalidateAfterAccountMutation(userId);
+}
+
+export async function createCard(formData: FormData) {
+	const userId = await requireUserId();
+	await db.insert(creditCards).values({
+		userId,
+		name: requiredString(formData, "name"),
+		institution: optionalString(formData, "institution"),
+		closingDay: cardDay(formData, "closingDay"),
+		dueDay: cardDay(formData, "dueDay"),
+		limitCents: optionalMoneyCents(formData, "limit"),
+		defaultPaymentAccountId: optionalIntField(
+			formData,
+			"defaultPaymentAccountId",
+		),
+	});
+	invalidateAfterCardMutation(userId);
+	revalidatePath("/cards");
+}
+
+export async function updateCard(formData: FormData) {
+	const userId = await requireUserId();
+	const id = intField(formData, "id");
+	const before = await db.query.creditCards.findFirst({
+		where: and(eq(creditCards.id, id), eq(creditCards.userId, userId)),
+	});
+	if (!before || before.isArchived) throw new Error("Cartão inválido");
+	await db
+		.update(creditCards)
+		.set({
+			name: requiredString(formData, "name"),
+			institution: optionalString(formData, "institution"),
+			closingDay: cardDay(formData, "closingDay"),
+			dueDay: cardDay(formData, "dueDay"),
+			limitCents: optionalMoneyCents(formData, "limit"),
+			defaultPaymentAccountId: optionalIntField(
+				formData,
+				"defaultPaymentAccountId",
+			),
+			isActive: formData.get("isActive") === "on",
+		})
+		.where(and(eq(creditCards.id, id), eq(creditCards.userId, userId)));
+	invalidateAfterCardMutation(userId);
+	revalidatePath("/cards");
+}
+
+export async function archiveCard(formData: FormData) {
+	const userId = await requireUserId();
+	const id = intField(formData, "id");
+	const openRows = await db
+		.select({
+			amountCents: transactions.amountCents,
+			kind: transactions.cardEntryKind,
+		})
+		.from(transactions)
+		.where(
+			and(
+				eq(transactions.userId, userId),
+				eq(transactions.cardId, id),
+				eq(transactions.status, "confirmed"),
+				eq(transactions.isArchived, false),
+			),
+		);
+	const openCents = openRows.reduce((total, row) => {
+		if (row.kind === "credit") return total - row.amountCents;
+		if (row.kind === null) return total - row.amountCents;
+		return total + row.amountCents;
+	}, 0);
+	if (openCents > 0) throw new Error("Quite as faturas antes de arquivar");
+	await db
+		.update(creditCards)
+		.set({ isArchived: true, isActive: false })
+		.where(and(eq(creditCards.id, id), eq(creditCards.userId, userId)));
+	invalidateAfterCardMutation(userId);
+	revalidatePath("/cards");
 }
 
 async function ensureDefaultCategoryGroup(
@@ -622,52 +800,158 @@ export async function archiveCategory(formData: FormData) {
 
 async function transactionValues(userId: string, formData: FormData) {
 	const movementType = enumField(formData, "movementType", movementTypes);
-	const accountId = intField(formData, "accountId");
+	const cardId = optionalIntField(formData, "cardId");
+	const cardInvoiceId = optionalIntField(formData, "cardInvoiceId");
+	const invoiceMonthKey = optionalString(formData, "invoiceMonthKey");
+	const accountId = optionalIntField(formData, "accountId");
 	const categoryId = optionalIntField(formData, "categoryId");
 	const destinationAccountId = optionalIntField(
 		formData,
 		"destinationAccountId",
 	);
-	const account = await db.query.financialAccounts.findFirst({
-		where: and(
-			eq(financialAccounts.id, accountId),
-			eq(financialAccounts.userId, userId),
-		),
-	});
-	const destinationAccount = destinationAccountId
-		? await db.query.financialAccounts.findFirst({
-				where: and(
-					eq(financialAccounts.id, destinationAccountId),
-					eq(financialAccounts.userId, userId),
-				),
-			})
-		: null;
-	const category = categoryId
-		? await db.query.categories.findFirst({
-				where: and(
-					eq(categories.id, categoryId),
-					eq(categories.userId, userId),
-				),
-			})
-		: null;
 	const recurrenceId = optionalIntField(formData, "recurrenceId");
 	const recurrenceOccurrenceOn = optionalIsoDateField(
 		formData,
 		"recurrenceOccurrenceOn",
 	);
-	const recurrence = recurrenceId
-		? await db.query.recurrences.findFirst({
-				where: and(
-					eq(recurrences.id, recurrenceId),
-					eq(recurrences.userId, userId),
-				),
-			})
-		: null;
+	const [account, destinationAccount, category, recurrence] = await Promise.all(
+		[
+			accountId
+				? db.query.financialAccounts.findFirst({
+						where: and(
+							eq(financialAccounts.id, accountId),
+							eq(financialAccounts.userId, userId),
+						),
+					})
+				: null,
+			destinationAccountId
+				? db.query.financialAccounts.findFirst({
+						where: and(
+							eq(financialAccounts.id, destinationAccountId),
+							eq(financialAccounts.userId, userId),
+						),
+					})
+				: null,
+			categoryId
+				? db.query.categories.findFirst({
+						where: and(
+							eq(categories.id, categoryId),
+							eq(categories.userId, userId),
+						),
+					})
+				: null,
+			recurrenceId
+				? db.query.recurrences.findFirst({
+						where: and(
+							eq(recurrences.id, recurrenceId),
+							eq(recurrences.userId, userId),
+						),
+					})
+				: null,
+		],
+	);
 
-	if (!account || account.isArchived) throw new Error("Conta inválida");
+	if (category?.isArchived) {
+		throw new Error("Categoria arquivada não pode receber lançamentos");
+	}
+	if ((recurrenceId === null) !== (recurrenceOccurrenceOn === null)) {
+		throw new Error(
+			"Recorrência e data da ocorrência devem ser informadas juntas",
+		);
+	}
+	if (recurrenceId && !recurrence) throw new Error("Recorrência inválida");
+	if (recurrence && recurrence.movementType !== movementType) {
+		throw new Error("Tipo da transação não combina com a recorrência");
+	}
+
+	const base = {
+		userId,
+		recurrenceId,
+		recurrenceOccurrenceOn,
+		movementType,
+		status: enumField(formData, "status", transactionStatuses),
+		amountCents: moneyToCents(requiredString(formData, "amount"), {
+			allowZero: false,
+		}),
+		occurredOn: requiredString(formData, "occurredOn"),
+		originalDescription: sensitiveOptional(formData, "originalDescription"),
+		description: sensitiveRequired(formData, "description"),
+		notes: sensitiveOptional(formData, "notes"),
+	};
+
+	if (movementType === "expense" && cardId) {
+		if (!category)
+			throw new Error("Categoria é obrigatória para compra no cartão");
+		if (category.kind !== "expense") {
+			throw new Error("Compra no cartão deve usar categoria de despesa");
+		}
+		const cardEntryKind = enumField(formData, "cardEntryKind", cardEntryKinds);
+		const invoice = cardInvoiceId
+			? await db.query.cardInvoices.findFirst({
+					where: and(
+						eq(cardInvoices.id, cardInvoiceId),
+						eq(cardInvoices.userId, userId),
+						eq(cardInvoices.cardId, cardId),
+					),
+				})
+			: invoiceMonthKey
+				? (
+						await ensureCardInvoice(db, {
+							userId,
+							cardId,
+							monthKey: invoiceMonthKey,
+						})
+					).invoice
+				: null;
+		if (!invoice || invoice.isArchived) throw new Error("Fatura inválida");
+		if (await invoiceHasConfirmedPayment(userId, invoice.id)) {
+			throw new Error("Não adicione compra em fatura já paga");
+		}
+		return {
+			...base,
+			accountId: null,
+			destinationAccountId: null,
+			cardId,
+			cardInvoiceId: invoice.id,
+			cardEntryKind,
+			categoryId,
+		};
+	}
+
+	if (movementType === "credit_card_payment") {
+		if (!account || account.isArchived || account.type === "credit_card") {
+			throw new Error("Pagamento de fatura sai de uma conta normal");
+		}
+		if (categoryId !== null) {
+			throw new Error("Pagamento de fatura não usa categoria");
+		}
+		if (!cardInvoiceId) throw new Error("Fatura é obrigatória para pagamento");
+		const invoice = await db.query.cardInvoices.findFirst({
+			where: and(
+				eq(cardInvoices.id, cardInvoiceId),
+				eq(cardInvoices.userId, userId),
+			),
+		});
+		if (!invoice || invoice.isArchived) throw new Error("Fatura inválida");
+		return {
+			...base,
+			accountId,
+			destinationAccountId: null,
+			cardId: invoice.cardId,
+			cardInvoiceId: invoice.id,
+			cardEntryKind: null,
+			categoryId: null,
+		};
+	}
+
+	if (!account || account.isArchived || account.type === "credit_card") {
+		throw new Error("Conta inválida");
+	}
 	if (
 		destinationAccountId &&
-		(!destinationAccount || destinationAccount.isArchived)
+		(!destinationAccount ||
+			destinationAccount.isArchived ||
+			destinationAccount.type === "credit_card")
 	) {
 		throw new Error("Conta destino inválida");
 	}
@@ -677,8 +961,6 @@ async function transactionValues(userId: string, formData: FormData) {
 	if ((movementType === "income" || movementType === "expense") && !category) {
 		throw new Error("Categoria é obrigatória para receita e despesa");
 	}
-	if (category?.isArchived)
-		throw new Error("Categoria arquivada não pode receber lançamentos");
 	if (movementType === "income" && category?.kind !== "income") {
 		throw new Error("Receita deve usar categoria de receita");
 	}
@@ -692,57 +974,132 @@ async function transactionValues(userId: string, formData: FormData) {
 	) {
 		throw new Error("Transferências, pagamentos e ajustes não usam categoria");
 	}
-	if (
-		(movementType === "transfer" || movementType === "credit_card_payment") &&
-		!destinationAccount
-	) {
-		throw new Error(
-			"Conta destino é obrigatória para transferência e pagamento de fatura",
-		);
-	}
-	if (
-		movementType === "transfer" &&
-		destinationAccount?.type === "credit_card"
-	) {
-		throw new Error("Use pagamento de fatura para transferir para cartão");
-	}
-	if (movementType === "credit_card_payment") {
-		if (
-			account.type === "credit_card" ||
-			destinationAccount?.type !== "credit_card"
-		) {
-			throw new Error(
-				"Pagamento de fatura sai de conta normal e entra no cartão",
-			);
-		}
-	}
-	if ((recurrenceId === null) !== (recurrenceOccurrenceOn === null)) {
-		throw new Error(
-			"Recorrência e data da ocorrência devem ser informadas juntas",
-		);
-	}
-	if (recurrenceId && !recurrence) throw new Error("Recorrência inválida");
-	if (recurrence && recurrence.movementType !== movementType) {
-		throw new Error("Tipo da transação não combina com a recorrência");
+	if (movementType === "transfer" && !destinationAccount) {
+		throw new Error("Conta destino é obrigatória para transferência");
 	}
 
 	return {
-		userId,
+		...base,
 		accountId,
 		destinationAccountId,
+		cardId: null,
+		cardInvoiceId: null,
+		cardEntryKind: null,
 		categoryId,
-		recurrenceId,
-		recurrenceOccurrenceOn,
-		movementType,
-		status: enumField(formData, "status", transactionStatuses),
-		amountCents: moneyToCents(requiredString(formData, "amount"), {
-			allowZero: false,
-		}),
-		occurredOn: requiredString(formData, "occurredOn"),
-		originalDescription: sensitiveOptional(formData, "originalDescription"),
-		description: sensitiveRequired(formData, "description"),
-		notes: sensitiveOptional(formData, "notes"),
 	};
+}
+
+export async function createCardPurchase(formData: FormData) {
+	const userId = await requireUserId();
+	const cardId = intField(formData, "cardId");
+	const monthKey = monthKeyField(formData, "invoiceMonthKey");
+	const categoryId = intField(formData, "categoryId");
+	const installmentCount = intField(formData, "installmentCount", 1);
+	if (installmentCount < 1 || installmentCount > 120) {
+		throw new Error("Quantidade de parcelas inválida");
+	}
+	const totalAmountCents = moneyToCents(requiredString(formData, "amount"), {
+		allowZero: false,
+	});
+	const occurredOn = isoDateField(formData, "occurredOn");
+	const description = sensitiveRequired(formData, "description");
+	const originalDescription = sensitiveOptional(
+		formData,
+		"originalDescription",
+	);
+	const notes = sensitiveOptional(formData, "notes");
+	const category = await db.query.categories.findFirst({
+		where: and(eq(categories.id, categoryId), eq(categories.userId, userId)),
+	});
+	if (!category || category.isArchived || category.kind !== "expense") {
+		throw new Error("Categoria de despesa inválida");
+	}
+
+	await db.transaction(async (tx) => {
+		const { invoice } = await ensureCardInvoice(tx as unknown as typeof db, {
+			userId,
+			cardId,
+			monthKey,
+		});
+		if (await invoiceHasConfirmedPayment(userId, invoice.id)) {
+			throw new Error("Não adicione compra em fatura já paga");
+		}
+		let groupId: number | null = null;
+		if (installmentCount > 1) {
+			const [group] = await tx
+				.insert(cardInstallmentGroups)
+				.values({
+					userId,
+					cardId,
+					description,
+					totalAmountCents,
+					totalInstallments: installmentCount,
+				})
+				.returning({ id: cardInstallmentGroups.id });
+			if (!group) throw new Error("Falha ao criar parcelamento");
+			groupId = group.id;
+		}
+		const baseInstallment = Math.floor(totalAmountCents / installmentCount);
+		const remainder = totalAmountCents % installmentCount;
+		for (let index = 0; index < installmentCount; index++) {
+			const targetMonthKey = addMonthsToMonthKey(monthKey, index);
+			const { invoice: targetInvoice } = await ensureCardInvoice(
+				tx as unknown as typeof db,
+				{
+					userId,
+					cardId,
+					monthKey: targetMonthKey,
+				},
+			);
+			if (await invoiceHasConfirmedPayment(userId, targetInvoice.id)) {
+				throw new Error("Parcelamento cairia em fatura já paga");
+			}
+			await tx.insert(transactions).values({
+				userId,
+				accountId: null,
+				destinationAccountId: null,
+				cardId,
+				cardInvoiceId: targetInvoice.id,
+				cardEntryKind: "charge",
+				cardInstallmentGroupId: groupId,
+				installmentNumber: installmentCount > 1 ? index + 1 : null,
+				installmentCount: installmentCount > 1 ? installmentCount : null,
+				categoryId,
+				movementType: "expense",
+				status: "confirmed",
+				amountCents: baseInstallment + (index < remainder ? 1 : 0),
+				occurredOn: addMonthsIsoDate(occurredOn, index),
+				originalDescription,
+				description:
+					installmentCount > 1
+						? `${description} (${index + 1}/${installmentCount})`
+						: description,
+				notes,
+			});
+		}
+		await recordAudit(tx, {
+			userId,
+			entityType: "transaction",
+			entityId: groupId ?? invoice.id,
+			action: "created",
+			summary: `Compra no cartão criada (${installmentCount} parcela(s))`,
+		});
+	});
+	invalidateAfterCardMutation(userId);
+	revalidatePath("/cards");
+	revalidatePath("/transactions");
+}
+
+export async function payCardInvoice(formData: FormData) {
+	const userId = await requireUserId();
+	const values = await transactionValues(userId, formData);
+	if (values.movementType !== "credit_card_payment") {
+		throw new Error("Ação exclusiva para pagamento de fatura");
+	}
+	await db.insert(transactions).values(values);
+	invalidateAfterCardMutation(userId);
+	revalidatePath("/cards");
+	revalidatePath("/transactions");
 }
 
 export async function createTransaction(formData: FormData) {
@@ -789,9 +1146,9 @@ export async function updateTransaction(formData: FormData) {
 				entityType: "transaction",
 				entityId: id,
 				action: "updated",
-			summary: `Transação ${id} atualizada (${diff.length} campo(s))`,
-			diff,
-		});
+				summary: `Transação ${id} atualizada (${diff.length} campo(s))`,
+				diff,
+			});
 		}
 	});
 	invalidateAfterTransactionMutation(userId);
@@ -1064,9 +1421,9 @@ export async function bulkUpdateTransactions(formData: FormData) {
 				entityType: "transaction",
 				entityId: before.id,
 				action: "updated",
-			summary: `Transação ${before.id} atualizada em massa (${diff.length} campo(s))`,
-			diff,
-		});
+				summary: `Transação ${before.id} atualizada em massa (${diff.length} campo(s))`,
+				diff,
+			});
 		}
 	});
 	revalidatePath("/transactions");
@@ -1074,7 +1431,7 @@ export async function bulkUpdateTransactions(formData: FormData) {
 }
 
 function toTransactionSnapshot(row: {
-	accountId: number;
+	accountId: number | null;
 	destinationAccountId: number | null;
 	categoryId: number | null;
 	movementType: string;
@@ -1361,7 +1718,10 @@ async function budgetValues(userId: string, formData: FormData) {
 }
 
 function sameBudgetTarget(
-	candidate: Pick<BudgetTemplateLike, "scope" | "categoryGroupId" | "categoryId">,
+	candidate: Pick<
+		BudgetTemplateLike,
+		"scope" | "categoryGroupId" | "categoryId"
+	>,
 	target: Pick<BudgetTemplateLike, "scope" | "categoryGroupId" | "categoryId">,
 ) {
 	return (
@@ -1443,7 +1803,9 @@ async function upsertRecurringBudgetTemplate(
 		.select()
 		.from(monthlyBudgetTemplates)
 		.where(eq(monthlyBudgetTemplates.userId, userId));
-	const existing = templates.find((template) => sameBudgetTarget(template, values));
+	const existing = templates.find((template) =>
+		sameBudgetTarget(template, values),
+	);
 	if (!existing) {
 		const [created] = await db
 			.insert(monthlyBudgetTemplates)
@@ -1452,7 +1814,8 @@ async function upsertRecurringBudgetTemplate(
 				userId,
 			})
 			.returning({ id: monthlyBudgetTemplates.id });
-		if (!created) throw new Error("Não foi possível criar o orçamento recorrente");
+		if (!created)
+			throw new Error("Não foi possível criar o orçamento recorrente");
 		return { previousAmountCents: values.amountCents, templateId: created.id };
 	}
 
@@ -1564,30 +1927,32 @@ export async function deleteBudget(formData: FormData) {
 
 	if (deleteMode === "month_only") {
 		if (!budget.templateId) throw new Error("Este orçamento não é recorrente");
-		await db.insert(monthlyBudgetTemplateSkips).values({
-			monthKey: budget.monthKey,
-			templateId: budget.templateId,
-			userId,
-		}).onConflictDoNothing({
-			target: [
-				monthlyBudgetTemplateSkips.templateId,
-				monthlyBudgetTemplateSkips.monthKey,
-			],
-		});
+		await db
+			.insert(monthlyBudgetTemplateSkips)
+			.values({
+				monthKey: budget.monthKey,
+				templateId: budget.templateId,
+				userId,
+			})
+			.onConflictDoNothing({
+				target: [
+					monthlyBudgetTemplateSkips.templateId,
+					monthlyBudgetTemplateSkips.monthKey,
+				],
+			});
 	}
 
 	if (deleteMode === "template") {
 		if (!budget.templateId) throw new Error("Este orçamento não é recorrente");
-		await archiveBudgetTemplateFromMonth(userId, budget.templateId, budget.monthKey);
+		await archiveBudgetTemplateFromMonth(
+			userId,
+			budget.templateId,
+			budget.monthKey,
+		);
 	} else {
 		await db
 			.delete(monthlyBudgets)
-			.where(
-				and(
-					eq(monthlyBudgets.id, id),
-					eq(monthlyBudgets.userId, userId),
-				),
-			);
+			.where(and(eq(monthlyBudgets.id, id), eq(monthlyBudgets.userId, userId)));
 	}
 	revalidateBudgetViews(userId);
 }
@@ -1649,7 +2014,10 @@ export async function copyBudgetMonth(formData: FormData) {
 	if (sourceMonthKey === targetMonthKey) {
 		throw new Error("Escolha meses diferentes para copiar orçamento");
 	}
-	await ensureBudgetTemplatesMaterialized(userId, [sourceMonthKey, targetMonthKey]);
+	await ensureBudgetTemplatesMaterialized(userId, [
+		sourceMonthKey,
+		targetMonthKey,
+	]);
 	const sourceBudgets = await db
 		.select()
 		.from(monthlyBudgets)
@@ -1922,7 +2290,11 @@ async function reprocessReviewingImportRows(userId: string) {
 	const rules = await activeImportRules(userId);
 	const suggestionCounts = new Map<number, number>();
 	for (const row of rows) {
-		const rule = matchImportCategoryRule(row, rules);
+		if (row.accountId === null) continue;
+		const rule = matchImportCategoryRule(
+			{ ...row, accountId: row.accountId },
+			rules,
+		);
 		if (rule) {
 			suggestionCounts.set(
 				row.batchId,
@@ -2192,19 +2564,25 @@ export async function archiveImportCategoryRule(formData: FormData) {
 
 export async function createImportBatch(formData: FormData) {
 	const userId = await requireUserId();
-	const accountId = intField(formData, "accountId");
+	const accountId = optionalIntField(formData, "accountId");
+	const cardId = optionalIntField(formData, "cardId");
+	if ((accountId === null) === (cardId === null)) {
+		throw new Error("Escolha uma conta ou um cartão para importar");
+	}
 	const templateId = intField(formData, "templateId");
 	const file = formData.get("csvFile");
 	if (!(file instanceof File)) throw new Error("Arquivo CSV obrigatório");
 	if (!file.name.toLowerCase().endsWith(".csv")) throw new Error("Use CSV");
 
 	const [account, template] = await Promise.all([
-		db.query.financialAccounts.findFirst({
-			where: and(
-				eq(financialAccounts.id, accountId),
-				eq(financialAccounts.userId, userId),
-			),
-		}),
+		accountId
+			? db.query.financialAccounts.findFirst({
+					where: and(
+						eq(financialAccounts.id, accountId),
+						eq(financialAccounts.userId, userId),
+					),
+				})
+			: null,
 		db.query.importTemplates.findFirst({
 			where: and(
 				eq(importTemplates.id, templateId),
@@ -2212,61 +2590,141 @@ export async function createImportBatch(formData: FormData) {
 			),
 		}),
 	]);
-	if (!account || account.isArchived) throw new Error("Conta inválida");
-	if (!template || template.isArchived)
+	if (
+		accountId &&
+		(!account || account.isArchived || account.type === "credit_card")
+	) {
+		throw new Error("Conta inválida");
+	}
+	if (!template || template.isArchived) {
 		throw new Error("Modelo de importação inválido");
+	}
+	const invoice = cardId
+		? (
+				await ensureCardInvoice(db, {
+					userId,
+					cardId,
+					monthKey: monthKeyField(formData, "invoiceMonthKey"),
+				})
+			).invoice
+		: null;
 
 	const config = normalizeImportTemplateConfig(template.config);
 	const parsedRows = parseImportCsv(await file.text(), config);
-	const existingTransactions = await db
-		.select({
-			accountId: transactions.accountId,
-			occurredOn: transactions.occurredOn,
-			amountCents: transactions.amountCents,
-			movementType: transactions.movementType,
-			externalId: transactions.externalId,
-			originalDescription: transactions.originalDescription,
-			description: transactions.description,
-		})
-		.from(transactions)
-		.where(
-			and(
-				eq(transactions.userId, userId),
-				eq(transactions.accountId, accountId),
-				eq(transactions.isArchived, false),
-			),
-		);
-	const previousActiveBatches = await db
-		.select({ id: importBatches.id })
-		.from(importBatches)
-		.where(
-			and(
-				eq(importBatches.userId, userId),
-				eq(importBatches.accountId, accountId),
-				or(
-					eq(importBatches.status, "reviewing"),
-					eq(importBatches.status, "confirmed"),
-				),
-			),
-		);
+	const existingTransactions = accountId
+		? await db
+				.select({
+					accountId: transactions.accountId,
+					cardInvoiceId: transactions.cardInvoiceId,
+					occurredOn: transactions.occurredOn,
+					amountCents: transactions.amountCents,
+					movementType: transactions.movementType,
+					externalId: transactions.externalId,
+					originalDescription: transactions.originalDescription,
+					description: transactions.description,
+				})
+				.from(transactions)
+				.where(
+					and(
+						eq(transactions.userId, userId),
+						eq(transactions.accountId, accountId),
+						eq(transactions.isArchived, false),
+					),
+				)
+		: invoice
+			? await db
+					.select({
+						accountId: transactions.accountId,
+						cardInvoiceId: transactions.cardInvoiceId,
+						occurredOn: transactions.occurredOn,
+						amountCents: transactions.amountCents,
+						movementType: transactions.movementType,
+						externalId: transactions.externalId,
+						originalDescription: transactions.originalDescription,
+						description: transactions.description,
+					})
+					.from(transactions)
+					.where(
+						and(
+							eq(transactions.userId, userId),
+							eq(transactions.cardInvoiceId, invoice.id),
+							eq(transactions.isArchived, false),
+						),
+					)
+			: [];
+	const previousActiveBatches = accountId
+		? await db
+				.select({ id: importBatches.id })
+				.from(importBatches)
+				.where(
+					and(
+						eq(importBatches.userId, userId),
+						eq(importBatches.accountId, accountId),
+						or(
+							eq(importBatches.status, "reviewing"),
+							eq(importBatches.status, "confirmed"),
+						),
+					),
+				)
+		: invoice
+			? await db
+					.select({ id: importBatches.id })
+					.from(importBatches)
+					.where(
+						and(
+							eq(importBatches.userId, userId),
+							eq(importBatches.cardInvoiceId, invoice.id),
+							or(
+								eq(importBatches.status, "reviewing"),
+								eq(importBatches.status, "confirmed"),
+							),
+						),
+					)
+			: [];
 	const previousActiveBatchIds = new Set(
 		previousActiveBatches.map((batch) => batch.id),
 	);
-	const previousImportRows = await db
-		.select({
-			batchId: importRows.batchId,
-			accountId: importRows.accountId,
-			status: importRows.status,
-			occurredOn: importRows.occurredOn,
-			amountCents: importRows.amountCents,
-			movementType: importRows.movementType,
-			externalId: importRows.externalId,
-			normalizedDescription: importRows.normalizedDescription,
-		})
-		.from(importRows)
-		.where(
-			and(eq(importRows.userId, userId), eq(importRows.accountId, accountId)),
-		);
+	const previousImportRows = accountId
+		? await db
+				.select({
+					batchId: importRows.batchId,
+					accountId: importRows.accountId,
+					cardInvoiceId: importRows.cardInvoiceId,
+					status: importRows.status,
+					occurredOn: importRows.occurredOn,
+					amountCents: importRows.amountCents,
+					movementType: importRows.movementType,
+					externalId: importRows.externalId,
+					normalizedDescription: importRows.normalizedDescription,
+				})
+				.from(importRows)
+				.where(
+					and(
+						eq(importRows.userId, userId),
+						eq(importRows.accountId, accountId),
+					),
+				)
+		: invoice
+			? await db
+					.select({
+						batchId: importRows.batchId,
+						accountId: importRows.accountId,
+						cardInvoiceId: importRows.cardInvoiceId,
+						status: importRows.status,
+						occurredOn: importRows.occurredOn,
+						amountCents: importRows.amountCents,
+						movementType: importRows.movementType,
+						externalId: importRows.externalId,
+						normalizedDescription: importRows.normalizedDescription,
+					})
+					.from(importRows)
+					.where(
+						and(
+							eq(importRows.userId, userId),
+							eq(importRows.cardInvoiceId, invoice.id),
+						),
+					)
+			: [];
 	const [rules, recurrenceContext] = await Promise.all([
 		activeImportRules(userId),
 		activeRecurrencesAndConfirmedOccurrences(userId),
@@ -2278,6 +2736,8 @@ export async function createImportBatch(formData: FormData) {
 			userId,
 			importTemplateId: template.id,
 			accountId,
+			cardId,
+			cardInvoiceId: invoice?.id ?? null,
 			status: "reviewing",
 			originalFileName: maskSensitive(file.name).slice(0, 255),
 			sourceLabel: template.sourceLabel
@@ -2294,6 +2754,8 @@ export async function createImportBatch(formData: FormData) {
 			userId,
 			batchId: batch.id,
 			accountId,
+			cardId,
+			cardInvoiceId: invoice?.id ?? null,
 			parsedRows,
 			existingTransactions,
 			previousImportRows,
@@ -2355,7 +2817,7 @@ export async function confirmImportBatch(
 	const rows = await db.query.importRows.findMany({
 		where: and(eq(importRows.batchId, batchId), eq(importRows.userId, userId)),
 	});
-	const [activeAccounts, activeCategories] = await Promise.all([
+	const [activeAccounts, activeCategories, activeInvoices] = await Promise.all([
 		db
 			.select()
 			.from(financialAccounts)
@@ -2371,12 +2833,24 @@ export async function confirmImportBatch(
 			.where(
 				and(eq(categories.userId, userId), eq(categories.isArchived, false)),
 			),
+		db
+			.select()
+			.from(cardInvoices)
+			.where(
+				and(
+					eq(cardInvoices.userId, userId),
+					eq(cardInvoices.isArchived, false),
+				),
+			),
 	]);
 	const accountsById = new Map(
 		activeAccounts.map((account) => [account.id, account]),
 	);
 	const categoriesById = new Map(
 		activeCategories.map((category) => [category.id, category]),
+	);
+	const invoicesById = new Map(
+		activeInvoices.map((invoice) => [invoice.id, invoice]),
 	);
 	const confirmCategoriesById = new Map<number, ImportConfirmCategory>(
 		activeCategories.map((category) => [
@@ -2431,38 +2905,31 @@ export async function confirmImportBatch(
 				formData,
 				`row-${row.id}-accountId`,
 			);
+			const source = sourceAccountId ? accountsById.get(sourceAccountId) : null;
+			if (!sourceAccountId || !source || source.type === "credit_card") {
+				rowErrors[row.id] = "Conta origem obrigatória.";
+				continue;
+			}
+			if (movementType === "credit_card_payment") {
+				const invoiceId = optionalIntField(
+					formData,
+					`row-${row.id}-cardInvoiceId`,
+				);
+				if (!invoiceId || !invoicesById.has(invoiceId)) {
+					rowErrors[row.id] = "Fatura obrigatória para pagamento.";
+				}
+				continue;
+			}
 			const destinationAccountId = optionalIntField(
 				formData,
 				`row-${row.id}-destinationAccountId`,
 			);
-			const label =
-				movementType === "credit_card_payment"
-					? "pagamento de fatura"
-					: "transferência";
-			if (!sourceAccountId || !accountsById.has(sourceAccountId)) {
-				rowErrors[row.id] = `Conta origem obrigatória para ${label}.`;
-				continue;
-			}
 			if (!destinationAccountId || !accountsById.has(destinationAccountId)) {
-				rowErrors[row.id] = `Conta destino obrigatória para ${label}.`;
+				rowErrors[row.id] = "Conta destino obrigatória para transferência.";
 				continue;
 			}
 			if (sourceAccountId === destinationAccountId) {
 				rowErrors[row.id] = "Conta origem e destino devem ser diferentes.";
-				continue;
-			}
-			if (movementType === "credit_card_payment") {
-				const source = accountsById.get(sourceAccountId);
-				const destination = accountsById.get(destinationAccountId);
-				if (source?.type === "credit_card") {
-					rowErrors[row.id] =
-						"Pagamento de fatura deve sair de uma conta normal, não de um cartão.";
-					continue;
-				}
-				if (destination?.type !== "credit_card") {
-					rowErrors[row.id] =
-						"Pagamento de fatura precisa apontar para um cartão de crédito como destino.";
-				}
 			}
 		}
 	}
@@ -2574,21 +3041,34 @@ export async function confirmImportBatch(
 				`row-${row.id}-movementType`,
 				importMovementTypes,
 			);
-			const accountId = intField(
-				formData,
-				`row-${row.id}-accountId`,
-				row.accountId,
-			);
-			if (!accountsById.has(accountId)) {
+			const isCardExpense =
+				movementType === "expense" &&
+				row.cardId !== null &&
+				row.cardInvoiceId !== null;
+			const isTransferLike =
+				movementType === "transfer" || movementType === "credit_card_payment";
+			const accountId = isCardExpense
+				? null
+				: intField(
+						formData,
+						`row-${row.id}-accountId`,
+						row.accountId ?? undefined,
+					);
+			if (accountId !== null && !accountsById.has(accountId)) {
 				throw new Error(`Conta inválida na linha ${row.rowNumber}`);
 			}
 			const destinationAccountId = optionalIntField(
 				formData,
 				`row-${row.id}-destinationAccountId`,
 			);
-			const isTransferLike =
-				movementType === "transfer" || movementType === "credit_card_payment";
-			if (isTransferLike) {
+			const paymentInvoiceId = optionalIntField(
+				formData,
+				`row-${row.id}-cardInvoiceId`,
+			);
+			const paymentInvoice = paymentInvoiceId
+				? invoicesById.get(paymentInvoiceId)
+				: null;
+			if (movementType === "transfer") {
 				if (!destinationAccountId || !accountsById.has(destinationAccountId)) {
 					throw new Error(
 						`Conta destino obrigatória na linha ${row.rowNumber}`,
@@ -2599,19 +3079,17 @@ export async function confirmImportBatch(
 						`Conta origem e destino devem ser diferentes na linha ${row.rowNumber}`,
 					);
 				}
-				if (movementType === "credit_card_payment") {
-					const source = accountsById.get(accountId);
-					const destination = accountsById.get(destinationAccountId);
-					if (source?.type === "credit_card") {
-						throw new Error(
-							`Pagamento de fatura na linha ${row.rowNumber} deve sair de uma conta normal`,
-						);
-					}
-					if (destination?.type !== "credit_card") {
-						throw new Error(
-							`Pagamento de fatura na linha ${row.rowNumber} precisa de um cartão como destino`,
-						);
-					}
+			}
+			if (movementType === "credit_card_payment") {
+				if (!accountId) {
+					throw new Error(
+						`Pagamento de fatura na linha ${row.rowNumber} exige conta origem`,
+					);
+				}
+				if (!paymentInvoice) {
+					throw new Error(
+						`Pagamento de fatura na linha ${row.rowNumber} exige fatura`,
+					);
 				}
 			}
 			const rowCategoryId = optionalIntField(
@@ -2728,7 +3206,19 @@ export async function confirmImportBatch(
 			await tx.insert(transactions).values({
 				userId,
 				accountId,
-				destinationAccountId: isTransferLike ? destinationAccountId : null,
+				destinationAccountId:
+					movementType === "transfer" ? destinationAccountId : null,
+				cardId: isCardExpense
+					? row.cardId
+					: movementType === "credit_card_payment"
+						? (paymentInvoice?.cardId ?? null)
+						: null,
+				cardInvoiceId: isCardExpense
+					? row.cardInvoiceId
+					: movementType === "credit_card_payment"
+						? (paymentInvoice?.id ?? null)
+						: null,
+				cardEntryKind: isCardExpense ? "charge" : null,
 				categoryId,
 				categoryRuleId: acceptedRuleId,
 				importBatchId: batch.id,
@@ -2747,14 +3237,13 @@ export async function confirmImportBatch(
 				.update(importRows)
 				.set({
 					status: "imported",
-					accountId: isTransferLike ? row.accountId : accountId,
+					accountId: movementType === "transfer" ? row.accountId : accountId,
 					occurredOn,
 					amountCents,
 					movementType,
 					suggestedSourceAccountId: isTransferLike ? accountId : null,
-					suggestedDestinationAccountId: isTransferLike
-						? destinationAccountId
-						: null,
+					suggestedDestinationAccountId:
+						movementType === "transfer" ? destinationAccountId : null,
 					suggestedRecurrenceId: acceptedRecurrence?.recurrenceId ?? null,
 					suggestedRecurrenceOccurrenceOn:
 						acceptedRecurrence?.occurrenceOn ?? null,

@@ -21,12 +21,15 @@ export type ConfirmFormCategory = {
 export type ConfirmFormAccount = {
 	id: number;
 	name: string;
-	type:
-		| "checking"
-		| "savings"
-		| "cash"
-		| "credit_card"
-		| "investment";
+	type: "checking" | "savings" | "cash" | "credit_card" | "investment";
+};
+
+export type ConfirmFormInvoice = {
+	id: number;
+	cardId: number;
+	cardName: string;
+	monthKey: string;
+	dueDate: string;
 };
 
 export type ConfirmFormRow = {
@@ -36,7 +39,9 @@ export type ConfirmFormRow = {
 	occurredOn: string | null;
 	amountCents: number | null;
 	movementType: MovementType | null;
-	accountId: number;
+	accountId: number | null;
+	cardId: number | null;
+	cardInvoiceId: number | null;
 	originalDescription: string | null;
 	bankCategory: string | null;
 	parsedData: unknown;
@@ -59,6 +64,7 @@ type Props = {
 	rows: ConfirmFormRow[];
 	accounts: ConfirmFormAccount[];
 	categories: ConfirmFormCategory[];
+	invoices: ConfirmFormInvoice[];
 	invalidCount: number;
 };
 
@@ -90,6 +96,7 @@ export function ConfirmImportForm({
 	rows,
 	accounts,
 	categories,
+	invoices,
 	invalidCount,
 }: Props) {
 	const categoriesById = useMemo(
@@ -112,10 +119,13 @@ export function ConfirmImportForm({
 				categoryId,
 				sourceAccountId: row.suggestedSourceAccountId
 					? String(row.suggestedSourceAccountId)
-					: String(row.accountId),
+					: row.accountId
+						? String(row.accountId)
+						: "",
 				destinationAccountId: row.suggestedDestinationAccountId
 					? String(row.suggestedDestinationAccountId)
 					: "",
+				cardInvoiceId: row.cardInvoiceId ? String(row.cardInvoiceId) : "",
 				description: row.suggestedDescription ?? row.originalDescription ?? "",
 			};
 		}
@@ -158,7 +168,8 @@ export function ConfirmImportForm({
 						: null;
 					if (
 						!selected ||
-						(next.movementType !== "income" && next.movementType !== "expense") ||
+						(next.movementType !== "income" &&
+							next.movementType !== "expense") ||
 						selected.kind !== next.movementType
 					) {
 						next = { ...next, categoryId: "" };
@@ -237,7 +248,9 @@ export function ConfirmImportForm({
 			)}
 
 			{rows.length === 0 ? (
-				<p className="text-muted-foreground text-sm">Nenhuma linha para revisar.</p>
+				<p className="text-muted-foreground text-sm">
+					Nenhuma linha para revisar.
+				</p>
 			) : (
 				<div className="grid gap-4">
 					{rows.map((row) => (
@@ -246,6 +259,7 @@ export function ConfirmImportForm({
 							bulkCategory={bulkCategory}
 							categories={categories}
 							error={state.rowErrors[row.id] ?? null}
+							invoices={invoices}
 							key={row.id}
 							onChange={(patch) => updateRow(row.id, patch)}
 							row={row}
@@ -270,6 +284,7 @@ type RowState = {
 	categoryId: string;
 	sourceAccountId: string;
 	destinationAccountId: string;
+	cardInvoiceId: string;
 	description: string;
 };
 
@@ -283,6 +298,7 @@ function RowBlock({
 	state,
 	accounts,
 	categories,
+	invoices,
 	bulkCategory,
 	error,
 	onChange,
@@ -291,6 +307,7 @@ function RowBlock({
 	state: RowState | undefined;
 	accounts: ConfirmFormAccount[];
 	categories: ConfirmFormCategory[];
+	invoices: ConfirmFormInvoice[];
 	bulkCategory: ConfirmFormCategory | null;
 	error: string | null;
 	onChange: (patch: Partial<RowState>) => void;
@@ -298,6 +315,7 @@ function RowBlock({
 	if (!state) return null;
 	const movementType = state.movementType;
 	const isTransferLike = isTransferLikeMovement(movementType);
+	const isCardImport = row.cardId !== null && row.cardInvoiceId !== null;
 	const filteredCategories = isTransferLike
 		? []
 		: categories.filter((category) => category.kind === movementType);
@@ -319,10 +337,7 @@ function RowBlock({
 		movementType === "transfer" &&
 		row.suggestedSourceAccountId &&
 		row.suggestedDestinationAccountId;
-	const destinationOptions =
-		movementType === "credit_card_payment"
-			? accounts.filter((account) => account.type === "credit_card")
-			: accounts;
+	const destinationOptions = accounts;
 	const sourceOptions =
 		movementType === "credit_card_payment"
 			? accounts.filter((account) => account.type !== "credit_card")
@@ -477,42 +492,69 @@ function RowBlock({
 						<option value="credit_card_payment">Pagamento de fatura</option>
 					</select>
 				</FieldLabel>
-				<FieldLabel
-					hint={
-						movementType === "credit_card_payment"
-							? "Conta normal de onde sai o dinheiro da fatura."
-							: undefined
-					}
-					label={isTransferLike ? "Origem" : "Conta"}
-				>
-					<select
-						className={inputClass}
-						name={`row-${row.id}-accountId`}
-						onChange={(event) =>
-							onChange({ sourceAccountId: event.target.value })
-						}
-						value={state.sourceAccountId}
-					>
-						{sourceOptions.map((account) => (
-							<option key={account.id} value={account.id}>
-								{account.name}
-							</option>
-						))}
-					</select>
-				</FieldLabel>
-				{isTransferLike ? (
+				{isCardImport && !isTransferLike ? (
+					<div className="rounded-md border bg-muted/30 p-3 text-muted-foreground text-sm">
+						<input
+							name={`row-${row.id}-cardId`}
+							type="hidden"
+							value={row.cardId ?? ""}
+						/>
+						<input
+							name={`row-${row.id}-cardInvoiceId`}
+							type="hidden"
+							value={row.cardInvoiceId ?? ""}
+						/>
+						Linha importada para a fatura escolhida do cartão.
+					</div>
+				) : (
 					<FieldLabel
 						hint={
 							movementType === "credit_card_payment"
-								? "Cartão cuja fatura está sendo paga."
+								? "Conta normal de onde sai o dinheiro da fatura."
 								: undefined
 						}
-						label={
-							movementType === "credit_card_payment"
-								? "Cartão pago"
-								: "Destino"
-						}
+						label={isTransferLike ? "Origem" : "Conta"}
 					>
+						<select
+							className={inputClass}
+							name={`row-${row.id}-accountId`}
+							onChange={(event) =>
+								onChange({ sourceAccountId: event.target.value })
+							}
+							value={state.sourceAccountId}
+						>
+							{sourceOptions.map((account) => (
+								<option key={account.id} value={account.id}>
+									{account.name}
+								</option>
+							))}
+						</select>
+					</FieldLabel>
+				)}
+				{movementType === "credit_card_payment" ? (
+					<FieldLabel
+						hint="Escolha a fatura específica paga por esta linha."
+						label="Fatura paga"
+					>
+						<select
+							className={inputClass}
+							name={`row-${row.id}-cardInvoiceId`}
+							onChange={(event) =>
+								onChange({ cardInvoiceId: event.target.value })
+							}
+							required
+							value={state.cardInvoiceId}
+						>
+							<option value="">Selecione a fatura</option>
+							{invoices.map((invoice) => (
+								<option key={invoice.id} value={invoice.id}>
+									{invoice.cardName} · {invoice.monthKey}
+								</option>
+							))}
+						</select>
+					</FieldLabel>
+				) : movementType === "transfer" ? (
+					<FieldLabel label="Destino">
 						<select
 							className={inputClass}
 							name={`row-${row.id}-destinationAccountId`}
@@ -522,11 +564,7 @@ function RowBlock({
 							required
 							value={state.destinationAccountId}
 						>
-							<option value="">
-								{movementType === "credit_card_payment"
-									? "Selecione o cartão"
-									: "Selecione o destino"}
-							</option>
+							<option value="">Selecione o destino</option>
 							{destinationOptions.map((account) => (
 								<option key={account.id} value={account.id}>
 									{account.name}

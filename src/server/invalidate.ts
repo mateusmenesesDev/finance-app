@@ -2,6 +2,7 @@ import { revalidateTag } from "next/cache";
 
 export type CacheDomain =
 	| "accounts"
+	| "cards"
 	| "categories"
 	| "transactions"
 	| "recurrences"
@@ -13,6 +14,7 @@ export type CacheDomain =
 
 const ALL_DOMAINS: CacheDomain[] = [
 	"accounts",
+	"cards",
 	"categories",
 	"transactions",
 	"recurrences",
@@ -37,12 +39,16 @@ export function invalidateAfterAccountMutation(userId: string): void {
 	invalidate(userId, "accounts", "transactions", "reports");
 }
 
+export function invalidateAfterCardMutation(userId: string): void {
+	invalidate(userId, "cards", "transactions", "accounts", "reports");
+}
+
 export function invalidateAfterCategoryMutation(userId: string): void {
 	invalidate(userId, "categories", "transactions", "budgets", "reports");
 }
 
 export function invalidateAfterTransactionMutation(userId: string): void {
-	invalidate(userId, "transactions", "accounts", "reports");
+	invalidate(userId, "transactions", "accounts", "cards", "reports");
 }
 
 export function invalidateAfterRecurrenceMutation(userId: string): void {
@@ -54,7 +60,14 @@ export function invalidateAfterBudgetMutation(userId: string): void {
 }
 
 export function invalidateAfterImportMutation(userId: string): void {
-	invalidate(userId, "imports", "transactions", "accounts", "assistant");
+	invalidate(
+		userId,
+		"imports",
+		"transactions",
+		"accounts",
+		"cards",
+		"assistant",
+	);
 }
 
 export function invalidateAfterAssistantMutation(userId: string): void {

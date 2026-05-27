@@ -18,6 +18,19 @@ export type CashFlowTransaction = RuleTransaction & {
 	description?: string;
 	originalDescription?: string | null;
 };
+export type CashFlowCard = {
+	id: number;
+	name: string;
+	isArchived?: boolean;
+};
+export type CashFlowCardInvoice = {
+	id: number;
+	cardId: number;
+	monthKey: string;
+	closingDate: string;
+	dueDate: string;
+	isArchived?: boolean;
+};
 export type PlannedMovement = {
 	accountId: number;
 	amountCents: number;
@@ -120,7 +133,17 @@ export function computeFutureInvoices(
 	accounts: CashFlowAccount[],
 	transactions: CashFlowTransaction[],
 	today: string,
+	persistedInvoices?: CashFlowCardInvoice[],
+	cards?: CashFlowCard[],
 ): FutureInvoice[] {
+	if (persistedInvoices && cards) {
+		return computePersistedFutureInvoices(
+			cards,
+			persistedInvoices,
+			transactions,
+			today,
+		);
+	}
 	const cardAccounts = accounts.filter(
 		(account) => account.type === "credit_card" && !account.isArchived,
 	);
@@ -181,6 +204,57 @@ export function computeFutureInvoices(
 		.sort((left, right) => left.dueDate.localeCompare(right.dueDate));
 }
 
+function computePersistedFutureInvoices(
+	cards: CashFlowCard[],
+	invoices: CashFlowCardInvoice[],
+	transactions: CashFlowTransaction[],
+	today: string,
+): FutureInvoice[] {
+	const cardById = new Map(
+		cards.filter((card) => !card.isArchived).map((card) => [card.id, card]),
+	);
+	return invoices
+		.filter((invoice) => !invoice.isArchived && invoice.dueDate >= today)
+		.map((invoice) => {
+			const card = cardById.get(invoice.cardId);
+			if (!card) return null;
+			let totalCents = 0;
+			let paidCents = 0;
+			for (const transaction of transactions) {
+				if (
+					transaction.isArchived ||
+					transaction.status !== "confirmed" ||
+					transaction.cardInvoiceId !== invoice.id
+				) {
+					continue;
+				}
+				if (transaction.movementType === "credit_card_payment") {
+					paidCents += transaction.amountCents;
+					continue;
+				}
+				if (transaction.movementType === "expense") {
+					totalCents +=
+						transaction.cardEntryKind === "credit"
+							? -transaction.amountCents
+							: transaction.amountCents;
+				}
+			}
+			return {
+				accountId: card.id,
+				accountName: card.name,
+				key: invoice.monthKey,
+				closingDate: invoice.closingDate,
+				dueDate: invoice.dueDate,
+				totalCents,
+				paidCents,
+				remainingCents: Math.max(0, totalCents - paidCents),
+			};
+		})
+		.filter((invoice): invoice is FutureInvoice => Boolean(invoice))
+		.filter((invoice) => invoice.remainingCents > 0)
+		.sort((left, right) => left.dueDate.localeCompare(right.dueDate));
+}
+
 export function aggregateCashFlow(input: {
 	accounts: CashFlowAccount[];
 	transactions: CashFlowTransaction[];
@@ -189,6 +263,8 @@ export function aggregateCashFlow(input: {
 	accountFilter?: AccountFilter;
 	today: string;
 	extraPlannedMovements?: PlannedMovement[];
+	cards?: CashFlowCard[];
+	cardInvoices?: CashFlowCardInvoice[];
 }) {
 	const buckets = bucketRange(
 		input.window.start,
@@ -223,6 +299,7 @@ export function aggregateCashFlow(input: {
 		// which `computeFutureInvoices` and `credit_card_payment` transactions handle.
 		if (
 			transaction.movementType !== "credit_card_payment" &&
+			transaction.accountId !== null &&
 			creditCardAccountIds.has(transaction.accountId)
 		)
 			continue;
@@ -264,6 +341,8 @@ export function aggregateCashFlow(input: {
 			input.accounts,
 			input.transactions,
 			input.today,
+			input.cardInvoices,
+			input.cards,
 		)) {
 			if (!inWindow(invoice.dueDate, input.window)) continue;
 			const bucket = byKey.get(bucketKey(invoice.dueDate, input.granularity));

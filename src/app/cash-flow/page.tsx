@@ -38,6 +38,8 @@ import { recurrencesToPlannedMovements } from "~/lib/recurrences";
 import { getSession } from "~/server/better-auth/server";
 import { db } from "~/server/db";
 import {
+	cardInvoices,
+	creditCards,
 	financialAccounts,
 	importBatches,
 	importRows,
@@ -92,6 +94,8 @@ export default async function CashFlowPage({
 	const [
 		allAccounts,
 		allTransactions,
+		cards,
+		invoices,
 		allRecurrences,
 		confirmedOccurrences,
 		rows,
@@ -107,6 +111,16 @@ export default async function CashFlowPage({
 			.from(transactions)
 			.where(eq(transactions.userId, session.user.id))
 			.orderBy(desc(transactions.occurredOn), desc(transactions.id)),
+		db
+			.select()
+			.from(creditCards)
+			.where(eq(creditCards.userId, session.user.id))
+			.orderBy(asc(creditCards.name)),
+		db
+			.select()
+			.from(cardInvoices)
+			.where(eq(cardInvoices.userId, session.user.id))
+			.orderBy(asc(cardInvoices.dueDate)),
 		db
 			.select()
 			.from(recurrences)
@@ -170,6 +184,8 @@ export default async function CashFlowPage({
 		accountFilter: selectedAccountFilter,
 		today,
 		extraPlannedMovements,
+		cards,
+		cardInvoices: invoices,
 	});
 	const timeline = consolidatedTimeline({
 		accounts: allAccounts,
@@ -186,10 +202,12 @@ export default async function CashFlowPage({
 		today,
 		extraPlannedMovements,
 	});
-	const invoices = computeFutureInvoices(
+	const futureInvoices = computeFutureInvoices(
 		allAccounts,
 		allTransactions,
 		today,
+		invoices,
+		cards,
 	).filter(
 		(invoice) =>
 			invoice.dueDate >= window.start && invoice.dueDate <= window.end,
@@ -400,9 +418,9 @@ export default async function CashFlowPage({
 						<CardTitle>Faturas futuras de cartão</CardTitle>
 					</CardHeader>
 					<CardContent>
-						{invoices.length > 0 ? (
+						{futureInvoices.length > 0 ? (
 							<div className="grid gap-3">
-								{invoices.map((invoice) => (
+								{futureInvoices.map((invoice) => (
 									<div
 										className="flex items-start justify-between gap-4 rounded-md border bg-muted/20 p-4"
 										key={`${invoice.accountId}-${invoice.key}`}

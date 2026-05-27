@@ -29,6 +29,11 @@ export const accountType = pgEnum("finance_app_account_type", [
 	"investment",
 ]);
 
+export const cardEntryKind = pgEnum("finance_app_card_entry_kind", [
+	"charge",
+	"credit",
+]);
+
 export const categoryKind = pgEnum("finance_app_category_kind", [
 	"income",
 	"expense",
@@ -237,6 +242,147 @@ export const financialAccounts = createFinanceTable(
 	],
 );
 
+export const creditCards = createFinanceTable(
+	"cards",
+	{
+		id: integer().primaryKey().generatedByDefaultAsIdentity(),
+		userId: text("user_id")
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
+		name: varchar({ length: 120 }).notNull(),
+		institution: varchar({ length: 120 }),
+		closingDay: integer("closing_day").notNull(),
+		dueDay: integer("due_day").notNull(),
+		limitCents: integer("limit_cents"),
+		defaultPaymentAccountId: integer("default_payment_account_id"),
+		legacyAccountId: integer("legacy_account_id"),
+		isActive: boolean("is_active").notNull().default(true),
+		isArchived: boolean("is_archived").notNull().default(false),
+		createdAt: timestamp("created_at", { withTimezone: true })
+			.$defaultFn(() => new Date())
+			.notNull(),
+		updatedAt: timestamp("updated_at", { withTimezone: true }).$onUpdate(
+			() => new Date(),
+		),
+	},
+	(t) => [
+		index("finance_app_cards_user_idx").on(t.userId),
+		index("finance_app_cards_user_active_idx").on(t.userId, t.isActive),
+		unique("finance_app_cards_id_user_unique").on(t.id, t.userId),
+		uniqueIndex("finance_app_cards_user_name_idx").on(t.userId, t.name),
+		foreignKey({
+			columns: [t.defaultPaymentAccountId, t.userId],
+			foreignColumns: [financialAccounts.id, financialAccounts.userId],
+			name: "finance_app_cards_default_payment_account_user_fk",
+		}),
+		foreignKey({
+			columns: [t.legacyAccountId, t.userId],
+			foreignColumns: [financialAccounts.id, financialAccounts.userId],
+			name: "finance_app_cards_legacy_account_user_fk",
+		}),
+		check(
+			"finance_app_cards_closing_day_valid",
+			sql`${t.closingDay} >= 1 AND ${t.closingDay} <= 31`,
+		),
+		check(
+			"finance_app_cards_due_day_valid",
+			sql`${t.dueDay} >= 1 AND ${t.dueDay} <= 31`,
+		),
+		check(
+			"finance_app_cards_limit_cents_positive",
+			sql`${t.limitCents} IS NULL OR ${t.limitCents} > 0`,
+		),
+	],
+);
+
+export const cardInvoices = createFinanceTable(
+	"card_invoices",
+	{
+		id: integer().primaryKey().generatedByDefaultAsIdentity(),
+		userId: text("user_id")
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
+		cardId: integer("card_id").notNull(),
+		monthKey: varchar("month_key", { length: 7 }).notNull(),
+		closingDate: date("closing_date").notNull(),
+		dueDate: date("due_date").notNull(),
+		needsReview: boolean("needs_review").notNull().default(false),
+		reviewReason: text("review_reason"),
+		isArchived: boolean("is_archived").notNull().default(false),
+		createdAt: timestamp("created_at", { withTimezone: true })
+			.$defaultFn(() => new Date())
+			.notNull(),
+		updatedAt: timestamp("updated_at", { withTimezone: true }).$onUpdate(
+			() => new Date(),
+		),
+	},
+	(t) => [
+		index("finance_app_card_invoices_user_idx").on(t.userId),
+		index("finance_app_card_invoices_user_card_idx").on(t.userId, t.cardId),
+		index("finance_app_card_invoices_user_due_idx").on(t.userId, t.dueDate),
+		unique("finance_app_card_invoices_id_user_unique").on(t.id, t.userId),
+		uniqueIndex("finance_app_card_invoices_user_card_month_idx").on(
+			t.userId,
+			t.cardId,
+			t.monthKey,
+		),
+		foreignKey({
+			columns: [t.cardId, t.userId],
+			foreignColumns: [creditCards.id, creditCards.userId],
+			name: "finance_app_card_invoices_card_user_fk",
+		}).onDelete("cascade"),
+		check(
+			"finance_app_card_invoices_month_key_valid",
+			sql`${t.monthKey} ~ '^\\d{4}-\\d{2}$'`,
+		),
+		check(
+			"finance_app_card_invoices_dates_order",
+			sql`${t.closingDate} <= ${t.dueDate}`,
+		),
+	],
+);
+
+export const cardInstallmentGroups = createFinanceTable(
+	"card_installment_groups",
+	{
+		id: integer().primaryKey().generatedByDefaultAsIdentity(),
+		userId: text("user_id")
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
+		cardId: integer("card_id").notNull(),
+		description: text("description").notNull(),
+		totalAmountCents: integer("total_amount_cents").notNull(),
+		totalInstallments: integer("total_installments").notNull(),
+		createdAt: timestamp("created_at", { withTimezone: true })
+			.$defaultFn(() => new Date())
+			.notNull(),
+	},
+	(t) => [
+		index("finance_app_card_installment_groups_user_idx").on(t.userId),
+		index("finance_app_card_installment_groups_user_card_idx").on(
+			t.userId,
+			t.cardId,
+		),
+		unique("finance_app_card_installment_groups_id_user_unique").on(
+			t.id,
+			t.userId,
+		),
+		foreignKey({
+			columns: [t.cardId, t.userId],
+			foreignColumns: [creditCards.id, creditCards.userId],
+			name: "finance_app_card_installment_groups_card_user_fk",
+		}).onDelete("cascade"),
+		check(
+			"finance_app_card_installment_groups_amount_positive",
+			sql`${t.totalAmountCents} > 0`,
+		),
+		check(
+			"finance_app_card_installment_groups_count_positive",
+			sql`${t.totalInstallments} > 0`,
+		),
+	],
+);
+
 export const categoryGroups = createFinanceTable(
 	"category_groups",
 	{
@@ -420,7 +566,10 @@ export const monthlyBudgets = createFinanceTable(
 		}),
 		foreignKey({
 			columns: [t.templateId, t.userId],
-			foreignColumns: [monthlyBudgetTemplates.id, monthlyBudgetTemplates.userId],
+			foreignColumns: [
+				monthlyBudgetTemplates.id,
+				monthlyBudgetTemplates.userId,
+			],
 			name: "finance_app_monthly_budgets_template_user_fk",
 		}),
 		check(
@@ -466,7 +615,10 @@ export const monthlyBudgetTemplateSkips = createFinanceTable(
 		),
 		foreignKey({
 			columns: [t.templateId, t.userId],
-			foreignColumns: [monthlyBudgetTemplates.id, monthlyBudgetTemplates.userId],
+			foreignColumns: [
+				monthlyBudgetTemplates.id,
+				monthlyBudgetTemplates.userId,
+			],
 			name: "finance_app_monthly_budget_template_skips_template_user_fk",
 		}).onDelete("cascade"),
 		check(
@@ -516,7 +668,9 @@ export const importBatches = createFinanceTable(
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
 		importTemplateId: integer("import_template_id"),
-		accountId: integer("account_id").notNull(),
+		accountId: integer("account_id"),
+		cardId: integer("card_id"),
+		cardInvoiceId: integer("card_invoice_id"),
 		status: importBatchStatus().notNull().default("draft"),
 		originalFileName: varchar("original_file_name", { length: 255 }).notNull(),
 		sourceLabel: varchar("source_label", { length: 120 }),
@@ -543,6 +697,11 @@ export const importBatches = createFinanceTable(
 			t.userId,
 			t.accountId,
 		),
+		index("finance_app_import_batches_user_card_idx").on(t.userId, t.cardId),
+		index("finance_app_import_batches_user_invoice_idx").on(
+			t.userId,
+			t.cardInvoiceId,
+		),
 		index("finance_app_import_batches_user_template_idx").on(
 			t.userId,
 			t.importTemplateId,
@@ -559,6 +718,20 @@ export const importBatches = createFinanceTable(
 			foreignColumns: [financialAccounts.id, financialAccounts.userId],
 			name: "finance_app_import_batches_account_user_fk",
 		}).onDelete("cascade"),
+		foreignKey({
+			columns: [t.cardId, t.userId],
+			foreignColumns: [creditCards.id, creditCards.userId],
+			name: "finance_app_import_batches_card_user_fk",
+		}).onDelete("cascade"),
+		foreignKey({
+			columns: [t.cardInvoiceId, t.userId],
+			foreignColumns: [cardInvoices.id, cardInvoices.userId],
+			name: "finance_app_import_batches_invoice_user_fk",
+		}).onDelete("cascade"),
+		check(
+			"finance_app_import_batches_account_or_card_valid",
+			sql`(${t.accountId} IS NOT NULL AND ${t.cardId} IS NULL AND ${t.cardInvoiceId} IS NULL) OR (${t.accountId} IS NULL AND ${t.cardId} IS NOT NULL AND ${t.cardInvoiceId} IS NOT NULL)`,
+		),
 	],
 );
 
@@ -570,7 +743,9 @@ export const importRows = createFinanceTable(
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
 		batchId: integer("batch_id").notNull(),
-		accountId: integer("account_id").notNull(),
+		accountId: integer("account_id"),
+		cardId: integer("card_id"),
+		cardInvoiceId: integer("card_invoice_id"),
 		rowNumber: integer("row_number").notNull(),
 		status: importRowStatus().notNull().default("pending_review"),
 		occurredOn: date("occurred_on"),
@@ -598,6 +773,11 @@ export const importRows = createFinanceTable(
 		index("finance_app_import_rows_user_idx").on(t.userId),
 		index("finance_app_import_rows_user_batch_idx").on(t.userId, t.batchId),
 		index("finance_app_import_rows_user_status_idx").on(t.userId, t.status),
+		index("finance_app_import_rows_user_card_idx").on(t.userId, t.cardId),
+		index("finance_app_import_rows_user_invoice_idx").on(
+			t.userId,
+			t.cardInvoiceId,
+		),
 		unique("finance_app_import_rows_id_user_unique").on(t.id, t.userId),
 		uniqueIndex("finance_app_import_rows_batch_row_idx").on(
 			t.batchId,
@@ -612,6 +792,16 @@ export const importRows = createFinanceTable(
 			columns: [t.accountId, t.userId],
 			foreignColumns: [financialAccounts.id, financialAccounts.userId],
 			name: "finance_app_import_rows_account_user_fk",
+		}).onDelete("cascade"),
+		foreignKey({
+			columns: [t.cardId, t.userId],
+			foreignColumns: [creditCards.id, creditCards.userId],
+			name: "finance_app_import_rows_card_user_fk",
+		}).onDelete("cascade"),
+		foreignKey({
+			columns: [t.cardInvoiceId, t.userId],
+			foreignColumns: [cardInvoices.id, cardInvoices.userId],
+			name: "finance_app_import_rows_invoice_user_fk",
 		}).onDelete("cascade"),
 		foreignKey({
 			columns: [t.suggestedCategoryId, t.userId],
@@ -640,6 +830,10 @@ export const importRows = createFinanceTable(
 		check(
 			"finance_app_import_rows_suggested_recurrence_columns_valid",
 			sql`(${t.suggestedRecurrenceId} IS NULL) = (${t.suggestedRecurrenceOccurrenceOn} IS NULL)`,
+		),
+		check(
+			"finance_app_import_rows_account_or_card_valid",
+			sql`(${t.accountId} IS NOT NULL AND ${t.cardId} IS NULL AND ${t.cardInvoiceId} IS NULL) OR (${t.accountId} IS NULL AND ${t.cardId} IS NOT NULL AND ${t.cardInvoiceId} IS NOT NULL)`,
 		),
 	],
 );
@@ -868,8 +1062,14 @@ export const transactions = createFinanceTable(
 		userId: text("user_id")
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
-		accountId: integer("account_id").notNull(),
+		accountId: integer("account_id"),
 		destinationAccountId: integer("destination_account_id"),
+		cardId: integer("card_id"),
+		cardInvoiceId: integer("card_invoice_id"),
+		cardEntryKind: cardEntryKind("card_entry_kind"),
+		cardInstallmentGroupId: integer("card_installment_group_id"),
+		installmentNumber: integer("installment_number"),
+		installmentCount: integer("installment_count"),
 		categoryId: integer("category_id"),
 		categoryRuleId: integer("category_rule_id"),
 		importBatchId: integer("import_batch_id"),
@@ -899,6 +1099,15 @@ export const transactions = createFinanceTable(
 			t.userId,
 			t.accountId,
 			t.occurredOn,
+		),
+		index("finance_app_transactions_user_card_date_idx").on(
+			t.userId,
+			t.cardId,
+			t.occurredOn,
+		),
+		index("finance_app_transactions_user_invoice_idx").on(
+			t.userId,
+			t.cardInvoiceId,
 		),
 		index("finance_app_transactions_user_category_idx").on(
 			t.userId,
@@ -935,6 +1144,21 @@ export const transactions = createFinanceTable(
 			name: "finance_app_transactions_destination_account_user_fk",
 		}).onDelete("cascade"),
 		foreignKey({
+			columns: [t.cardId, t.userId],
+			foreignColumns: [creditCards.id, creditCards.userId],
+			name: "finance_app_transactions_card_user_fk",
+		}).onDelete("cascade"),
+		foreignKey({
+			columns: [t.cardInvoiceId, t.userId],
+			foreignColumns: [cardInvoices.id, cardInvoices.userId],
+			name: "finance_app_transactions_invoice_user_fk",
+		}).onDelete("cascade"),
+		foreignKey({
+			columns: [t.cardInstallmentGroupId, t.userId],
+			foreignColumns: [cardInstallmentGroups.id, cardInstallmentGroups.userId],
+			name: "finance_app_transactions_installment_group_user_fk",
+		}),
+		foreignKey({
 			columns: [t.categoryId, t.userId],
 			foreignColumns: [categories.id, categories.userId],
 			name: "finance_app_transactions_category_user_fk",
@@ -967,6 +1191,14 @@ export const transactions = createFinanceTable(
 			"finance_app_transactions_recurrence_columns_valid",
 			sql`(${t.recurrenceId} IS NULL) = (${t.recurrenceOccurrenceOn} IS NULL)`,
 		),
+		check(
+			"finance_app_transactions_installment_columns_valid",
+			sql`(${t.cardInstallmentGroupId} IS NULL AND ${t.installmentNumber} IS NULL AND ${t.installmentCount} IS NULL) OR (${t.cardInstallmentGroupId} IS NOT NULL AND ${t.installmentNumber} IS NOT NULL AND ${t.installmentCount} IS NOT NULL AND ${t.installmentNumber} > 0 AND ${t.installmentCount} > 0 AND ${t.installmentNumber} <= ${t.installmentCount})`,
+		),
+		check(
+			"finance_app_transactions_account_card_shape_valid",
+			sql`(${t.movementType} = 'expense' AND ${t.cardId} IS NOT NULL AND ${t.cardInvoiceId} IS NOT NULL AND ${t.cardEntryKind} IS NOT NULL AND ${t.accountId} IS NULL AND ${t.destinationAccountId} IS NULL) OR (${t.movementType} = 'credit_card_payment' AND ${t.accountId} IS NOT NULL AND ${t.cardId} IS NOT NULL AND ${t.cardInvoiceId} IS NOT NULL AND ${t.cardEntryKind} IS NULL AND ${t.destinationAccountId} IS NULL AND ${t.categoryId} IS NULL) OR (${t.cardId} IS NULL AND ${t.cardInvoiceId} IS NULL AND ${t.cardEntryKind} IS NULL AND ${t.accountId} IS NOT NULL)`,
+		),
 	],
 );
 
@@ -974,6 +1206,9 @@ export const userRelations = relations(user, ({ many }) => ({
 	authAccounts: many(account),
 	sessions: many(session),
 	financialAccounts: many(financialAccounts),
+	creditCards: many(creditCards),
+	cardInvoices: many(cardInvoices),
+	cardInstallmentGroups: many(cardInstallmentGroups),
 	categoryGroups: many(categoryGroups),
 	categories: many(categories),
 	monthlyBudgetTemplates: many(monthlyBudgetTemplates),
@@ -1027,6 +1262,52 @@ export const financialAccountRelations = relations(
 		}),
 		transactionSavedFilters: many(transactionSavedFilters),
 		recurrences: many(recurrences),
+	}),
+);
+
+export const creditCardRelations = relations(creditCards, ({ many, one }) => ({
+	user: one(user, { fields: [creditCards.userId], references: [user.id] }),
+	defaultPaymentAccount: one(financialAccounts, {
+		fields: [creditCards.defaultPaymentAccountId],
+		references: [financialAccounts.id],
+	}),
+	legacyAccount: one(financialAccounts, {
+		fields: [creditCards.legacyAccountId],
+		references: [financialAccounts.id],
+	}),
+	invoices: many(cardInvoices),
+	installmentGroups: many(cardInstallmentGroups),
+	transactions: many(transactions),
+	importBatches: many(importBatches),
+	importRows: many(importRows),
+}));
+
+export const cardInvoiceRelations = relations(
+	cardInvoices,
+	({ many, one }) => ({
+		user: one(user, { fields: [cardInvoices.userId], references: [user.id] }),
+		card: one(creditCards, {
+			fields: [cardInvoices.cardId],
+			references: [creditCards.id],
+		}),
+		transactions: many(transactions),
+		importBatches: many(importBatches),
+		importRows: many(importRows),
+	}),
+);
+
+export const cardInstallmentGroupRelations = relations(
+	cardInstallmentGroups,
+	({ many, one }) => ({
+		user: one(user, {
+			fields: [cardInstallmentGroups.userId],
+			references: [user.id],
+		}),
+		card: one(creditCards, {
+			fields: [cardInstallmentGroups.cardId],
+			references: [creditCards.id],
+		}),
+		transactions: many(transactions),
 	}),
 );
 
@@ -1145,6 +1426,14 @@ export const importBatchRelations = relations(
 			fields: [importBatches.accountId],
 			references: [financialAccounts.id],
 		}),
+		card: one(creditCards, {
+			fields: [importBatches.cardId],
+			references: [creditCards.id],
+		}),
+		cardInvoice: one(cardInvoices, {
+			fields: [importBatches.cardInvoiceId],
+			references: [cardInvoices.id],
+		}),
 		rows: many(importRows),
 		transactions: many(transactions),
 	}),
@@ -1160,6 +1449,14 @@ export const importRowRelations = relations(importRows, ({ one }) => ({
 		fields: [importRows.accountId],
 		references: [financialAccounts.id],
 		relationName: "importRowAccount",
+	}),
+	card: one(creditCards, {
+		fields: [importRows.cardId],
+		references: [creditCards.id],
+	}),
+	cardInvoice: one(cardInvoices, {
+		fields: [importRows.cardInvoiceId],
+		references: [cardInvoices.id],
 	}),
 	suggestedCategory: one(categories, {
 		fields: [importRows.suggestedCategoryId],
@@ -1314,6 +1611,18 @@ export const transactionRelations = relations(transactions, ({ one }) => ({
 		fields: [transactions.destinationAccountId],
 		references: [financialAccounts.id],
 		relationName: "destinationAccount",
+	}),
+	card: one(creditCards, {
+		fields: [transactions.cardId],
+		references: [creditCards.id],
+	}),
+	cardInvoice: one(cardInvoices, {
+		fields: [transactions.cardInvoiceId],
+		references: [cardInvoices.id],
+	}),
+	cardInstallmentGroup: one(cardInstallmentGroups, {
+		fields: [transactions.cardInstallmentGroupId],
+		references: [cardInstallmentGroups.id],
 	}),
 	category: one(categories, {
 		fields: [transactions.categoryId],

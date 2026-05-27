@@ -1,14 +1,11 @@
-import { asc, desc, eq } from "drizzle-orm";
-import { unstable_cache } from "next/cache";
-import { CreditCard, Plus, Wallet } from "lucide-react";
+import { asc, eq } from "drizzle-orm";
+import { Plus, Wallet } from "lucide-react";
 import { redirect } from "next/navigation";
 
 import { createAccount } from "~/app/_actions/finance-actions";
 import { AccountsList } from "~/app/accounts/accounts-client";
 import { ActionDialog } from "~/components/action-dialog";
 import { AppShell } from "~/components/app-shell";
-import { EmptyState } from "~/components/empty-state";
-import { Money } from "~/components/money";
 import { PageHeader } from "~/components/page-header";
 import { StatCard } from "~/components/stat-card";
 import { Button } from "~/components/ui/button";
@@ -21,21 +18,16 @@ import {
 } from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
-import {
-	calculateAccountBalances,
-	getInvoiceForDate,
-} from "~/lib/finance-rules";
-import { formatDate, formatMoney } from "~/lib/formatters";
+import { calculateAccountBalances } from "~/lib/finance-rules";
+import { formatMoney } from "~/lib/formatters";
 import { getSession } from "~/server/better-auth/server";
 import { db } from "~/server/db";
 import { financialAccounts, transactions } from "~/server/db/schema";
-import { userTag } from "~/server/invalidate";
 
 const accountTypeLabels = {
 	checking: "Conta corrente",
 	savings: "Poupança",
 	cash: "Carteira",
-	credit_card: "Cartão de crédito",
 	investment: "Investimento",
 };
 
@@ -43,16 +35,24 @@ export default async function AccountsPage() {
 	const session = await getSession();
 	if (!session?.user.id) redirect("/");
 
-	const { allAccounts, allTransactions } = await loadAccountsData(session.user.id);
-	const activeAccounts = allAccounts.filter((account) => !account.isArchived);
+	const [allAccounts, allTransactions] = await Promise.all([
+		db
+			.select()
+			.from(financialAccounts)
+			.where(eq(financialAccounts.userId, session.user.id))
+			.orderBy(asc(financialAccounts.name)),
+		db
+			.select()
+			.from(transactions)
+			.where(eq(transactions.userId, session.user.id)),
+	]);
+	const activeAccounts = allAccounts.filter(
+		(account) => !account.isArchived && account.type !== "credit_card",
+	);
 	const balances = calculateAccountBalances(allAccounts, allTransactions);
 	const normalConsolidated = activeAccounts.reduce(
 		(total, account) =>
 			total + (balances.get(account.id)?.normalBalanceCents ?? 0),
-		0,
-	);
-	const cardDebt = activeAccounts.reduce(
-		(total, account) => total + (balances.get(account.id)?.cardDebtCents ?? 0),
 		0,
 	);
 
@@ -60,22 +60,16 @@ export default async function AccountsPage() {
 		<AppShell user={{ name: session.user.name, email: session.user.email }}>
 			<PageHeader
 				actions={<CreateAccountDialog />}
-				description="Cadastre contas bancárias, carteiras e cartões. Cartão de crédito é conta; pagamento de fatura é transferência."
+				description="Cadastre apenas contas que guardam dinheiro real. Cartões ficam em uma tela própria."
 				eyebrow="Contas"
-				title="Contas e cartões"
+				title="Contas"
 			/>
 
 			<section className="grid gap-4 sm:grid-cols-2">
 				<StatCard
 					icon={Wallet}
-					label="Saldo consolidado sem cartões"
+					label="Saldo consolidado"
 					value={formatMoney(normalConsolidated)}
-				/>
-				<StatCard
-					icon={CreditCard}
-					label="Dívida aberta em cartões"
-					tone={cardDebt > 0 ? "destructive" : "default"}
-					value={formatMoney(cardDebt)}
 				/>
 			</section>
 
@@ -93,111 +87,15 @@ export default async function AccountsPage() {
 					/>
 				</CardContent>
 			</Card>
-
-			<Card>
-				<CardHeader>
-					<CardTitle>Faturas dinâmicas de cartão</CardTitle>
-					<CardDescription>
-						Estimadas a partir das compras confirmadas no cartão.
-					</CardDescription>
-				</CardHeader>
-				<CardContent>
-					<div className="grid gap-4 sm:grid-cols-2">
-						{activeAccounts.filter((account) => account.type === "credit_card")
-							.length === 0 ? (
-							<EmptyState
-								description="Cadastre um cartão para acompanhar faturas."
-								icon={CreditCard}
-								title="Sem cartões ativos"
-							/>
-						) : null}
-						{activeAccounts
-							.filter((account) => account.type === "credit_card")
-							.map((card) => {
-								const invoices = new Map<
-									string,
-									{ closingDate: string; dueDate: string; total: number }
-								>();
-								for (const transaction of allTransactions) {
-									if (
-										!transaction.isArchived &&
-										transaction.status === "confirmed" &&
-										transaction.accountId === card.id &&
-										transaction.movementType === "expense"
-									) {
-										const invoice = getInvoiceForDate(
-											transaction.occurredOn,
-											card.creditCardClosingDay ?? 31,
-											card.creditCardDueDay ?? 10,
-										);
-										const saved = invoices.get(invoice.key) ?? {
-											...invoice,
-											total: 0,
-										};
-										saved.total += transaction.amountCents;
-										invoices.set(invoice.key, saved);
-									}
-								}
-								return (
-									<div
-										className="rounded-md border bg-muted/20 p-4"
-										key={card.id}
-									>
-										<h3 className="font-medium">{card.name}</h3>
-										<p className="text-muted-foreground text-sm">
-											Dívida aberta:{" "}
-											<Money
-												cents={balances.get(card.id)?.cardDebtCents ?? 0}
-												sign="debit"
-											/>
-										</p>
-										{Array.from(invoices.entries()).map(([key, invoice]) => (
-											<p className="mt-2 text-sm" key={key}>
-												{key}: {formatMoney(invoice.total)} · fecha{" "}
-												{formatDate(invoice.closingDate)} · vence{" "}
-												{formatDate(invoice.dueDate)}
-											</p>
-										))}
-									</div>
-								);
-							})}
-					</div>
-				</CardContent>
-			</Card>
 		</AppShell>
 	);
-}
-
-function loadAccountsData(userId: string) {
-	return unstable_cache(
-		async () => {
-			const [allAccounts, allTransactions] = await Promise.all([
-				db
-					.select()
-					.from(financialAccounts)
-					.where(eq(financialAccounts.userId, userId))
-					.orderBy(asc(financialAccounts.name)),
-				db
-					.select()
-					.from(transactions)
-					.where(eq(transactions.userId, userId))
-					.orderBy(desc(transactions.occurredOn), desc(transactions.id)),
-			]);
-			return { allAccounts, allTransactions };
-		},
-		[`accounts-data:${userId}`],
-		{
-			tags: [userTag(userId, "accounts"), userTag(userId, "transactions")],
-			revalidate: 3600,
-		},
-	)();
 }
 
 function CreateAccountDialog() {
 	return (
 		<ActionDialog
 			action={createAccount}
-			description="Cadastre uma conta bancária, carteira ou cartão."
+			description="Cadastre uma conta bancária, carteira ou investimento."
 			formClassName="grid gap-4"
 			pendingLabel="Cadastrando..."
 			submitLabel="Cadastrar conta"
@@ -223,13 +121,7 @@ function CreateAccountDialog() {
 						))}
 					</select>
 				</div>
-				<Field
-					defaultValue="0,00"
-					label="Saldo inicial"
-					name="initialBalance"
-				/>
-				<Field label="Fechamento (cartão)" name="closingDay" />
-				<Field label="Vencimento (cartão)" name="dueDay" />
+				<Field defaultValue="0" label="Saldo inicial" name="initialBalance" />
 			</div>
 		</ActionDialog>
 	);
@@ -242,8 +134,8 @@ function Field({
 }: { label: string; name: string } & React.ComponentProps<typeof Input>) {
 	return (
 		<div className="grid gap-2">
-			<Label htmlFor={`account-${name}`}>{label}</Label>
-			<Input id={`account-${name}`} name={name} {...props} />
+			<Label htmlFor={`field-${name}`}>{label}</Label>
+			<Input id={`field-${name}`} name={name} {...props} />
 		</div>
 	);
 }

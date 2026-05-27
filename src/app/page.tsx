@@ -1,5 +1,4 @@
 import { and, asc, desc, eq, isNotNull, sql } from "drizzle-orm";
-import { unstable_cache } from "next/cache";
 import {
 	AlertTriangle,
 	ArrowDownUp,
@@ -12,6 +11,7 @@ import {
 	TrendingUp,
 	Wallet,
 } from "lucide-react";
+import { unstable_cache } from "next/cache";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -61,11 +61,14 @@ import {
 } from "~/lib/recurrences";
 import { cn } from "~/lib/utils";
 import { getSession } from "~/server/better-auth/server";
+import { ensureBudgetTemplatesMaterialized } from "~/server/budget-templates";
 import { db } from "~/server/db";
 import {
 	assistantSuggestions,
+	cardInvoices,
 	categories,
 	categoryGroups,
+	creditCards,
 	financialAccounts,
 	importBatches,
 	importRows,
@@ -73,7 +76,6 @@ import {
 	recurrences,
 	transactions,
 } from "~/server/db/schema";
-import { ensureBudgetTemplatesMaterialized } from "~/server/budget-templates";
 import { userTag } from "~/server/invalidate";
 
 type HomeProps = {
@@ -99,6 +101,8 @@ export default async function Home({ searchParams }: HomeProps) {
 		allGroups,
 		allCategories,
 		allTransactions,
+		cards,
+		invoices,
 		batches,
 		rows,
 		budgetRows,
@@ -182,6 +186,8 @@ export default async function Home({ searchParams }: HomeProps) {
 		accountFilter: "all",
 		today,
 		extraPlannedMovements,
+		cards,
+		cardInvoices: invoices,
 	});
 	const projectedIncomeCents = projectedCashFlow.totals.plannedIncome;
 	const projectedExpenseCents =
@@ -201,6 +207,8 @@ export default async function Home({ searchParams }: HomeProps) {
 		activeAccounts,
 		allTransactions,
 		today,
+		invoices,
+		cards,
 	);
 	const pendingImports = batches.filter(
 		(batch) => batch.status === "draft" || batch.status === "reviewing",
@@ -322,40 +330,40 @@ export default async function Home({ searchParams }: HomeProps) {
 				</section>
 			) : null}
 
-		<section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-			<StatCard
-				description={`Financeira: ${formatMoney(monthlyTotals.financialIncomeCents)} · total: ${formatMoney(monthlyTotals.incomeCents)}`}
-				icon={TrendingUp}
-				label="Receita principal"
-				tone="success"
-				value={formatMoney(monthlyTotals.mainIncomeCents)}
-			/>
-			<StatCard
-				icon={TrendingDown}
-				label="Despesas em dinheiro"
-				tone="destructive"
-				value={formatMoney(monthlyTotals.cashExpenseCents)}
-			/>
-			<StatCard
-				icon={CreditCard}
-				label="Fatura paga"
-				tone="destructive"
-				value={formatMoney(monthlyTotals.invoicePaymentCents)}
-			/>
-			<StatCard
-				icon={ArrowDownUp}
-				label="Saldo do mês"
-				tone={monthlyTotals.netCents >= 0 ? "success" : "destructive"}
-				value={formatMoney(monthlyTotals.netCents)}
-			/>
-			<StatCard
-				description={budgetSummary.description}
-				icon={PiggyBank}
-				label="Orçamento usado"
-				tone={budgetTone(budgetSummary.variant)}
-				value={budgetSummary.label}
-			/>
-		</section>
+			<section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+				<StatCard
+					description={`Financeira: ${formatMoney(monthlyTotals.financialIncomeCents)} · total: ${formatMoney(monthlyTotals.incomeCents)}`}
+					icon={TrendingUp}
+					label="Receita principal"
+					tone="success"
+					value={formatMoney(monthlyTotals.mainIncomeCents)}
+				/>
+				<StatCard
+					icon={TrendingDown}
+					label="Despesas em dinheiro"
+					tone="destructive"
+					value={formatMoney(monthlyTotals.cashExpenseCents)}
+				/>
+				<StatCard
+					icon={CreditCard}
+					label="Fatura paga"
+					tone="destructive"
+					value={formatMoney(monthlyTotals.invoicePaymentCents)}
+				/>
+				<StatCard
+					icon={ArrowDownUp}
+					label="Saldo do mês"
+					tone={monthlyTotals.netCents >= 0 ? "success" : "destructive"}
+					value={formatMoney(monthlyTotals.netCents)}
+				/>
+				<StatCard
+					description={budgetSummary.description}
+					icon={PiggyBank}
+					label="Orçamento usado"
+					tone={budgetTone(budgetSummary.variant)}
+					value={budgetSummary.label}
+				/>
+			</section>
 
 			<section className="grid gap-6 lg:grid-cols-[1fr_1fr]">
 				<Card>
@@ -725,8 +733,10 @@ export default async function Home({ searchParams }: HomeProps) {
 												{batch.originalFileName}
 											</p>
 											<p className="truncate text-muted-foreground text-xs">
-												{accountById.get(batch.accountId)?.name ??
-													"Conta removida"}{" "}
+												{batch.accountId
+													? (accountById.get(batch.accountId)?.name ??
+														"Conta removida")
+													: "Cartão"}{" "}
 												· {batch.rowCount} linha(s)
 											</p>
 										</div>
@@ -760,6 +770,8 @@ function loadDashboardData(userId: string, periodKey: string) {
 				allGroups,
 				allCategories,
 				allTransactions,
+				cards,
+				invoices,
 				batches,
 				rows,
 				budgetRows,
@@ -787,6 +799,16 @@ function loadDashboardData(userId: string, periodKey: string) {
 					.from(transactions)
 					.where(eq(transactions.userId, userId))
 					.orderBy(desc(transactions.occurredOn), desc(transactions.id)),
+				db
+					.select()
+					.from(creditCards)
+					.where(eq(creditCards.userId, userId))
+					.orderBy(asc(creditCards.name)),
+				db
+					.select()
+					.from(cardInvoices)
+					.where(eq(cardInvoices.userId, userId))
+					.orderBy(asc(cardInvoices.dueDate)),
 				db
 					.select()
 					.from(importBatches)
@@ -834,6 +856,8 @@ function loadDashboardData(userId: string, periodKey: string) {
 				allGroups,
 				allCategories,
 				allTransactions,
+				cards,
+				invoices,
 				batches,
 				rows,
 				budgetRows,
@@ -848,6 +872,7 @@ function loadDashboardData(userId: string, periodKey: string) {
 				userTag(userId, "accounts"),
 				userTag(userId, "categories"),
 				userTag(userId, "transactions"),
+				userTag(userId, "cards"),
 				userTag(userId, "recurrences"),
 				userTag(userId, "budgets"),
 				userTag(userId, "imports"),

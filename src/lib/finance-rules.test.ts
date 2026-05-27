@@ -4,6 +4,7 @@ import {
 	buildBudgetHistory,
 	buildBudgetUsage,
 	calculateAccountBalances,
+	calculateCardInvoiceBalances,
 	calculateMonthlyBalanceTotals,
 	calculateMonthlyTotals,
 	calculateMonthlyTotalsByCashFlowRole,
@@ -14,6 +15,7 @@ import {
 	parseMonthPeriod,
 	type RuleAccount,
 	type RuleBudget,
+	type RuleCardInvoice,
 	type RuleCategory,
 	type RuleCategoryGroup,
 	type RuleTransaction,
@@ -74,6 +76,17 @@ function tx(overrides: Partial<RuleTransaction>): RuleTransaction {
 		status: "confirmed",
 		amountCents: 10_00,
 		occurredOn: "2026-05-01",
+		isArchived: false,
+		...overrides,
+	};
+}
+
+function invoice(overrides: Partial<RuleCardInvoice>): RuleCardInvoice {
+	return {
+		id: 1,
+		accountId: 2,
+		key: "2026-05",
+		totalCents: 100_00,
 		isArchived: false,
 		...overrides,
 	};
@@ -286,6 +299,94 @@ describe("finance rules", () => {
 			key: "2026-06",
 			closingDate: "2026-06-10",
 			dueDate: "2026-06-20",
+		});
+	});
+
+	describe("calculateCardInvoiceBalances", () => {
+		test("allocates payments only to their persisted invoice", () => {
+			const result = calculateCardInvoiceBalances(
+				[
+					invoice({ id: 10, totalCents: 300_00 }),
+					invoice({ id: 11, key: "2026-06", totalCents: 200_00 }),
+				],
+				[
+					tx({
+						movementType: "credit_card_payment",
+						amountCents: 120_00,
+						destinationAccountId: 2,
+						cardInvoiceId: 10,
+					}),
+				],
+			);
+
+			expect(result.invoices).toEqual([
+				{
+					accountId: 2,
+					invoiceId: 10,
+					key: "2026-05",
+					paidCents: 120_00,
+					remainingCents: 180_00,
+					totalCents: 300_00,
+				},
+				{
+					accountId: 2,
+					invoiceId: 11,
+					key: "2026-06",
+					paidCents: 0,
+					remainingCents: 200_00,
+					totalCents: 200_00,
+				},
+			]);
+			expect(result.cardDebtByAccountId.get(2)).toBe(380_00);
+		});
+
+		test("ignores unlinked, planned and archived invoice payments", () => {
+			const result = calculateCardInvoiceBalances(
+				[invoice({ id: 10, totalCents: 300_00 })],
+				[
+					tx({
+						movementType: "credit_card_payment",
+						amountCents: 50_00,
+						destinationAccountId: 2,
+					}),
+					tx({
+						movementType: "credit_card_payment",
+						amountCents: 60_00,
+						destinationAccountId: 2,
+						cardInvoiceId: 10,
+						status: "planned",
+					}),
+					tx({
+						movementType: "credit_card_payment",
+						amountCents: 70_00,
+						destinationAccountId: 2,
+						cardInvoiceId: 10,
+						isArchived: true,
+					}),
+				],
+			);
+
+			expect(result.invoices[0]?.paidCents).toBe(0);
+			expect(result.invoices[0]?.remainingCents).toBe(300_00);
+			expect(result.unallocatedPaymentCents).toBe(50_00);
+		});
+
+		test("clamps overpaid invoices at zero debt", () => {
+			const result = calculateCardInvoiceBalances(
+				[invoice({ id: 10, totalCents: 100_00 })],
+				[
+					tx({
+						movementType: "credit_card_payment",
+						amountCents: 120_00,
+						destinationAccountId: 2,
+						cardInvoiceId: 10,
+					}),
+				],
+			);
+
+			expect(result.invoices[0]?.paidCents).toBe(120_00);
+			expect(result.invoices[0]?.remainingCents).toBe(0);
+			expect(result.cardDebtByAccountId.get(2)).toBe(0);
 		});
 	});
 
@@ -643,9 +744,7 @@ describe("finance rules", () => {
 				groups,
 				period,
 			);
-			expect(result.find((r) => r.categoryId === 10)?.amountCents).toBe(
-				150_00,
-			);
+			expect(result.find((r) => r.categoryId === 10)?.amountCents).toBe(150_00);
 		});
 
 		test("buildBudgetUsage includes credit card expenses", () => {
