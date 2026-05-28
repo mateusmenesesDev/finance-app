@@ -22,6 +22,7 @@ import type { BudgetTemplateLike } from "~/lib/budget-templates";
 import {
 	type CategoryActionState,
 	categoryActionError,
+	isDuplicateCategoryNameError,
 } from "~/lib/category-errors";
 import { MAX_AMOUNT_CENTS, moneyToCents } from "~/lib/money";
 import { maskSensitive } from "~/lib/sensitive-data";
@@ -732,6 +733,7 @@ export async function createCategory(
 	try {
 		const userId = await requireUserId();
 		const groupId = intField(formData, "groupId");
+		const name = requiredString(formData, "name");
 		const group = await db.query.categoryGroups.findFirst({
 			where: and(
 				eq(categoryGroups.id, groupId),
@@ -739,12 +741,32 @@ export async function createCategory(
 			),
 		});
 		if (!group || group.isArchived) throw new Error("Grupo inválido");
-		await db.insert(categories).values({
-			userId,
-			groupId,
-			kind: group.kind,
-			name: requiredString(formData, "name"),
-		});
+		try {
+			await db.insert(categories).values({
+				userId,
+				groupId,
+				kind: group.kind,
+				name,
+			});
+		} catch (error) {
+			if (!isDuplicateCategoryNameError(error)) throw error;
+
+			const existing = await db.query.categories.findFirst({
+				where: and(
+					eq(categories.userId, userId),
+					eq(categories.groupId, groupId),
+					eq(categories.name, name),
+				),
+			});
+			if (!existing?.isArchived) throw error;
+
+			await db
+				.update(categories)
+				.set({ isArchived: false, kind: group.kind })
+				.where(
+					and(eq(categories.id, existing.id), eq(categories.userId, userId)),
+				);
+		}
 		invalidateAfterCategoryMutation(userId);
 		return { error: null };
 	} catch (error) {
@@ -788,9 +810,12 @@ export async function updateCategory(
 
 export async function archiveCategory(formData: FormData) {
 	const userId = await requireUserId();
+	const isArchived = formData.has("isArchived")
+		? boolField(formData, "isArchived")
+		: true;
 	await db
 		.update(categories)
-		.set({ isArchived: true })
+		.set({ isArchived })
 		.where(
 			and(
 				eq(categories.id, intField(formData, "id")),

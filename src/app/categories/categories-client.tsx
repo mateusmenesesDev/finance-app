@@ -1,6 +1,13 @@
 "use client";
 
-import { Archive, FolderPlus, Pencil, Plus, Tags } from "lucide-react";
+import {
+	Archive,
+	FolderPlus,
+	Pencil,
+	Plus,
+	RotateCcw,
+	Tags,
+} from "lucide-react";
 import { useActionState, useEffect, useState } from "react";
 
 import {
@@ -55,11 +62,13 @@ type Category = {
 export function CategoriesClient({
 	activeGroups,
 	activeCategories,
+	archivedCategories,
 	categoryTotals,
 	groupTotals,
 }: {
 	activeGroups: CategoryGroup[];
 	activeCategories: Category[];
+	archivedCategories: Category[];
 	categoryTotals: Record<number, number>;
 	groupTotals: Record<number, number>;
 }) {
@@ -70,6 +79,8 @@ export function CategoriesClient({
 	const [visibleError, setVisibleError] = useState<string | null>(null);
 	const [visibleGroups, setVisibleGroups] = useState(activeGroups);
 	const [visibleCategories, setVisibleCategories] = useState(activeCategories);
+	const [visibleArchivedCategories, setVisibleArchivedCategories] =
+		useState(archivedCategories);
 
 	useEffect(() => {
 		setVisibleGroups(activeGroups);
@@ -77,6 +88,9 @@ export function CategoriesClient({
 	useEffect(() => {
 		setVisibleCategories(activeCategories);
 	}, [activeCategories]);
+	useEffect(() => {
+		setVisibleArchivedCategories(archivedCategories);
+	}, [archivedCategories]);
 
 	async function archiveGroupWithRollback(formData: FormData) {
 		const id = Number(formData.get("id"));
@@ -106,6 +120,20 @@ export function CategoriesClient({
 		} catch {
 			setVisibleCategories(before);
 			throw new Error("Não foi possível arquivar a categoria.");
+		}
+	}
+
+	async function restoreCategoryWithRollback(formData: FormData) {
+		const id = Number(formData.get("id"));
+		const before = visibleArchivedCategories;
+		setVisibleArchivedCategories((current) =>
+			current.filter((category) => category.id !== id),
+		);
+		try {
+			await archiveCategory(formData);
+		} catch {
+			setVisibleArchivedCategories(before);
+			throw new Error("Não foi possível reativar a categoria.");
 		}
 	}
 
@@ -187,6 +215,12 @@ export function CategoriesClient({
 					groups={visibleGroups}
 				/>
 			</section>
+
+			<ArchivedCategoriesCard
+				categories={visibleArchivedCategories}
+				groups={visibleGroups}
+				restoreAction={restoreCategoryWithRollback}
+			/>
 		</>
 	);
 }
@@ -388,6 +422,75 @@ function CategoriesCard({
 									}
 								/>
 							</div>
+						</div>
+					</div>
+				))}
+			</CardContent>
+		</Card>
+	);
+}
+
+function ArchivedCategoriesCard({
+	categories,
+	groups,
+	restoreAction,
+}: {
+	categories: Category[];
+	groups: CategoryGroup[];
+	restoreAction: (formData: FormData) => Promise<void>;
+}) {
+	const groupById = new Map(groups.map((group) => [group.id, group]));
+
+	return (
+		<Card>
+			<CardHeader>
+				<CardTitle>Categorias arquivadas</CardTitle>
+				<CardDescription>
+					Reative uma categoria arquivada em vez de criar outra com o mesmo
+					nome.
+				</CardDescription>
+			</CardHeader>
+			<CardContent className="grid gap-3">
+				{categories.length === 0 ? (
+					<EmptyState
+						description="Categorias arquivadas ficam aqui para reativação."
+						icon={Archive}
+						title="Nenhuma categoria arquivada."
+					/>
+				) : null}
+				{categories.map((category) => (
+					<div className="rounded-md border bg-muted/10 p-4" key={category.id}>
+						<div className="flex items-start justify-between gap-3">
+							<div className="min-w-0">
+								<div className="flex flex-wrap items-center gap-2">
+									<p className="font-medium">{category.name}</p>
+									<Badge
+										variant={
+											category.kind === "income" ? "default" : "secondary"
+										}
+									>
+										{kindLabels[category.kind]}
+									</Badge>
+									<Badge variant="outline">Arquivada</Badge>
+								</div>
+								<p className="mt-1 text-muted-foreground text-sm">
+									Grupo: {groupById.get(category.groupId)?.name ?? "removido"}
+								</p>
+							</div>
+							<ConfirmDialog
+								action={restoreAction}
+								confirmLabel="Reativar"
+								errorMessage="Não foi possível reativar a categoria."
+								hidden={{ id: category.id, isArchived: "false" }}
+								successMessage="Categoria reativada."
+								title="Reativar categoria?"
+								trigger={
+									<Button size="sm" variant="outline">
+										<RotateCcw className="size-4" />
+										Reativar
+									</Button>
+								}
+							/>
 						</div>
 					</div>
 				))}

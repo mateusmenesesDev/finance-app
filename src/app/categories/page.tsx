@@ -16,10 +16,15 @@ export default async function CategoriesPage() {
 	if (!session?.user.id) redirect("/");
 
 	const period = getCurrentMonthPeriod();
-	const { allGroups, allCategories, allTransactions } = await loadCategoriesData(session.user.id);
+	const { allGroups, allCategories, allTransactions } =
+		await loadCategoriesData(session.user.id);
 	const activeGroups = allGroups.filter((group) => !group.isArchived);
+	const activeGroupIds = new Set(activeGroups.map((group) => group.id));
 	const activeCategories = allCategories.filter(
 		(category) => !category.isArchived,
+	);
+	const archivedCategories = allCategories.filter(
+		(category) => category.isArchived && activeGroupIds.has(category.groupId),
 	);
 	const categoryById = new Map(
 		allCategories.map((category) => [category.id, category]),
@@ -61,6 +66,7 @@ export default async function CategoriesPage() {
 			<CategoriesClient
 				activeCategories={activeCategories}
 				activeGroups={activeGroups}
+				archivedCategories={archivedCategories}
 				categoryTotals={Object.fromEntries(categoryTotals)}
 				groupTotals={Object.fromEntries(groupTotals)}
 			/>
