@@ -6,7 +6,6 @@ import {
 	archiveImportCategoryRule,
 	archiveImportTemplate,
 	cancelImportBatch,
-	createImportBatch,
 	createImportTemplate,
 	revertImportBatch,
 	updateImportTemplate,
@@ -15,6 +14,7 @@ import {
 	type ConfirmFormRow,
 	ConfirmImportForm,
 } from "~/app/import/confirm-import-form";
+import { ImportBatchForm } from "~/app/import/import-batch-form";
 import { ImportRuleForm } from "~/app/import/import-rule-form";
 import { AppShell } from "~/components/app-shell";
 import { Money } from "~/components/money";
@@ -151,6 +151,7 @@ export default async function ImportPage({ searchParams }: ImportPageProps) {
 	);
 	const usableCards = cards.filter((card) => !card.isArchived && card.isActive);
 	const activeTemplates = templates.filter((template) => !template.isArchived);
+	const currentMonth = new Date().toISOString().slice(0, 7);
 	const usableCategories = activeCategories.filter(
 		(category) => !category.isArchived,
 	);
@@ -413,85 +414,18 @@ export default async function ImportPage({ searchParams }: ImportPageProps) {
 						</Panel>
 
 						<Panel title="Novo lote">
-							<form action={createImportBatch} className="grid gap-3">
-								<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-									<FieldLabel
-										hint="Todas as linhas vão para esta conta."
-										label="Conta de destino"
-									>
-										<select className={inputClass} name="accountId">
-											<option value="">Importar cartão abaixo</option>
-											{usableAccounts.map((account) => (
-												<option key={account.id} value={account.id}>
-													{account.name}
-												</option>
-											))}
-										</select>
-									</FieldLabel>
-									<FieldLabel
-										hint="Para CSV de fatura, escolha cartão e mês de vencimento."
-										label="Cartão"
-									>
-										<select className={inputClass} name="cardId">
-											<option value="">Importar conta acima</option>
-											{usableCards.map((card) => (
-												<option key={card.id} value={card.id}>
-													{card.name}
-												</option>
-											))}
-										</select>
-									</FieldLabel>
-									<FieldLabel
-										hint="Mês de vencimento da fatura do cartão."
-										label="Mês da fatura"
-									>
-										<input
-											className={inputClass}
-											name="invoiceMonthKey"
-											type="month"
-										/>
-									</FieldLabel>
-									<FieldLabel
-										hint="Define como o CSV vai ser interpretado."
-										label="Modelo de importação"
-									>
-										<select className={inputClass} name="templateId" required>
-											<option value="">Escolha um modelo salvo</option>
-											{activeTemplates.map((template) => (
-												<option key={template.id} value={template.id}>
-													{templateOptionLabel(template)}
-												</option>
-											))}
-										</select>
-									</FieldLabel>
-									<FieldLabel
-										hint="Só arquivos .csv. O conteúdo bruto não é salvo."
-										label="Arquivo CSV"
-									>
-										<input
-											accept=".csv,text/csv"
-											className={inputClass}
-											name="csvFile"
-											required
-											type="file"
-										/>
-									</FieldLabel>
-								</div>
-								<label className="flex items-center gap-2 text-muted-foreground text-sm">
-									<input disabled name="rawFileStored" type="checkbox" />{" "}
-									Guardar arquivo original (desativado por privacidade)
-								</label>
-								<p className="text-muted-foreground text-xs">
-									O CSV é lido em memória; só as linhas já parseadas e
-									mascaradas ficam salvas para revisão.
-								</p>
-								<SubmitButton
-									className="bg-primary font-semibold"
-									pendingLabel="Enviando..."
-								>
-									Enviar para revisão
-								</SubmitButton>
-							</form>
+							<ImportBatchForm
+								accounts={usableAccounts}
+								cards={usableCards}
+								currentMonth={currentMonth}
+								inputClass={inputClass}
+								templates={activeTemplates.map((template) => ({
+									id: template.id,
+									label: `${template.name} — ${templateMappingText(
+										normalizeImportTemplateConfig(template.config),
+									)}`,
+								}))}
+							/>
 
 							<div className="mt-6 grid gap-2">
 								<h3 className="font-medium">Modelos salvos</h3>
@@ -577,6 +511,7 @@ export default async function ImportPage({ searchParams }: ImportPageProps) {
 									reviewRules={rules}
 									rows={rows}
 									selectedBatch={selectedBatch}
+									usableCards={usableCards}
 								/>
 							) : (
 								<p className="text-muted-foreground text-sm">
@@ -769,11 +704,6 @@ function TemplateCard({
 	);
 }
 
-function templateOptionLabel(template: typeof importTemplates.$inferSelect) {
-	const config = normalizeImportTemplateConfig(template.config);
-	return `${template.name} — ${templateMappingText(config)}`;
-}
-
 function templateMappingText(
 	config: ReturnType<typeof normalizeImportTemplateConfig>,
 ) {
@@ -909,6 +839,7 @@ function BatchReview({
 	selectedBatch,
 	rows,
 	invoiceOptions,
+	usableCards,
 	reviewAccounts,
 	reviewCategories,
 	reviewRules,
@@ -923,6 +854,7 @@ function BatchReview({
 		monthKey: string;
 		dueDate: string;
 	}[];
+	usableCards: (typeof creditCards.$inferSelect)[];
 	reviewAccounts: (typeof financialAccounts.$inferSelect)[];
 	reviewCategories: (typeof categories.$inferSelect)[];
 	reviewRules: (typeof importCategoryRules.$inferSelect)[];
@@ -1075,6 +1007,10 @@ function BatchReview({
 						type: account.type,
 					}))}
 					batchId={selectedBatch.id}
+					cards={usableCards.map((card) => ({
+						id: card.id,
+						name: card.name,
+					}))}
 					categories={reviewCategories.map((category) => ({
 						id: category.id,
 						name: category.name,
@@ -1115,30 +1051,6 @@ function Panel({
 			</CardHeader>
 			<CardContent>{children}</CardContent>
 		</Card>
-	);
-}
-
-function FieldLabel({
-	label,
-	children,
-	hint,
-	wrapperClassName,
-}: {
-	label: string;
-	children: React.ReactNode;
-	hint?: string;
-	wrapperClassName?: string;
-}) {
-	return (
-		<div
-			className={`grid gap-1 text-muted-foreground text-sm ${wrapperClassName ?? ""}`}
-		>
-			<Label>{label}</Label>
-			{children}
-			{hint ? (
-				<span className="text-muted-foreground text-xs">{hint}</span>
-			) : null}
-		</div>
 	);
 }
 

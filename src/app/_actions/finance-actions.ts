@@ -25,6 +25,7 @@ import {
 	isDuplicateCategoryNameError,
 } from "~/lib/category-errors";
 import { MAX_AMOUNT_CENTS, moneyToCents } from "~/lib/money";
+import { parseInvoiceMonthKey, parseMonthKey } from "~/lib/month-key";
 import { maskSensitive } from "~/lib/sensitive-data";
 import { recurrenceLinkForTransactionUpdate } from "~/lib/transaction-recurrence";
 import { regenerateAssistantSuggestionsForUser } from "~/server/assistant";
@@ -358,8 +359,20 @@ function isoDateField(formData: FormData, name: string) {
 
 function monthKeyField(formData: FormData, name: string) {
 	const value = requiredString(formData, name);
-	if (!/^\d{4}-\d{2}$/.test(value)) throw new Error(`Mês inválido: ${name}`);
-	return value;
+	const monthKey = parseMonthKey(value);
+	if (!monthKey) throw new Error(`Mês inválido: ${name}. Use AAAA-MM.`);
+	return monthKey;
+}
+
+function invoiceMonthKeyField(formData: FormData, name: string) {
+	const value = requiredString(formData, name);
+	const monthKey = parseInvoiceMonthKey(value);
+	if (!monthKey) {
+		throw new Error(
+			`Mês inválido: ${name}. Use AAAA-MM, número do mês ou nome do mês.`,
+		);
+	}
+	return monthKey;
 }
 
 function optionalIsoDateField(formData: FormData, name: string) {
@@ -1019,7 +1032,7 @@ async function transactionValues(userId: string, formData: FormData) {
 export async function createCardPurchase(formData: FormData) {
 	const userId = await requireUserId();
 	const cardId = intField(formData, "cardId");
-	const monthKey = monthKeyField(formData, "invoiceMonthKey");
+	const monthKey = invoiceMonthKeyField(formData, "invoiceMonthKey");
 	const categoryId = intField(formData, "categoryId");
 	const installmentCount = intField(formData, "installmentCount", 1);
 	if (installmentCount < 1 || installmentCount > 120) {
@@ -2606,6 +2619,38 @@ export async function archiveImportCategoryRule(formData: FormData) {
 	revalidatePath("/import");
 }
 
+export type CreateImportBatchState = {
+	error: string | null;
+};
+
+function isRedirectError(error: unknown) {
+	return (
+		typeof error === "object" &&
+		error !== null &&
+		"digest" in error &&
+		typeof error.digest === "string" &&
+		error.digest.startsWith("NEXT_REDIRECT")
+	);
+}
+
+export async function createImportBatchWithState(
+	_prevState: CreateImportBatchState,
+	formData: FormData,
+): Promise<CreateImportBatchState> {
+	try {
+		await createImportBatch(formData);
+		return { error: null };
+	} catch (error) {
+		if (isRedirectError(error)) throw error;
+		return {
+			error:
+				error instanceof Error && error.message
+					? error.message
+					: "Não foi possível criar importação",
+		};
+	}
+}
+
 export async function createImportBatch(formData: FormData) {
 	const userId = await requireUserId();
 	const accountId = optionalIntField(formData, "accountId");
@@ -2648,7 +2693,7 @@ export async function createImportBatch(formData: FormData) {
 				await ensureCardInvoice(db, {
 					userId,
 					cardId,
-					monthKey: monthKeyField(formData, "invoiceMonthKey"),
+					monthKey: invoiceMonthKeyField(formData, "invoiceMonthKey"),
 				})
 			).invoice
 		: null;
@@ -2861,7 +2906,7 @@ export async function confirmImportBatch(
 	const rows = await db.query.importRows.findMany({
 		where: and(eq(importRows.batchId, batchId), eq(importRows.userId, userId)),
 	});
-	const [activeAccounts, activeCategories, activeInvoices] = await Promise.all([
+	const [activeAccounts, activeCategories, activeCards] = await Promise.all([
 		db
 			.select()
 			.from(financialAccounts)
@@ -2879,11 +2924,12 @@ export async function confirmImportBatch(
 			),
 		db
 			.select()
-			.from(cardInvoices)
+			.from(creditCards)
 			.where(
 				and(
-					eq(cardInvoices.userId, userId),
-					eq(cardInvoices.isArchived, false),
+					eq(creditCards.userId, userId),
+					eq(creditCards.isArchived, false),
+					eq(creditCards.isActive, true),
 				),
 			),
 	]);
@@ -2893,9 +2939,7 @@ export async function confirmImportBatch(
 	const categoriesById = new Map(
 		activeCategories.map((category) => [category.id, category]),
 	);
-	const invoicesById = new Map(
-		activeInvoices.map((invoice) => [invoice.id, invoice]),
-	);
+	const cardsById = new Map(activeCards.map((card) => [card.id, card]));
 	const confirmCategoriesById = new Map<number, ImportConfirmCategory>(
 		activeCategories.map((category) => [
 			category.id,
@@ -2904,9 +2948,8 @@ export async function confirmImportBatch(
 	);
 	const bulkCategoryId = optionalIntField(formData, "bulkCategoryId");
 
-	// Pre-pass: surface category/kind issues per-row before opening the
-	// transaction so the review screen can show inline errors instead of a
-	// blanket digest crash.
+	// Pre-pass: surface per-row validation before opening the transaction so
+	// the review screen can show inline errors instead of a blanket digest crash.
 	const rowErrors: Record<number, string> = {};
 	for (const row of rows) {
 		const decision = formData.get(`row-${row.id}-decision`)?.toString();
@@ -2955,12 +2998,16 @@ export async function confirmImportBatch(
 				continue;
 			}
 			if (movementType === "credit_card_payment") {
-				const invoiceId = optionalIntField(
-					formData,
-					`row-${row.id}-cardInvoiceId`,
-				);
-				if (!invoiceId || !invoicesById.has(invoiceId)) {
-					rowErrors[row.id] = "Fatura obrigatória para pagamento.";
+				const cardId = optionalIntField(formData, `row-${row.id}-cardId`);
+				if (!cardId || !cardsById.has(cardId)) {
+					rowErrors[row.id] = "Cartão obrigatório para pagamento de fatura.";
+					continue;
+				}
+				const monthKeyValue = formData
+					.get(`row-${row.id}-invoiceMonthKey`)
+					?.toString();
+				if (!monthKeyValue || !parseMonthKey(monthKeyValue)) {
+					rowErrors[row.id] = "Mês da fatura obrigatório no formato AAAA-MM.";
 				}
 				continue;
 			}
@@ -2980,7 +3027,7 @@ export async function confirmImportBatch(
 	if (Object.keys(rowErrors).length > 0) {
 		return {
 			rowErrors,
-			globalError: `Corrija ${Object.keys(rowErrors).length} linha(s) com categoria incompatível antes de confirmar.`,
+			globalError: `Corrija ${Object.keys(rowErrors).length} linha(s) antes de confirmar.`,
 		};
 	}
 
@@ -3105,13 +3152,14 @@ export async function confirmImportBatch(
 				formData,
 				`row-${row.id}-destinationAccountId`,
 			);
-			const paymentInvoiceId = optionalIntField(
-				formData,
-				`row-${row.id}-cardInvoiceId`,
-			);
-			const paymentInvoice = paymentInvoiceId
-				? invoicesById.get(paymentInvoiceId)
+			const paymentCardId = optionalIntField(formData, `row-${row.id}-cardId`);
+			const paymentInvoiceMonthKeyValue = formData
+				.get(`row-${row.id}-invoiceMonthKey`)
+				?.toString();
+			const paymentInvoiceMonthKey = paymentInvoiceMonthKeyValue
+				? parseMonthKey(paymentInvoiceMonthKeyValue)
 				: null;
+			let paymentInvoice: typeof cardInvoices.$inferSelect | null = null;
 			if (movementType === "transfer") {
 				if (!destinationAccountId || !accountsById.has(destinationAccountId)) {
 					throw new Error(
@@ -3130,11 +3178,22 @@ export async function confirmImportBatch(
 						`Pagamento de fatura na linha ${row.rowNumber} exige conta origem`,
 					);
 				}
-				if (!paymentInvoice) {
+				if (!paymentCardId || !cardsById.has(paymentCardId)) {
 					throw new Error(
-						`Pagamento de fatura na linha ${row.rowNumber} exige fatura`,
+						`Pagamento de fatura na linha ${row.rowNumber} exige cartão`,
 					);
 				}
+				if (!paymentInvoiceMonthKey) {
+					throw new Error(
+						`Pagamento de fatura na linha ${row.rowNumber} exige mês da fatura`,
+					);
+				}
+				const ensured = await ensureCardInvoice(tx as unknown as typeof db, {
+					userId,
+					cardId: paymentCardId,
+					monthKey: paymentInvoiceMonthKey,
+				});
+				paymentInvoice = ensured.invoice;
 			}
 			const rowCategoryId = optionalIntField(
 				formData,

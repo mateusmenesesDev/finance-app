@@ -32,6 +32,11 @@ export type ConfirmFormInvoice = {
 	dueDate: string;
 };
 
+export type ConfirmFormCard = {
+	id: number;
+	name: string;
+};
+
 export type ConfirmFormRow = {
 	id: number;
 	rowNumber: number;
@@ -65,6 +70,7 @@ type Props = {
 	accounts: ConfirmFormAccount[];
 	categories: ConfirmFormCategory[];
 	invoices: ConfirmFormInvoice[];
+	cards: ConfirmFormCard[];
 	invalidCount: number;
 };
 
@@ -82,6 +88,10 @@ function isTransferLikeMovement(movementType: MovementType) {
 	return movementType === "transfer" || movementType === "credit_card_payment";
 }
 
+function currentMonthKey() {
+	return new Date().toISOString().slice(0, 7);
+}
+
 const rowStatusLabels: Record<string, string> = {
 	pending_review: "aguardando revisão",
 	valid: "válida",
@@ -97,6 +107,7 @@ export function ConfirmImportForm({
 	accounts,
 	categories,
 	invoices,
+	cards,
 	invalidCount,
 }: Props) {
 	const categoriesById = useMemo(
@@ -114,6 +125,9 @@ export function ConfirmImportForm({
 				suggested && suggested.kind === movementType
 					? String(suggested.id)
 					: "";
+			const invoice = row.cardInvoiceId
+				? invoices.find((candidate) => candidate.id === row.cardInvoiceId)
+				: null;
 			map[row.id] = {
 				movementType,
 				categoryId,
@@ -126,11 +140,18 @@ export function ConfirmImportForm({
 					? String(row.suggestedDestinationAccountId)
 					: "",
 				cardInvoiceId: row.cardInvoiceId ? String(row.cardInvoiceId) : "",
+				cardId: invoice?.cardId
+					? String(invoice.cardId)
+					: row.cardId
+						? String(row.cardId)
+						: "",
+				invoiceMonthKey:
+					invoice?.monthKey ?? row.occurredOn?.slice(0, 7) ?? currentMonthKey(),
 				description: row.suggestedDescription ?? row.originalDescription ?? "",
 			};
 		}
 		return map;
-	}, [rows, categoriesById]);
+	}, [rows, categoriesById, invoices]);
 
 	const [state, action] = useActionState(
 		confirmImportBatch,
@@ -257,6 +278,7 @@ export function ConfirmImportForm({
 						<RowBlock
 							accounts={accounts}
 							bulkCategory={bulkCategory}
+							cards={cards}
 							categories={categories}
 							error={state.rowErrors[row.id] ?? null}
 							invoices={invoices}
@@ -285,6 +307,8 @@ type RowState = {
 	sourceAccountId: string;
 	destinationAccountId: string;
 	cardInvoiceId: string;
+	cardId: string;
+	invoiceMonthKey: string;
 	description: string;
 };
 
@@ -299,6 +323,7 @@ function RowBlock({
 	accounts,
 	categories,
 	invoices,
+	cards,
 	bulkCategory,
 	error,
 	onChange,
@@ -308,6 +333,7 @@ function RowBlock({
 	accounts: ConfirmFormAccount[];
 	categories: ConfirmFormCategory[];
 	invoices: ConfirmFormInvoice[];
+	cards: ConfirmFormCard[];
 	bulkCategory: ConfirmFormCategory | null;
 	error: string | null;
 	onChange: (patch: Partial<RowState>) => void;
@@ -342,6 +368,11 @@ function RowBlock({
 		movementType === "credit_card_payment"
 			? accounts.filter((account) => account.type !== "credit_card")
 			: accounts;
+	const matchingInvoice = invoices.find(
+		(invoice) =>
+			String(invoice.cardId) === state.cardId &&
+			invoice.monthKey === state.invoiceMonthKey,
+	);
 	const bulkWillApply =
 		bulkCategory && !state.categoryId && bulkCategory.kind === movementType;
 	const bulkWillSkip =
@@ -532,27 +563,53 @@ function RowBlock({
 					</FieldLabel>
 				)}
 				{movementType === "credit_card_payment" ? (
-					<FieldLabel
-						hint="Escolha a fatura específica paga por esta linha."
-						label="Fatura paga"
-					>
-						<select
-							className={inputClass}
-							name={`row-${row.id}-cardInvoiceId`}
-							onChange={(event) =>
-								onChange({ cardInvoiceId: event.target.value })
-							}
-							required
-							value={state.cardInvoiceId}
+					<>
+						<FieldLabel
+							hint="Escolha o cartão que será quitado. A fatura será criada se ainda não existir."
+							label="Cartão pago"
 						>
-							<option value="">Selecione a fatura</option>
-							{invoices.map((invoice) => (
-								<option key={invoice.id} value={invoice.id}>
-									{invoice.cardName} · {invoice.monthKey}
-								</option>
-							))}
-						</select>
-					</FieldLabel>
+							{cards.length > 0 ? (
+								<select
+									className={inputClass}
+									name={`row-${row.id}-cardId`}
+									onChange={(event) => onChange({ cardId: event.target.value })}
+									required
+									value={state.cardId}
+								>
+									<option value="">Selecione o cartão</option>
+									{cards.map((card) => (
+										<option key={card.id} value={card.id}>
+											{card.name}
+										</option>
+									))}
+								</select>
+							) : (
+								<p className="rounded-md border border-warning/40 bg-warning/10 p-2 text-warning text-xs">
+									Nenhum cartão ativo cadastrado. Cadastre um cartão antes de
+									confirmar pagamento de fatura.
+								</p>
+							)}
+						</FieldLabel>
+						<FieldLabel
+							hint={
+								matchingInvoice
+									? `Usará fatura existente: ${matchingInvoice.cardName} · ${matchingInvoice.monthKey}.`
+									: "Se não houver fatura deste cartão neste mês, ela será criada automaticamente."
+							}
+							label="Mês da fatura"
+						>
+							<input
+								className={inputClass}
+								name={`row-${row.id}-invoiceMonthKey`}
+								onChange={(event) =>
+									onChange({ invoiceMonthKey: event.target.value })
+								}
+								required
+								type="month"
+								value={state.invoiceMonthKey}
+							/>
+						</FieldLabel>
+					</>
 				) : movementType === "transfer" ? (
 					<FieldLabel label="Destino">
 						<select
