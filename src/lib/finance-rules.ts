@@ -374,6 +374,38 @@ function isMonthlyBalanceTransaction(
 	return false;
 }
 
+export function calculateMonthlyInvestmentNet(
+	transactions: RuleTransaction[],
+	accounts: RuleAccount[],
+	period: Pick<MonthPeriod, "start" | "end">,
+) {
+	const investmentAccountIds = new Set(
+		accounts.filter(isInvestmentAccount).map((account) => account.id),
+	);
+	let netCents = 0;
+
+	for (const transaction of transactions) {
+		if (!affectsReports(transaction)) continue;
+		if (!isInPeriod(transaction, period)) continue;
+		if (transaction.movementType !== "transfer") continue;
+
+		if (
+			transaction.destinationAccountId !== null &&
+			investmentAccountIds.has(transaction.destinationAccountId)
+		) {
+			netCents += transaction.amountCents;
+		}
+		if (
+			transaction.accountId !== null &&
+			investmentAccountIds.has(transaction.accountId)
+		) {
+			netCents -= transaction.amountCents;
+		}
+	}
+
+	return { netCents };
+}
+
 export function calculateMonthlyBalanceTotals(
 	transactions: RuleTransaction[],
 	categories: RuleCategory[],

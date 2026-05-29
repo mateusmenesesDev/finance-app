@@ -6,6 +6,7 @@ import {
 	calculateAccountBalances,
 	calculateCardInvoiceBalances,
 	calculateMonthlyBalanceTotals,
+	calculateMonthlyInvestmentNet,
 	calculateMonthlyTotals,
 	calculateMonthlyTotalsByCashFlowRole,
 	calculateWealthSummary,
@@ -145,6 +146,48 @@ describe("finance rules", () => {
 			cardDebtCents: 30_00,
 			totalWealthCents: 370_00,
 		});
+	});
+
+	test("monthly investment net counts only transfers into and out of investment accounts", () => {
+		const period = parseMonthPeriod("2026-05");
+		if (period === null) throw new Error("invalid test period");
+
+		expect(
+			calculateMonthlyInvestmentNet(
+				[
+					tx({
+						movementType: "transfer",
+						amountCents: 100_00,
+						destinationAccountId: 4,
+					}),
+					tx({
+						accountId: 4,
+						movementType: "transfer",
+						amountCents: 30_00,
+						destinationAccountId: 1,
+					}),
+					tx({
+						accountId: 4,
+						movementType: "income",
+						amountCents: 20_00,
+					}),
+					tx({
+						movementType: "transfer",
+						amountCents: 40_00,
+						destinationAccountId: 4,
+						status: "planned",
+					}),
+					tx({
+						movementType: "transfer",
+						amountCents: 50_00,
+						destinationAccountId: 4,
+						occurredOn: "2026-06-01",
+					}),
+				],
+				accounts,
+				period,
+			),
+		).toEqual({ netCents: 70_00 });
 	});
 
 	test("credit card payment reduces bank balance and card debt without expense duplication", () => {

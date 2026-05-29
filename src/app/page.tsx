@@ -41,6 +41,7 @@ import {
 	buildBudgetUsage,
 	calculateAccountBalances,
 	calculateMonthlyBalanceTotals,
+	calculateMonthlyInvestmentNet,
 	calculateWealthSummary,
 	getMonthPeriod,
 	parseMonthPeriod,
@@ -138,6 +139,11 @@ export default async function Home({ searchParams }: HomeProps) {
 		activeGroups,
 		period,
 		allAccounts,
+	);
+	const monthlyInvestments = calculateMonthlyInvestmentNet(
+		allTransactions,
+		activeAccounts,
+		period,
 	);
 	const previousTotals = calculateMonthlyBalanceTotals(
 		allTransactions,
@@ -330,7 +336,7 @@ export default async function Home({ searchParams }: HomeProps) {
 				</section>
 			) : null}
 
-			<section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+			<section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
 				<StatCard
 					description={`Financeira: ${formatMoney(monthlyTotals.financialIncomeCents)} · total: ${formatMoney(monthlyTotals.incomeCents)}`}
 					icon={TrendingUp}
@@ -355,6 +361,13 @@ export default async function Home({ searchParams }: HomeProps) {
 					label="Saldo do mês"
 					tone={monthlyTotals.netCents >= 0 ? "success" : "destructive"}
 					value={formatMoney(monthlyTotals.netCents)}
+				/>
+				<StatCard
+					description="Transferências líquidas para contas de investimento"
+					icon={PiggyBank}
+					label="Investimentos"
+					tone={monthlyInvestments.netCents >= 0 ? "success" : "destructive"}
+					value={formatMoney(monthlyInvestments.netCents)}
 				/>
 				<StatCard
 					description={budgetSummary.description}
