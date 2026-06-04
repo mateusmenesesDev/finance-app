@@ -101,6 +101,11 @@ export const importRuleAction = pgEnum("finance_app_import_rule_action", [
 	"transfer",
 ]);
 
+export const importRoutineKind = pgEnum("finance_app_import_routine_kind", [
+	"account_statement",
+	"card_invoice",
+]);
+
 export const assistantSuggestionKind = pgEnum(
 	"finance_app_assistant_suggestion_kind",
 	[
@@ -656,6 +661,92 @@ export const importTemplates = createFinanceTable(
 		uniqueIndex("finance_app_import_templates_user_name_idx").on(
 			t.userId,
 			t.name,
+		),
+	],
+);
+
+export const importRoutineItems = createFinanceTable(
+	"import_routine_items",
+	{
+		id: integer().primaryKey().generatedByDefaultAsIdentity(),
+		userId: text("user_id")
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
+		kind: importRoutineKind().notNull(),
+		accountId: integer("account_id"),
+		cardId: integer("card_id"),
+		sortOrder: integer("sort_order"),
+		createdAt: timestamp("created_at", { withTimezone: true })
+			.$defaultFn(() => new Date())
+			.notNull(),
+	},
+	(t) => [
+		index("finance_app_import_routine_items_user_idx").on(t.userId),
+		unique("finance_app_import_routine_items_id_user_unique").on(
+			t.id,
+			t.userId,
+		),
+		uniqueIndex("finance_app_import_routine_items_user_account_idx").on(
+			t.userId,
+			t.accountId,
+		),
+		uniqueIndex("finance_app_import_routine_items_user_card_idx").on(
+			t.userId,
+			t.cardId,
+		),
+		foreignKey({
+			columns: [t.accountId, t.userId],
+			foreignColumns: [financialAccounts.id, financialAccounts.userId],
+			name: "finance_app_import_routine_items_account_user_fk",
+		}).onDelete("cascade"),
+		foreignKey({
+			columns: [t.cardId, t.userId],
+			foreignColumns: [creditCards.id, creditCards.userId],
+			name: "finance_app_import_routine_items_card_user_fk",
+		}).onDelete("cascade"),
+		check(
+			"finance_app_import_routine_items_target_valid",
+			sql`(${t.accountId} IS NOT NULL AND ${t.cardId} IS NULL AND ${t.kind} = 'account_statement') OR (${t.accountId} IS NULL AND ${t.cardId} IS NOT NULL AND ${t.kind} = 'card_invoice')`,
+		),
+	],
+);
+
+export const importRoutineCompletions = createFinanceTable(
+	"import_routine_completions",
+	{
+		id: integer().primaryKey().generatedByDefaultAsIdentity(),
+		userId: text("user_id")
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
+		routineItemId: integer("routine_item_id").notNull(),
+		cycleMonthKey: varchar("cycle_month_key", { length: 7 }).notNull(),
+		completedAt: timestamp("completed_at", { withTimezone: true })
+			.$defaultFn(() => new Date())
+			.notNull(),
+	},
+	(t) => [
+		index("finance_app_import_routine_completions_user_idx").on(t.userId),
+		index("finance_app_import_routine_completions_user_cycle_idx").on(
+			t.userId,
+			t.cycleMonthKey,
+		),
+		unique("finance_app_import_routine_completions_id_user_unique").on(
+			t.id,
+			t.userId,
+		),
+		uniqueIndex("finance_app_import_routine_completions_item_cycle_idx").on(
+			t.userId,
+			t.routineItemId,
+			t.cycleMonthKey,
+		),
+		foreignKey({
+			columns: [t.routineItemId, t.userId],
+			foreignColumns: [importRoutineItems.id, importRoutineItems.userId],
+			name: "finance_app_import_routine_completions_item_user_fk",
+		}).onDelete("cascade"),
+		check(
+			"finance_app_import_routine_completions_cycle_month_key_valid",
+			sql`${t.cycleMonthKey} ~ '^\\d{4}-\\d{2}$'`,
 		),
 	],
 );
@@ -1218,6 +1309,8 @@ export const userRelations = relations(user, ({ many }) => ({
 	transactionSavedFilters: many(transactionSavedFilters),
 	recurrences: many(recurrences),
 	importTemplates: many(importTemplates),
+	importRoutineItems: many(importRoutineItems),
+	importRoutineCompletions: many(importRoutineCompletions),
 	importBatches: many(importBatches),
 	importRows: many(importRows),
 	importCategoryRules: many(importCategoryRules),
@@ -1243,6 +1336,7 @@ export const financialAccountRelations = relations(
 		destinationTransactions: many(transactions, {
 			relationName: "destinationAccount",
 		}),
+		importRoutineItems: many(importRoutineItems),
 		importBatches: many(importBatches),
 		importRows: many(importRows, { relationName: "importRowAccount" }),
 		suggestedSourceImportRows: many(importRows, {
@@ -1278,6 +1372,7 @@ export const creditCardRelations = relations(creditCards, ({ many, one }) => ({
 	invoices: many(cardInvoices),
 	installmentGroups: many(cardInstallmentGroups),
 	transactions: many(transactions),
+	importRoutineItems: many(importRoutineItems),
 	importBatches: many(importBatches),
 	importRows: many(importRows),
 }));
@@ -1411,6 +1506,39 @@ export const importTemplateRelations = relations(
 			references: [user.id],
 		}),
 		batches: many(importBatches),
+	}),
+);
+
+export const importRoutineItemRelations = relations(
+	importRoutineItems,
+	({ many, one }) => ({
+		user: one(user, {
+			fields: [importRoutineItems.userId],
+			references: [user.id],
+		}),
+		account: one(financialAccounts, {
+			fields: [importRoutineItems.accountId],
+			references: [financialAccounts.id],
+		}),
+		card: one(creditCards, {
+			fields: [importRoutineItems.cardId],
+			references: [creditCards.id],
+		}),
+		completions: many(importRoutineCompletions),
+	}),
+);
+
+export const importRoutineCompletionRelations = relations(
+	importRoutineCompletions,
+	({ one }) => ({
+		user: one(user, {
+			fields: [importRoutineCompletions.userId],
+			references: [user.id],
+		}),
+		routineItem: one(importRoutineItems, {
+			fields: [importRoutineCompletions.routineItemId],
+			references: [importRoutineItems.id],
+		}),
 	}),
 );
 
