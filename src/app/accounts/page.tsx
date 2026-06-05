@@ -22,7 +22,11 @@ import { calculateAccountBalances } from "~/lib/finance-rules";
 import { formatMoney } from "~/lib/formatters";
 import { getSession } from "~/server/better-auth/server";
 import { db } from "~/server/db";
-import { financialAccounts, transactions } from "~/server/db/schema";
+import {
+	financialAccounts,
+	importRoutineItems,
+	transactions,
+} from "~/server/db/schema";
 
 const accountTypeLabels = {
 	checking: "Conta corrente",
@@ -35,7 +39,7 @@ export default async function AccountsPage() {
 	const session = await getSession();
 	if (!session?.user.id) redirect("/");
 
-	const [allAccounts, allTransactions] = await Promise.all([
+	const [allAccounts, allTransactions, routineItems] = await Promise.all([
 		db
 			.select()
 			.from(financialAccounts)
@@ -45,7 +49,14 @@ export default async function AccountsPage() {
 			.select()
 			.from(transactions)
 			.where(eq(transactions.userId, session.user.id)),
+		db
+			.select({ accountId: importRoutineItems.accountId })
+			.from(importRoutineItems)
+			.where(eq(importRoutineItems.userId, session.user.id)),
 	]);
+	const routineAccountIds = routineItems
+		.map((item) => item.accountId)
+		.filter((id): id is number => id !== null);
 	const activeAccounts = allAccounts.filter(
 		(account) => !account.isArchived && account.type !== "credit_card",
 	);
@@ -77,13 +88,15 @@ export default async function AccountsPage() {
 				<CardHeader>
 					<CardTitle>Contas cadastradas</CardTitle>
 					<CardDescription>
-						Saldos atuais, tipo e instituição de cada conta ativa.
+						Saldos atuais, tipo e instituição de cada conta ativa. Use a rotina
+						mensal para lembrar de importar o extrato de cada conta no dia 1.
 					</CardDescription>
 				</CardHeader>
 				<CardContent>
 					<AccountsList
 						accounts={activeAccounts}
 						balances={Object.fromEntries(balances)}
+						routineAccountIds={routineAccountIds}
 					/>
 				</CardContent>
 			</Card>

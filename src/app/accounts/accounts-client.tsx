@@ -1,14 +1,19 @@
 "use client";
 
-import { Archive, Pencil, Wallet } from "lucide-react";
+import { Archive, CalendarCheck, CalendarPlus, Pencil, Wallet } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { archiveAccount, updateAccount } from "~/app/_actions/finance-actions";
+import {
+	addAccountToImportRoutine,
+	removeAccountFromImportRoutine,
+} from "~/app/_actions/import-routine-actions";
 import { ActionDialog } from "~/components/action-dialog";
 import { ConfirmDialog } from "~/components/confirm-dialog";
 import { EmptyState } from "~/components/empty-state";
 import { Money } from "~/components/money";
 import { Badge } from "~/components/ui/badge";
+import { SubmitButton } from "~/components/submit-button";
 import { Button } from "~/components/ui/button";
 import { Checkbox } from "~/components/ui/checkbox";
 import { Input } from "~/components/ui/input";
@@ -40,10 +45,13 @@ type AccountBalance = {
 export function AccountsList({
 	accounts,
 	balances,
+	routineAccountIds,
 }: {
 	accounts: Account[];
 	balances: Record<number, AccountBalance>;
+	routineAccountIds: number[];
 }) {
+	const routineAccountIdSet = new Set(routineAccountIds);
 	const [visibleAccounts, setVisibleAccounts] = useState(accounts);
 
 	useEffect(() => {
@@ -68,6 +76,7 @@ export function AccountsList({
 		<div className="grid gap-3">
 			{visibleAccounts.map((account) => {
 				const balance = balances[account.id];
+				const inRoutine = routineAccountIdSet.has(account.id);
 				return (
 					<div
 						className="flex flex-col gap-4 rounded-md border bg-muted/10 p-4 lg:flex-row lg:items-center lg:justify-between"
@@ -82,6 +91,9 @@ export function AccountsList({
 								{account.isActive ? (
 									<Badge variant="outline">Ativa</Badge>
 								) : null}
+								{inRoutine ? (
+									<Badge variant="default">Na rotina</Badge>
+								) : null}
 							</div>
 							<p className="text-muted-foreground text-sm">
 								{account.institution ?? "Sem instituição"}
@@ -93,6 +105,39 @@ export function AccountsList({
 							</div>
 						</div>
 						<div className="flex flex-wrap gap-2">
+							{inRoutine ? (
+								<form action={removeAccountFromImportRoutine}>
+									<input
+										name="accountId"
+										type="hidden"
+										value={account.id}
+									/>
+									<SubmitButton
+										pendingLabel="Removendo..."
+										size="sm"
+										variant="outline"
+									>
+										<CalendarCheck className="size-4" />
+										Remover da rotina
+									</SubmitButton>
+								</form>
+							) : (
+								<form action={addAccountToImportRoutine}>
+									<input
+										name="accountId"
+										type="hidden"
+										value={account.id}
+									/>
+									<SubmitButton
+										pendingLabel="Adicionando..."
+										size="sm"
+										variant="outline"
+									>
+										<CalendarPlus className="size-4" />
+										Adicionar à rotina
+									</SubmitButton>
+								</form>
+							)}
 							<EditAccountDialog account={account} />
 							<ConfirmDialog
 								action={archiveWithRollback}
@@ -116,7 +161,7 @@ export function AccountsList({
 			})}
 			{visibleAccounts.length === 0 ? (
 				<EmptyState
-					description="Nenhuma conta cadastrada."
+					description="Cadastre uma conta e adicione-a à rotina mensal para lembrar de importar o extrato todo dia 1."
 					icon={Wallet}
 					title="Sem contas"
 				/>

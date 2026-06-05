@@ -1,5 +1,5 @@
 import { asc, desc, eq } from "drizzle-orm";
-import { Archive, CreditCard, Plus } from "lucide-react";
+import { Archive, CalendarCheck, CalendarPlus, CreditCard, Plus } from "lucide-react";
 import { redirect } from "next/navigation";
 
 import {
@@ -9,6 +9,10 @@ import {
 	payCardInvoice,
 	updateCard,
 } from "~/app/_actions/finance-actions";
+import {
+	addCardToImportRoutine,
+	removeCardFromImportRoutine,
+} from "~/app/_actions/import-routine-actions";
 import { ActionDialog } from "~/components/action-dialog";
 import { AppShell } from "~/components/app-shell";
 import { EmptyState } from "~/components/empty-state";
@@ -35,6 +39,7 @@ import {
 	categories,
 	creditCards,
 	financialAccounts,
+	importRoutineItems,
 	transactions,
 } from "~/server/db/schema";
 
@@ -49,7 +54,7 @@ export default async function CardsPage() {
 	const session = await getSession();
 	if (!session?.user.id) redirect("/");
 
-	const [cards, invoices, rows, accounts, expenseCategories] =
+	const [cards, invoices, rows, accounts, expenseCategories, routineItems] =
 		await Promise.all([
 			db
 				.select()
@@ -76,7 +81,16 @@ export default async function CardsPage() {
 				.from(categories)
 				.where(eq(categories.userId, session.user.id))
 				.orderBy(asc(categories.name)),
+			db
+				.select({ cardId: importRoutineItems.cardId })
+				.from(importRoutineItems)
+				.where(eq(importRoutineItems.userId, session.user.id)),
 		]);
+	const routineCardIds = new Set(
+		routineItems
+			.map((item) => item.cardId)
+			.filter((id): id is number => id !== null),
+	);
 	const activeCards = cards.filter((card) => !card.isArchived);
 	const usableAccounts = accounts.filter(
 		(account) =>
@@ -107,7 +121,7 @@ export default async function CardsPage() {
 		<AppShell user={{ name: session.user.name, email: session.user.email }}>
 			<PageHeader
 				actions={<CreateCardDialog accounts={usableAccounts} />}
-				description="Gerencie cartões, faturas, compras, parcelamentos e pagamentos sem misturar com contas."
+				description="Gerencie cartões, faturas e pagamentos. Adicione cada cartão à rotina mensal para lembrar de importar a fatura no dia 1."
 				eyebrow="Cartões"
 				title="Cartões de crédito"
 			/>
@@ -135,12 +149,18 @@ export default async function CardsPage() {
 					const cardInvoicesList = invoiceSummaries.filter(
 						(invoice) => invoice.cardId === card.id,
 					);
+					const inRoutine = routineCardIds.has(card.id);
 					return (
 						<Card key={card.id}>
 							<CardHeader>
 								<div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
 									<div>
-										<CardTitle>{card.name}</CardTitle>
+										<div className="flex flex-wrap items-center gap-2">
+											<CardTitle>{card.name}</CardTitle>
+											{inRoutine ? (
+												<Badge variant="default">Na rotina</Badge>
+											) : null}
+										</div>
 										<CardDescription>
 											{card.institution ?? "Sem instituição"} · fecha dia{" "}
 											{card.closingDay} · vence dia {card.dueDay}
@@ -150,6 +170,31 @@ export default async function CardsPage() {
 										</CardDescription>
 									</div>
 									<div className="flex flex-wrap gap-2">
+										{inRoutine ? (
+											<form action={removeCardFromImportRoutine}>
+												<input name="cardId" type="hidden" value={card.id} />
+												<SubmitButton
+													pendingLabel="Removendo..."
+													size="sm"
+													variant="outline"
+												>
+													<CalendarCheck className="size-4" />
+													Remover da rotina
+												</SubmitButton>
+											</form>
+										) : (
+											<form action={addCardToImportRoutine}>
+												<input name="cardId" type="hidden" value={card.id} />
+												<SubmitButton
+													pendingLabel="Adicionando..."
+													size="sm"
+													variant="outline"
+												>
+													<CalendarPlus className="size-4" />
+													Adicionar à rotina
+												</SubmitButton>
+											</form>
+										)}
 										<CreatePurchaseDialog
 											cardId={card.id}
 											categories={usableExpenseCategories}
@@ -251,7 +296,7 @@ export default async function CardsPage() {
 				})}
 				{activeCards.length === 0 ? (
 					<EmptyState
-						description="Cadastre um cartão para começar a criar faturas."
+						description="Cadastre um cartão e adicione-o à rotina mensal para lembrar de importar a fatura todo dia 1."
 						icon={CreditCard}
 						title="Sem cartões"
 					/>

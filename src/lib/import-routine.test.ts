@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
 
 import {
+	accountImportRoutineEligibility,
+	cardImportRoutineEligibility,
 	referenceMonthKey,
 	routineProgress,
 	shouldShowRoutineBlock,
@@ -65,6 +67,48 @@ describe("import routine domain", () => {
 				today: new Date(2026, 5, 10),
 			}),
 		).toBe(true);
+	});
+
+	test("accountImportRoutineEligibility accepts active non-card accounts", () => {
+		expect(
+			accountImportRoutineEligibility({
+				isArchived: false,
+				type: "checking",
+			}),
+		).toEqual({ ok: true });
+	});
+
+	test("accountImportRoutineEligibility rejects archived and credit_card", () => {
+		expect(
+			accountImportRoutineEligibility({
+				isArchived: true,
+				type: "checking",
+			}),
+		).toEqual({ ok: false, message: "Conta arquivada" });
+		expect(
+			accountImportRoutineEligibility({
+				isArchived: false,
+				type: "credit_card",
+			}),
+		).toEqual({
+			ok: false,
+			message: "Cartões ficam na rotina pela tela Cartões",
+		});
+	});
+
+	test("cardImportRoutineEligibility accepts active non-archived cards", () => {
+		expect(
+			cardImportRoutineEligibility({ isArchived: false, isActive: true }),
+		).toEqual({ ok: true });
+	});
+
+	test("cardImportRoutineEligibility rejects archived or inactive cards", () => {
+		expect(
+			cardImportRoutineEligibility({ isArchived: true, isActive: true }),
+		).toEqual({ ok: false, message: "Cartão arquivado" });
+		expect(
+			cardImportRoutineEligibility({ isArchived: false, isActive: false }),
+		).toEqual({ ok: false, message: "Cartão inativo" });
 	});
 
 	test("routineProgress aggregates completion state", () => {

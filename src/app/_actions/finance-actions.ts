@@ -47,6 +47,7 @@ import {
 	importBatches,
 	importCategoryRules,
 	importRows,
+	importRoutineItems,
 	importTemplates,
 	monthlyBudgets,
 	monthlyBudgetTemplateSkips,
@@ -524,6 +525,14 @@ export async function archiveAccount(formData: FormData) {
 			.where(
 				and(eq(financialAccounts.id, id), eq(financialAccounts.userId, userId)),
 			);
+		await tx
+			.delete(importRoutineItems)
+			.where(
+				and(
+					eq(importRoutineItems.userId, userId),
+					eq(importRoutineItems.accountId, id),
+				),
+			);
 		await recordAudit(tx, {
 			userId,
 			entityType: "financial_account",
@@ -606,6 +615,14 @@ export async function archiveCard(formData: FormData) {
 		.update(creditCards)
 		.set({ isArchived: true, isActive: false })
 		.where(and(eq(creditCards.id, id), eq(creditCards.userId, userId)));
+	await db
+		.delete(importRoutineItems)
+		.where(
+			and(
+				eq(importRoutineItems.userId, userId),
+				eq(importRoutineItems.cardId, id),
+			),
+		);
 	invalidateAfterCardMutation(userId);
 	revalidatePath("/cards");
 }

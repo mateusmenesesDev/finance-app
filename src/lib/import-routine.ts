@@ -1,6 +1,33 @@
 import { previousMonthPeriod } from "./analysis";
 import { getMonthPeriod, parseMonthPeriod } from "./finance-rules";
 
+type EligibilityResult =
+	| { ok: true }
+	| { ok: false; message: string };
+
+export function accountImportRoutineEligibility(account: {
+	isArchived: boolean;
+	type: string;
+}): EligibilityResult {
+	if (account.isArchived) return { ok: false, message: "Conta arquivada" };
+	if (account.type === "credit_card") {
+		return {
+			ok: false,
+			message: "Cartões ficam na rotina pela tela Cartões",
+		};
+	}
+	return { ok: true };
+}
+
+export function cardImportRoutineEligibility(card: {
+	isArchived: boolean;
+	isActive: boolean;
+}): EligibilityResult {
+	if (card.isArchived) return { ok: false, message: "Cartão arquivado" };
+	if (!card.isActive) return { ok: false, message: "Cartão inativo" };
+	return { ok: true };
+}
+
 export function referenceMonthKey(cycleMonthKey: string): string | null {
 	const period = parseMonthPeriod(cycleMonthKey);
 	if (!period) return null;
