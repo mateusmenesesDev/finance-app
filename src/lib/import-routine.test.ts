@@ -4,8 +4,10 @@ import {
 	accountImportRoutineEligibility,
 	buildImportRoutineChecklist,
 	cardImportRoutineEligibility,
+	isImportRoutineDayOneHighlight,
 	referenceMonthKey,
 	routineProgress,
+	shouldCompactImportRoutineBlock,
 	shouldShowRoutineBlock,
 } from "./import-routine";
 
@@ -187,6 +189,42 @@ describe("import routine domain", () => {
 				new Set(),
 			),
 		).toEqual([]);
+	});
+
+	test("isImportRoutineDayOneHighlight is true only on day 1 of current cycle", () => {
+		expect(
+			isImportRoutineDayOneHighlight("2026-06", new Date(2026, 5, 1)),
+		).toBe(true);
+		expect(
+			isImportRoutineDayOneHighlight("2026-06", new Date(2026, 5, 2)),
+		).toBe(false);
+		expect(
+			isImportRoutineDayOneHighlight("2026-05", new Date(2026, 5, 1)),
+		).toBe(false);
+	});
+
+	test("shouldCompactImportRoutineBlock only applies to completed current cycle", () => {
+		expect(
+			shouldCompactImportRoutineBlock({
+				isFullyComplete: true,
+				cycleMonthKey: "2026-06",
+				today: new Date(2026, 5, 10),
+			}),
+		).toBe(true);
+		expect(
+			shouldCompactImportRoutineBlock({
+				isFullyComplete: true,
+				cycleMonthKey: "2026-05",
+				today: new Date(2026, 5, 10),
+			}),
+		).toBe(false);
+		expect(
+			shouldCompactImportRoutineBlock({
+				isFullyComplete: false,
+				cycleMonthKey: "2026-06",
+				today: new Date(2026, 5, 10),
+			}),
+		).toBe(false);
 	});
 
 	test("routineProgress aggregates completion state", () => {

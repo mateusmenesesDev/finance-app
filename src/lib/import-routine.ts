@@ -34,6 +34,25 @@ export function referenceMonthKey(cycleMonthKey: string): string | null {
 	return previousMonthPeriod(period).key;
 }
 
+export function isImportRoutineDayOneHighlight(
+	cycleMonthKey: string,
+	today = new Date(),
+) {
+	return (
+		getMonthPeriod(today).key === cycleMonthKey && today.getDate() === 1
+	);
+}
+
+export function shouldCompactImportRoutineBlock(input: {
+	isFullyComplete: boolean;
+	cycleMonthKey: string;
+	today?: Date;
+}) {
+	if (!input.isFullyComplete) return false;
+	const today = input.today ?? new Date();
+	return getMonthPeriod(today).key === input.cycleMonthKey;
+}
+
 export function shouldShowRoutineBlock(input: {
 	activeItemCount: number;
 	cycleMonthKey: string;

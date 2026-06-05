@@ -17,7 +17,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { createDefaultCategories } from "~/app/_actions/finance-actions";
-import { ImportRoutineChecklist } from "~/app/_components/import-routine-checklist";
+import { ImportRoutineDashboardCard } from "~/app/_components/import-routine-dashboard-card";
 import { AppShell } from "~/components/app-shell";
 import { EmptyState } from "~/components/empty-state";
 import { Money } from "~/components/money";
@@ -64,8 +64,9 @@ import {
 } from "~/lib/recurrences";
 import {
 	buildImportRoutineChecklist,
+	isImportRoutineDayOneHighlight,
 	referenceMonthKey,
-	routineProgressFromChecklist,
+	shouldCompactImportRoutineBlock,
 	shouldShowRoutineBlock,
 } from "~/lib/import-routine";
 import { cn } from "~/lib/utils";
@@ -166,7 +167,6 @@ export default async function Home({ searchParams }: HomeProps) {
 		),
 		completedRoutineItemIds,
 	);
-	const importRoutineProgress = routineProgressFromChecklist(routineChecklistRows);
 	const showImportRoutineBlock = shouldShowRoutineBlock({
 		activeItemCount: routineItems.length,
 		cycleMonthKey: period.key,
@@ -771,46 +771,21 @@ export default async function Home({ searchParams }: HomeProps) {
 					</CardContent>
 				</Card>
 			) : showImportRoutineBlock ? (
-				<Card>
-					<CardHeader>
-						<div className="flex flex-wrap items-start justify-between gap-3">
-							<div>
-								<CardTitle>Rotina de importação</CardTitle>
-								<CardDescription>
-									Ciclo de {formatMonthLabel(period)}
-									{importRoutineReferencePeriod
-										? ` — importar movimentações de ${formatMonthLabel(importRoutineReferencePeriod)}`
-										: null}
-								</CardDescription>
-							</div>
-							<div className="flex flex-wrap items-center gap-2">
-								<Badge variant="secondary">
-									{importRoutineProgress.completedCount}/
-									{importRoutineProgress.totalCount}
-								</Badge>
-								{importRoutineProgress.isFullyComplete ? (
-									<Badge variant="outline">Ciclo concluído</Badge>
-								) : null}
-							</div>
-						</div>
-						{importRoutineProgress.totalCount > 0 ? (
-							<Progress
-								className="mt-3 h-2"
-								value={
-									(importRoutineProgress.completedCount /
-										importRoutineProgress.totalCount) *
-									100
-								}
-							/>
-						) : null}
-					</CardHeader>
-					<CardContent>
-						<ImportRoutineChecklist
-							cycleMonthKey={period.key}
-							rows={routineChecklistRows}
-						/>
-					</CardContent>
-				</Card>
+				<ImportRoutineDashboardCard
+					cycleLabel={formatMonthLabel(period)}
+					cycleMonthKey={period.key}
+					defaultCompact={shouldCompactImportRoutineBlock({
+						isFullyComplete: routineChecklistRows.every((row) => row.completed),
+						cycleMonthKey: period.key,
+					})}
+					highlightDayOne={isImportRoutineDayOneHighlight(period.key)}
+					referenceSuffix={
+						importRoutineReferencePeriod
+							? ` — importar movimentações de ${formatMonthLabel(importRoutineReferencePeriod)}`
+							: null
+					}
+					rows={routineChecklistRows}
+				/>
 			) : null}
 
 			<section className="grid gap-6 lg:grid-cols-2">
