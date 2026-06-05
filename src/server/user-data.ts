@@ -16,6 +16,8 @@ import {
 	financialAccounts,
 	importBatches,
 	importCategoryRules,
+	importRoutineCompletions,
+	importRoutineItems,
 	importRows,
 	importTemplates,
 	monthlyBudgets,
@@ -231,6 +233,18 @@ export async function purgeUserFinancialData(
 			.where(eq(importBatches.userId, userId))
 			.returning({ id: importBatches.id });
 		counts.importBatches = batchesDeleted.length;
+
+		const routineCompletionsDeleted = await tx
+			.delete(importRoutineCompletions)
+			.where(eq(importRoutineCompletions.userId, userId))
+			.returning({ id: importRoutineCompletions.id });
+		counts.importRoutineCompletions = routineCompletionsDeleted.length;
+
+		const routineItemsDeleted = await tx
+			.delete(importRoutineItems)
+			.where(eq(importRoutineItems.userId, userId))
+			.returning({ id: importRoutineItems.id });
+		counts.importRoutineItems = routineItemsDeleted.length;
 
 		const templatesDeleted = await tx
 			.delete(importTemplates)

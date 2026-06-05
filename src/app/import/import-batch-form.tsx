@@ -11,25 +11,33 @@ import { SubmitButton } from "~/components/submit-button";
 
 const initialState: CreateImportBatchState = { error: null };
 
+import type { ImportBatchPrefill } from "~/lib/import-routine";
+
 export function ImportBatchForm({
 	accounts,
 	cards,
 	currentMonth,
 	inputClass,
+	initialPrefill,
 	templates,
 }: {
 	accounts: { id: number; name: string }[];
 	cards: { id: number; name: string }[];
 	currentMonth: string;
 	inputClass: string;
+	initialPrefill?: ImportBatchPrefill;
 	templates: { id: number; label: string }[];
 }) {
 	const [state, action] = useActionState(
 		createImportBatchWithState,
 		initialState,
 	);
-	const [importMode, setImportMode] = useState<"account" | "card">("account");
+	const [importMode, setImportMode] = useState<"account" | "card">(
+		initialPrefill?.mode ?? "account",
+	);
 	const isCardImport = importMode === "card";
+	const defaultInvoiceMonth =
+		initialPrefill?.invoiceMonthKey ?? currentMonth;
 
 	return (
 		<form action={action} className="grid gap-4">
@@ -70,7 +78,12 @@ export function ImportBatchForm({
 							hint="Escolha o cartão dono da fatura deste CSV."
 							label="Cartão"
 						>
-							<select className={inputClass} name="cardId" required>
+							<select
+								className={inputClass}
+								defaultValue={initialPrefill?.cardId ?? ""}
+								name="cardId"
+								required
+							>
 								<option value="">Selecione o cartão</option>
 								{cards.map((card) => (
 									<option key={card.id} value={card.id}>
@@ -80,12 +93,15 @@ export function ImportBatchForm({
 							</select>
 						</FieldLabel>
 						<FieldLabel
-							hint={`Mês/ano da fatura que receberá as linhas. Se digitar manualmente em outro navegador, use ${currentMonth}.`}
+							hint={
+								initialPrefill?.invoiceMonthHint ??
+								`Mês/ano da fatura que receberá as linhas. Se digitar manualmente em outro navegador, use ${currentMonth}.`
+							}
 							label="Mês da fatura"
 						>
 							<input
 								className={inputClass}
-								defaultValue={currentMonth}
+								defaultValue={defaultInvoiceMonth}
 								name="invoiceMonthKey"
 								required
 								type="month"
@@ -97,7 +113,12 @@ export function ImportBatchForm({
 						hint="Todas as linhas do CSV serão revisadas como movimentos desta conta."
 						label="Conta de destino"
 					>
-						<select className={inputClass} name="accountId" required>
+						<select
+							className={inputClass}
+							defaultValue={initialPrefill?.accountId ?? ""}
+							name="accountId"
+							required
+						>
 							<option value="">Selecione a conta</option>
 							{accounts.map((account) => (
 								<option key={account.id} value={account.id}>

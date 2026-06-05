@@ -27,6 +27,7 @@ import {
 const entityTypeLabels: Record<string, string> = {
 	transaction: "Transação",
 	financial_account: "Conta",
+	import_routine_item: "Rotina de importação",
 	import_batch: "Lote de importação",
 	assistant_suggestion: "Sugestão da IA",
 	user_data: "Dados do usuário",
@@ -46,6 +47,7 @@ const entityTypeOptions = [
 	{ value: "", label: "Todos os tipos" },
 	{ value: "transaction", label: "Transações" },
 	{ value: "financial_account", label: "Contas" },
+	{ value: "import_routine_item", label: "Rotina de importação" },
 	{ value: "import_batch", label: "Importações" },
 	{ value: "assistant_suggestion", label: "Sugestões da IA" },
 	{ value: "user_data", label: "Dados do usuário" },

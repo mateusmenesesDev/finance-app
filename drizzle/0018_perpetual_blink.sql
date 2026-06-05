@@ -1,0 +1,1 @@
+ALTER TYPE "public"."finance_app_audit_entity_type" ADD VALUE 'import_routine_item' BEFORE 'assistant_suggestion';

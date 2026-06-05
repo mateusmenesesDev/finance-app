@@ -3,12 +3,14 @@ import { describe, expect, test } from "bun:test";
 import {
 	accountImportRoutineEligibility,
 	buildImportRoutineChecklist,
+	buildImportRoutineImportHref,
 	cardImportRoutineEligibility,
 	isImportRoutineDayOneHighlight,
 	referenceMonthKey,
 	routineProgress,
 	shouldCompactImportRoutineBlock,
 	shouldShowRoutineBlock,
+	suggestInvoiceMonthKeyForReferenceMonth,
 } from "./import-routine";
 
 describe("import routine domain", () => {
@@ -147,28 +149,73 @@ describe("import routine domain", () => {
 						name: "Itaú",
 						institution: "Itaú",
 						isArchived: false,
+						closingDay: 10,
+						dueDay: 20,
 					},
 				],
 			]),
 			new Set([11]),
+			"2026-05",
 		);
 
 		expect(rows).toEqual([
 			{
 				routineItemId: 11,
 				kind: "account_statement",
+				accountId: 1,
+				cardId: null,
 				label: "Extrato — Nubank",
 				institution: "Nubank",
 				completed: true,
+				importHref: "/import?accountId=1",
+				importHint: null,
 			},
 			{
 				routineItemId: 10,
 				kind: "card_invoice",
+				accountId: null,
+				cardId: 2,
 				label: "Fatura — Itaú",
 				institution: "Itaú",
 				completed: false,
+				importHref: "/import?cardId=2&invoiceMonthKey=2026-06",
+				importHint:
+					"Compras do mês podem cair em mais de uma fatura; conferimos pelo último dia do período.",
 			},
 		]);
+	});
+
+	test("suggestInvoiceMonthKeyForReferenceMonth uses end-of-month invoice", () => {
+		expect(
+			suggestInvoiceMonthKeyForReferenceMonth("2026-05", 10, 20),
+		).toEqual({
+			monthKey: "2026-06",
+			ambiguous: true,
+		});
+	});
+
+	test("buildImportRoutineImportHref encodes import query params", () => {
+		expect(
+			buildImportRoutineImportHref(
+				{
+					kind: "account_statement",
+					accountId: 3,
+					cardId: null,
+				},
+				"2026-05",
+			),
+		).toBe("/import?accountId=3");
+		expect(
+			buildImportRoutineImportHref(
+				{
+					kind: "card_invoice",
+					accountId: null,
+					cardId: 9,
+				},
+				"2026-05",
+				{ closingDay: 10, dueDay: 20 },
+			),
+		).toBe("/import?cardId=9&invoiceMonthKey=2026-06");
 	});
 
 	test("buildImportRoutineChecklist drops archived targets", () => {
@@ -187,6 +234,7 @@ describe("import routine domain", () => {
 				]),
 				new Map(),
 				new Set(),
+				"2026-05",
 			),
 		).toEqual([]);
 	});

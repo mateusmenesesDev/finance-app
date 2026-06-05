@@ -1,9 +1,11 @@
 "use client";
 
-import { CreditCard, Wallet } from "lucide-react";
+import { CreditCard, FileSpreadsheet, Wallet } from "lucide-react";
+import Link from "next/link";
 
 import type { ImportRoutineChecklistRow } from "~/lib/import-routine";
 import { Badge } from "~/components/ui/badge";
+import { Button } from "~/components/ui/button";
 import { Checkbox } from "~/components/ui/checkbox";
 import { cn } from "~/lib/utils";
 
@@ -64,11 +66,22 @@ export function ImportRoutineChecklist({
 						<span className="truncate">{shortName}</span>
 					</label>
 					{compact ? null : (
-						<p className="text-muted-foreground text-xs">
-							{row.institution ?? "Sem instituição"}
-						</p>
+						<>
+							<p className="text-muted-foreground text-xs">
+								{row.institution ?? "Sem instituição"}
+							</p>
+							{row.importHint ? (
+								<p className="text-muted-foreground text-xs">{row.importHint}</p>
+							) : null}
+						</>
 					)}
 				</div>
+				<Button asChild className="shrink-0" size="sm" variant="outline">
+					<Link href={row.importHref}>
+						<FileSpreadsheet className="size-4" />
+						Importar
+					</Link>
+				</Button>
 			</li>
 		);
 	}

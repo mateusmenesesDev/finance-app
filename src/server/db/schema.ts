@@ -120,6 +120,7 @@ export const auditEntityType = pgEnum("finance_app_audit_entity_type", [
 	"transaction",
 	"financial_account",
 	"import_batch",
+	"import_routine_item",
 	"assistant_suggestion",
 	"user_data",
 ]);

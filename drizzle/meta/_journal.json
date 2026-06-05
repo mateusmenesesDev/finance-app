@@ -120,6 +120,13 @@
       "when": 1780616133179,
       "tag": "0017_broken_lady_deathstrike",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1780620121258,
+      "tag": "0018_perpetual_blink",
+      "breakpoints": true
     }
   ]
 }

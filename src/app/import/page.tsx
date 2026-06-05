@@ -34,6 +34,7 @@ import {
 	defaultTemplateConfig,
 	normalizeImportTemplateConfig,
 } from "~/features/imports/csv-domain";
+import { resolveImportBatchPrefill } from "~/lib/import-routine";
 import { getSession } from "~/server/better-auth/server";
 import { db } from "~/server/db";
 import {
@@ -49,7 +50,12 @@ import {
 } from "~/server/db/schema";
 
 type ImportPageProps = {
-	searchParams?: Promise<{ batchId?: string }>;
+	searchParams?: Promise<{
+		batchId?: string;
+		accountId?: string;
+		cardId?: string;
+		invoiceMonthKey?: string;
+	}>;
 };
 
 const inputClass =
@@ -150,6 +156,13 @@ export default async function ImportPage({ searchParams }: ImportPageProps) {
 			!account.isArchived && account.isActive && account.type !== "credit_card",
 	);
 	const usableCards = cards.filter((card) => !card.isArchived && card.isActive);
+	const importBatchPrefill = resolveImportBatchPrefill({
+		accountId: params?.accountId,
+		cardId: params?.cardId,
+		invoiceMonthKey: params?.invoiceMonthKey,
+		usableAccounts,
+		usableCards,
+	});
 	const activeTemplates = templates.filter((template) => !template.isArchived);
 	const currentMonth = new Date().toISOString().slice(0, 7);
 	const usableCategories = activeCategories.filter(
@@ -418,6 +431,7 @@ export default async function ImportPage({ searchParams }: ImportPageProps) {
 								accounts={usableAccounts}
 								cards={usableCards}
 								currentMonth={currentMonth}
+								initialPrefill={importBatchPrefill}
 								inputClass={inputClass}
 								templates={activeTemplates.map((template) => ({
 									id: template.id,

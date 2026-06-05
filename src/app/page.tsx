@@ -143,6 +143,10 @@ export default async function Home({ searchParams }: HomeProps) {
 	const completedRoutineItemIds = new Set(
 		routineCompletions.map((row) => row.routineItemId),
 	);
+	const importRoutineReferenceKey = referenceMonthKey(period.key);
+	const importRoutineReferencePeriod = importRoutineReferenceKey
+		? parseMonthPeriod(importRoutineReferenceKey)
+		: null;
 	const routineChecklistRows = buildImportRoutineChecklist(
 		routineItems,
 		new Map(
@@ -162,19 +166,18 @@ export default async function Home({ searchParams }: HomeProps) {
 					name: card.name,
 					institution: card.institution,
 					isArchived: card.isArchived,
+					closingDay: card.closingDay,
+					dueDay: card.dueDay,
 				},
 			]),
 		),
 		completedRoutineItemIds,
+		importRoutineReferenceKey,
 	);
 	const showImportRoutineBlock = shouldShowRoutineBlock({
 		activeItemCount: routineItems.length,
 		cycleMonthKey: period.key,
 	});
-	const importRoutineReferenceKey = referenceMonthKey(period.key);
-	const importRoutineReferencePeriod = importRoutineReferenceKey
-		? parseMonthPeriod(importRoutineReferenceKey)
-		: null;
 	const pendingAssistantCount = assistantPending[0]?.count ?? 0;
 
 	const activeAccounts = allAccounts.filter((account) => !account.isArchived);

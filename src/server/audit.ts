@@ -24,6 +24,7 @@ export type AuditEntityType =
 	| "transaction"
 	| "financial_account"
 	| "import_batch"
+	| "import_routine_item"
 	| "assistant_suggestion"
 	| "user_data";
 
