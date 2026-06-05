@@ -31,12 +31,18 @@ const tx = (overrides: Partial<RuleTransaction>): RuleTransaction => ({
 });
 
 describe("reports", () => {
-	test("parse presets, numeric guards and date validation", () => {
+	test("parse date range, numeric guards and interval validation", () => {
 		const filters = parseReportFilters(
-			{ preset: "last_30d", accountId: "2", groupId: "x", granularity: "week" },
+			{
+				startDate: "2026-04-01",
+				endDate: "2026-05-10",
+				accountId: "2",
+				groupId: "x",
+				granularity: "week",
+			},
 			"2026-05-10",
 		);
-		expect(filters.from).toBe("2026-04-11");
+		expect(filters.from).toBe("2026-04-01");
 		expect(filters.to).toBe("2026-05-10");
 		expect(filters.accountId).toBe(2);
 		expect(filters.groupId).toBe(undefined);
@@ -44,13 +50,28 @@ describe("reports", () => {
 		let failed = false;
 		try {
 			parseReportFilters(
-				{ preset: "custom", from: "2026-02-01", to: "2026-01-01" },
+				{ startDate: "2026-02-01", endDate: "2026-01-01" },
 				"2026-05-10",
 			);
 		} catch {
 			failed = true;
 		}
 		expect(failed).toBe(true);
+	});
+
+	test("keeps legacy preset and from/to query params", () => {
+		const presetFilters = parseReportFilters(
+			{ preset: "last_30d" },
+			"2026-05-10",
+		);
+		expect(presetFilters.from).toBe("2026-04-11");
+		expect(presetFilters.to).toBe("2026-05-10");
+		const customFilters = parseReportFilters(
+			{ preset: "custom", from: "2026-02-01", to: "2026-02-28" },
+			"2026-05-10",
+		);
+		expect(customFilters.from).toBe("2026-02-01");
+		expect(customFilters.to).toBe("2026-02-28");
 	});
 
 	test("suggestGranularity covers limits", () => {
@@ -136,9 +157,8 @@ describe("reports", () => {
 	test("combined filters include transfer destination and category group index", () => {
 		const filters = parseReportFilters(
 			{
-				preset: "custom",
-				from: "2026-01-01",
-				to: "2026-01-31",
+				startDate: "2026-01-01",
+				endDate: "2026-01-31",
 				accountId: "2",
 				groupId: "9",
 				type: "transfer",

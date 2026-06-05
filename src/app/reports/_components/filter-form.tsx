@@ -29,7 +29,6 @@ export function ReportFilterForm({
 	groups: Option[];
 	categories: Option[];
 }) {
-	const custom = filters.preset === "custom";
 	const active =
 		[
 			filters.accountId && "conta",
@@ -50,35 +49,22 @@ export function ReportFilterForm({
 			</CardHeader>
 			<CardContent>
 				<form action="/reports" className="grid gap-4" method="get">
-					<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-						<Field label="Período">
-							<select
-								className={selectClass}
-								defaultValue={filters.preset}
-								name="preset"
-							>
-								<option value="current_month">Mês atual</option>
-								<option value="last_30d">Últimos 30 dias</option>
-								<option value="last_90d">Últimos 90 dias</option>
-								<option value="last_6m">Últimos 6 meses</option>
-								<option value="current_year">Ano atual</option>
-								<option value="last_12m">Últimos 12 meses</option>
-								<option value="custom">Personalizado</option>
-							</select>
-						</Field>
-						<Field label="De">
+					<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+						<Field label="Data inicial">
 							<Input
 								defaultValue={filters.from}
-								disabled={!custom}
-								name="from"
+								max={filters.to}
+								name="startDate"
+								required
 								type="date"
 							/>
 						</Field>
-						<Field label="Até">
+						<Field label="Data final">
 							<Input
 								defaultValue={filters.to}
-								disabled={!custom}
-								name="to"
+								min={filters.from}
+								name="endDate"
+								required
 								type="date"
 							/>
 						</Field>

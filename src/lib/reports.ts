@@ -19,7 +19,8 @@ import {
 
 export { monthKeysForDateRange } from "./budget-templates";
 export type { Granularity } from "./cash-flow";
-export type ReportPreset =
+
+type ReportPreset =
 	| "current_month"
 	| "last_30d"
 	| "last_90d"
@@ -30,7 +31,6 @@ export type ReportPreset =
 export type ReportFilters = {
 	from: string;
 	to: string;
-	preset: ReportPreset;
 	granularity: Granularity;
 	accountId?: number;
 	groupId?: number;
@@ -89,15 +89,24 @@ export function parseReportFilters(
 				: searchParams[key];
 		return Array.isArray(value) ? value[0] : (value ?? undefined);
 	};
+	const startDate = validDate(get("startDate"))
+		? get("startDate")
+		: validDate(get("from"))
+			? get("from")
+			: undefined;
+	const endDate = validDate(get("endDate"))
+		? get("endDate")
+		: validDate(get("to"))
+			? get("to")
+			: undefined;
 	const presetValue = get("preset");
-	const preset = presets.has(presetValue as ReportPreset)
+	const legacyPreset = presets.has(presetValue as ReportPreset)
 		? (presetValue as ReportPreset)
 		: "current_month";
-	const customFrom = validDate(get("from")) ? get("from") : undefined;
-	const customTo = validDate(get("to")) ? get("to") : undefined;
-	let range = presetRange(preset, today);
-	if (preset === "custom" && customFrom && customTo)
-		range = { from: customFrom, to: customTo };
+	const range =
+		startDate && endDate
+			? { from: startDate, to: endDate }
+			: presetRange(legacyPreset, today);
 	if (range.from > range.to)
 		throw new Error("Período inválido: data inicial maior que a final.");
 	const granularityValue = get("granularity");
@@ -106,7 +115,6 @@ export function parseReportFilters(
 		: "month";
 	return {
 		...range,
-		preset,
 		granularity,
 		accountId: parsePositiveInt(get("accountId")),
 		categoryId: parsePositiveInt(get("categoryId")),
@@ -519,7 +527,11 @@ function parsePositiveInt(value?: string) {
 	return Number.isInteger(parsed) && parsed > 0 ? parsed : undefined;
 }
 function validDate(value?: string) {
-	return !!value && /^\d{4}-\d{2}-\d{2}$/.test(value);
+	return (
+		!!value &&
+		/^\d{4}-\d{2}-\d{2}$/.test(value) &&
+		formatDate(parseIso(value)) === value
+	);
 }
 function parseIso(value: string) {
 	return new Date(`${value}T00:00:00Z`);
