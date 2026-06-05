@@ -50,6 +50,69 @@ export function shouldShowRoutineBlock(input: {
 	return true;
 }
 
+export type ImportRoutineChecklistRow = {
+	routineItemId: number;
+	kind: "account_statement" | "card_invoice";
+	label: string;
+	institution: string | null;
+	completed: boolean;
+};
+
+type RoutineTarget = {
+	name: string;
+	institution: string | null;
+	isArchived: boolean;
+};
+
+export function buildImportRoutineChecklist(
+	items: Array<{
+		id: number;
+		kind: "account_statement" | "card_invoice";
+		accountId: number | null;
+		cardId: number | null;
+	}>,
+	accountsById: ReadonlyMap<number, RoutineTarget>,
+	cardsById: ReadonlyMap<number, RoutineTarget>,
+	completedRoutineItemIds: ReadonlySet<number>,
+): ImportRoutineChecklistRow[] {
+	const rows = items.flatMap((item): ImportRoutineChecklistRow[] => {
+		if (item.kind === "account_statement" && item.accountId !== null) {
+			const account = accountsById.get(item.accountId);
+			if (!account || account.isArchived) return [];
+			return [
+				{
+					routineItemId: item.id,
+					kind: item.kind,
+					label: `Extrato — ${account.name}`,
+					institution: account.institution,
+					completed: completedRoutineItemIds.has(item.id),
+				},
+			];
+		}
+		if (item.kind === "card_invoice" && item.cardId !== null) {
+			const card = cardsById.get(item.cardId);
+			if (!card || card.isArchived) return [];
+			return [
+				{
+					routineItemId: item.id,
+					kind: item.kind,
+					label: `Fatura — ${card.name}`,
+					institution: card.institution,
+					completed: completedRoutineItemIds.has(item.id),
+				},
+			];
+		}
+		return [];
+	});
+
+	return rows.sort((left, right) => {
+		if (left.kind !== right.kind) {
+			return left.kind === "account_statement" ? -1 : 1;
+		}
+		return left.label.localeCompare(right.label, "pt-BR");
+	});
+}
+
 export function routineProgress(
 	totalCount: number,
 	completedRoutineItemIds: ReadonlySet<number>,
@@ -60,4 +123,11 @@ export function routineProgress(
 		totalCount,
 		isFullyComplete: totalCount > 0 && completedCount === totalCount,
 	};
+}
+
+export function routineProgressFromChecklist(rows: ImportRoutineChecklistRow[]) {
+	const completedIds = new Set(
+		rows.filter((row) => row.completed).map((row) => row.routineItemId),
+	);
+	return routineProgress(rows.length, completedIds);
 }

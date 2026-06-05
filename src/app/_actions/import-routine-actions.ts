@@ -7,11 +7,13 @@ import {
 	accountImportRoutineEligibility,
 	cardImportRoutineEligibility,
 } from "~/lib/import-routine";
+import { parseMonthKey } from "~/lib/month-key";
 import { getSession } from "~/server/better-auth/server";
 import { db } from "~/server/db";
 import {
 	creditCards,
 	financialAccounts,
+	importRoutineCompletions,
 	importRoutineItems,
 } from "~/server/db/schema";
 
@@ -119,4 +121,78 @@ export async function removeCardFromImportRoutine(formData: FormData) {
 			),
 		);
 	revalidateImportRoutineSurfaces();
+}
+
+function parseCycleMonthKey(value: string) {
+	const monthKey = parseMonthKey(value);
+	if (!monthKey) throw new Error("Mês do ciclo inválido");
+	return monthKey;
+}
+
+async function assertRoutineItemOwnership(userId: string, routineItemId: number) {
+	const item = await db.query.importRoutineItems.findFirst({
+		where: and(
+			eq(importRoutineItems.id, routineItemId),
+			eq(importRoutineItems.userId, userId),
+		),
+	});
+	if (!item) throw new Error("Item da rotina inválido");
+	return item;
+}
+
+export async function setImportRoutineItemCompleted(
+	routineItemId: number,
+	cycleMonthKey: string,
+) {
+	const userId = await requireUserId();
+	await assertRoutineItemOwnership(userId, routineItemId);
+	const cycleKey = parseCycleMonthKey(cycleMonthKey);
+
+	const existing = await db.query.importRoutineCompletions.findFirst({
+		where: and(
+			eq(importRoutineCompletions.userId, userId),
+			eq(importRoutineCompletions.routineItemId, routineItemId),
+			eq(importRoutineCompletions.cycleMonthKey, cycleKey),
+		),
+	});
+	if (existing) return;
+
+	await db.insert(importRoutineCompletions).values({
+		userId,
+		routineItemId,
+		cycleMonthKey: cycleKey,
+	});
+	revalidateImportRoutineSurfaces();
+}
+
+export async function clearImportRoutineItemCompleted(
+	routineItemId: number,
+	cycleMonthKey: string,
+) {
+	const userId = await requireUserId();
+	await assertRoutineItemOwnership(userId, routineItemId);
+	const cycleKey = parseCycleMonthKey(cycleMonthKey);
+
+	await db
+		.delete(importRoutineCompletions)
+		.where(
+			and(
+				eq(importRoutineCompletions.userId, userId),
+				eq(importRoutineCompletions.routineItemId, routineItemId),
+				eq(importRoutineCompletions.cycleMonthKey, cycleKey),
+			),
+		);
+	revalidateImportRoutineSurfaces();
+}
+
+export async function toggleImportRoutineItemCompleted(
+	routineItemId: number,
+	cycleMonthKey: string,
+	completed: boolean,
+) {
+	if (completed) {
+		await setImportRoutineItemCompleted(routineItemId, cycleMonthKey);
+		return;
+	}
+	await clearImportRoutineItemCompleted(routineItemId, cycleMonthKey);
 }

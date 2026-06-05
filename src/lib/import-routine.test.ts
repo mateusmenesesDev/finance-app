@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import {
 	accountImportRoutineEligibility,
+	buildImportRoutineChecklist,
 	cardImportRoutineEligibility,
 	referenceMonthKey,
 	routineProgress,
@@ -109,6 +110,83 @@ describe("import routine domain", () => {
 		expect(
 			cardImportRoutineEligibility({ isArchived: false, isActive: false }),
 		).toEqual({ ok: false, message: "Cartão inativo" });
+	});
+
+	test("buildImportRoutineChecklist joins accounts and cards with completion", () => {
+		const rows = buildImportRoutineChecklist(
+			[
+				{
+					id: 10,
+					kind: "card_invoice",
+					accountId: null,
+					cardId: 2,
+				},
+				{
+					id: 11,
+					kind: "account_statement",
+					accountId: 1,
+					cardId: null,
+				},
+			],
+			new Map([
+				[
+					1,
+					{
+						name: "Nubank",
+						institution: "Nubank",
+						isArchived: false,
+					},
+				],
+			]),
+			new Map([
+				[
+					2,
+					{
+						name: "Itaú",
+						institution: "Itaú",
+						isArchived: false,
+					},
+				],
+			]),
+			new Set([11]),
+		);
+
+		expect(rows).toEqual([
+			{
+				routineItemId: 11,
+				kind: "account_statement",
+				label: "Extrato — Nubank",
+				institution: "Nubank",
+				completed: true,
+			},
+			{
+				routineItemId: 10,
+				kind: "card_invoice",
+				label: "Fatura — Itaú",
+				institution: "Itaú",
+				completed: false,
+			},
+		]);
+	});
+
+	test("buildImportRoutineChecklist drops archived targets", () => {
+		expect(
+			buildImportRoutineChecklist(
+				[
+					{
+						id: 1,
+						kind: "account_statement",
+						accountId: 9,
+						cardId: null,
+					},
+				],
+				new Map([
+					[9, { name: "Antiga", institution: null, isArchived: true }],
+				]),
+				new Map(),
+				new Set(),
+			),
+		).toEqual([]);
 	});
 
 	test("routineProgress aggregates completion state", () => {

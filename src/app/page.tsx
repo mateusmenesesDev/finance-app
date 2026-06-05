@@ -2,6 +2,7 @@ import { and, asc, desc, eq, isNotNull, sql } from "drizzle-orm";
 import {
 	AlertTriangle,
 	ArrowDownUp,
+	CalendarCheck,
 	CreditCard,
 	FileSpreadsheet,
 	Info,
@@ -16,6 +17,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { createDefaultCategories } from "~/app/_actions/finance-actions";
+import { ImportRoutineChecklist } from "~/app/_components/import-routine-checklist";
 import { AppShell } from "~/components/app-shell";
 import { EmptyState } from "~/components/empty-state";
 import { Money } from "~/components/money";
@@ -60,6 +62,12 @@ import {
 	recurrencesToPlannedMovements,
 	subscriptionReviewSuggestions,
 } from "~/lib/recurrences";
+import {
+	buildImportRoutineChecklist,
+	referenceMonthKey,
+	routineProgressFromChecklist,
+	shouldShowRoutineBlock,
+} from "~/lib/import-routine";
 import { cn } from "~/lib/utils";
 import { getSession } from "~/server/better-auth/server";
 import { ensureBudgetTemplatesMaterialized } from "~/server/budget-templates";
@@ -72,6 +80,8 @@ import {
 	creditCards,
 	financialAccounts,
 	importBatches,
+	importRoutineCompletions,
+	importRoutineItems,
 	importRows,
 	monthlyBudgets,
 	recurrences,
@@ -111,6 +121,60 @@ export default async function Home({ searchParams }: HomeProps) {
 		confirmedOccurrences,
 		assistantPending,
 	} = await loadDashboardData(session.user.id, period.key);
+	const [routineItems, routineCompletions] = await Promise.all([
+		db
+			.select()
+			.from(importRoutineItems)
+			.where(eq(importRoutineItems.userId, session.user.id))
+			.orderBy(asc(importRoutineItems.createdAt)),
+		db
+			.select({
+				routineItemId: importRoutineCompletions.routineItemId,
+			})
+			.from(importRoutineCompletions)
+			.where(
+				and(
+					eq(importRoutineCompletions.userId, session.user.id),
+					eq(importRoutineCompletions.cycleMonthKey, period.key),
+				),
+			),
+	]);
+	const completedRoutineItemIds = new Set(
+		routineCompletions.map((row) => row.routineItemId),
+	);
+	const routineChecklistRows = buildImportRoutineChecklist(
+		routineItems,
+		new Map(
+			allAccounts.map((account) => [
+				account.id,
+				{
+					name: account.name,
+					institution: account.institution,
+					isArchived: account.isArchived,
+				},
+			]),
+		),
+		new Map(
+			cards.map((card) => [
+				card.id,
+				{
+					name: card.name,
+					institution: card.institution,
+					isArchived: card.isArchived,
+				},
+			]),
+		),
+		completedRoutineItemIds,
+	);
+	const importRoutineProgress = routineProgressFromChecklist(routineChecklistRows);
+	const showImportRoutineBlock = shouldShowRoutineBlock({
+		activeItemCount: routineItems.length,
+		cycleMonthKey: period.key,
+	});
+	const importRoutineReferenceKey = referenceMonthKey(period.key);
+	const importRoutineReferencePeriod = importRoutineReferenceKey
+		? parseMonthPeriod(importRoutineReferenceKey)
+		: null;
 	const pendingAssistantCount = assistantPending[0]?.count ?? 0;
 
 	const activeAccounts = allAccounts.filter((account) => !account.isArchived);
@@ -680,6 +744,74 @@ export default async function Home({ searchParams }: HomeProps) {
 					</CardContent>
 				</Card>
 			</section>
+
+			{routineItems.length === 0 ? (
+				<Card>
+					<CardHeader>
+						<CardTitle>Rotina de importação</CardTitle>
+						<CardDescription>
+							No dia 1 de cada mês, lembre-se de importar extratos e faturas do
+							mês anterior.
+						</CardDescription>
+					</CardHeader>
+					<CardContent>
+						<EmptyState
+							description="Adicione contas em Contas e cartões em Cartões à rotina mensal para ver o checklist aqui."
+							icon={CalendarCheck}
+							title="Nenhum item na rotina"
+						/>
+						<div className="mt-4 flex flex-wrap gap-2">
+							<Button asChild size="sm" variant="outline">
+								<Link href="/accounts">Ir para contas</Link>
+							</Button>
+							<Button asChild size="sm" variant="outline">
+								<Link href="/cards">Ir para cartões</Link>
+							</Button>
+						</div>
+					</CardContent>
+				</Card>
+			) : showImportRoutineBlock ? (
+				<Card>
+					<CardHeader>
+						<div className="flex flex-wrap items-start justify-between gap-3">
+							<div>
+								<CardTitle>Rotina de importação</CardTitle>
+								<CardDescription>
+									Ciclo de {formatMonthLabel(period)}
+									{importRoutineReferencePeriod
+										? ` — importar movimentações de ${formatMonthLabel(importRoutineReferencePeriod)}`
+										: null}
+								</CardDescription>
+							</div>
+							<div className="flex flex-wrap items-center gap-2">
+								<Badge variant="secondary">
+									{importRoutineProgress.completedCount}/
+									{importRoutineProgress.totalCount}
+								</Badge>
+								{importRoutineProgress.isFullyComplete ? (
+									<Badge variant="outline">Ciclo concluído</Badge>
+								) : null}
+							</div>
+						</div>
+						{importRoutineProgress.totalCount > 0 ? (
+							<Progress
+								className="mt-3 h-2"
+								value={
+									(importRoutineProgress.completedCount /
+										importRoutineProgress.totalCount) *
+									100
+								}
+							/>
+						) : null}
+					</CardHeader>
+					<CardContent>
+						<ImportRoutineChecklist
+							cycleMonthKey={period.key}
+							rows={routineChecklistRows}
+						/>
+					</CardContent>
+				</Card>
+			) : null}
 
 			<section className="grid gap-6 lg:grid-cols-2">
 				<Card>
