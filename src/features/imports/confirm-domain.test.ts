@@ -1,8 +1,11 @@
 import { describe, expect, test } from "bun:test";
 
 import {
+	confirmCategoryMovementType,
 	formatConfirmCategoryError,
 	type ImportConfirmCategory,
+	isCardImportRow,
+	resolveCardImportConfirm,
 	resolveConfirmRowCategory,
 } from "./confirm-domain";
 
@@ -128,6 +131,77 @@ describe("resolveConfirmRowCategory", () => {
 				categoriesById,
 			}),
 		).toEqual({ kind: "missing" });
+	});
+});
+
+describe("resolveCardImportConfirm", () => {
+	const cardRow = { cardId: 1, cardInvoiceId: 10 };
+	const bankRow = { cardId: null, cardInvoiceId: null };
+
+	test("bank rows are not card entries", () => {
+		expect(
+			resolveCardImportConfirm({ movementType: "expense", row: bankRow }),
+		).toEqual({ kind: "not_card" });
+	});
+
+	test("card charges skip account and store as charge", () => {
+		expect(
+			resolveCardImportConfirm({ movementType: "expense", row: cardRow }),
+		).toEqual({
+			kind: "card_entry",
+			skipsAccountId: true,
+			storedMovementType: "expense",
+			cardEntryKind: "charge",
+			categoryMovementType: "expense",
+		});
+	});
+
+	test("card statement credits skip account and store as credit", () => {
+		expect(
+			resolveCardImportConfirm({ movementType: "income", row: cardRow }),
+		).toEqual({
+			kind: "card_entry",
+			skipsAccountId: true,
+			storedMovementType: "expense",
+			cardEntryKind: "credit",
+			categoryMovementType: "expense",
+		});
+	});
+
+	test("transfer-like card rows still need accounts", () => {
+		expect(
+			resolveCardImportConfirm({ movementType: "transfer", row: cardRow }),
+		).toEqual({ kind: "card_transfer_like" });
+		expect(
+			resolveCardImportConfirm({
+				movementType: "credit_card_payment",
+				row: cardRow,
+			}),
+		).toEqual({ kind: "card_transfer_like" });
+	});
+});
+
+describe("confirmCategoryMovementType", () => {
+	test("maps card credits to expense categories", () => {
+		expect(
+			confirmCategoryMovementType("income", {
+				cardId: 1,
+				cardInvoiceId: 10,
+			}),
+		).toBe("expense");
+		expect(
+			confirmCategoryMovementType("expense", {
+				cardId: null,
+				cardInvoiceId: null,
+			}),
+		).toBe("expense");
+	});
+});
+
+describe("isCardImportRow", () => {
+	test("requires both card and invoice ids", () => {
+		expect(isCardImportRow({ cardId: 1, cardInvoiceId: 2 })).toBe(true);
+		expect(isCardImportRow({ cardId: 1, cardInvoiceId: null })).toBe(false);
 	});
 });
 

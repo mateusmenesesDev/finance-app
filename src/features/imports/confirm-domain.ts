@@ -13,6 +13,73 @@ export type ImportConfirmCategory = {
 	kind: ImportMovementType;
 };
 
+export type CardImportRowRef = {
+	cardId: number | null;
+	cardInvoiceId: number | null;
+};
+
+export function isCardImportRow(row: CardImportRowRef): boolean {
+	return row.cardId !== null && row.cardInvoiceId !== null;
+}
+
+export type ResolveCardImportConfirmInput = {
+	movementType: ImportMovementType;
+	row: CardImportRowRef;
+};
+
+export type ResolveCardImportConfirmResult =
+	| { kind: "not_card" }
+	| { kind: "card_transfer_like" }
+	| {
+			kind: "card_entry";
+			skipsAccountId: true;
+			storedMovementType: "expense";
+			cardEntryKind: "charge" | "credit";
+			categoryMovementType: "expense";
+	  };
+
+// Card-invoice rows skip the account picker for charges and statement credits.
+// Credits are stored as expense + cardEntryKind "credit" (same as manual entry).
+export function resolveCardImportConfirm(
+	input: ResolveCardImportConfirmInput,
+): ResolveCardImportConfirmResult {
+	if (!isCardImportRow(input.row)) return { kind: "not_card" };
+	if (
+		input.movementType === "transfer" ||
+		input.movementType === "credit_card_payment"
+	) {
+		return { kind: "card_transfer_like" };
+	}
+	if (input.movementType === "expense") {
+		return {
+			kind: "card_entry",
+			skipsAccountId: true,
+			storedMovementType: "expense",
+			cardEntryKind: "charge",
+			categoryMovementType: "expense",
+		};
+	}
+	if (input.movementType === "income") {
+		return {
+			kind: "card_entry",
+			skipsAccountId: true,
+			storedMovementType: "expense",
+			cardEntryKind: "credit",
+			categoryMovementType: "expense",
+		};
+	}
+	return { kind: "not_card" };
+}
+
+export function confirmCategoryMovementType(
+	movementType: ImportMovementType,
+	row: CardImportRowRef,
+): ImportMovementType {
+	const cardConfirm = resolveCardImportConfirm({ movementType, row });
+	if (cardConfirm.kind === "card_entry") return cardConfirm.categoryMovementType;
+	return movementType;
+}
+
 export type ResolveCategoryInput = {
 	movementType: ImportMovementType;
 	rowCategoryId: number | null;

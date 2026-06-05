@@ -6,8 +6,10 @@ import { redirect } from "next/navigation";
 import { buildImportBatchRows } from "~/features/imports/batch-domain";
 import { matchImportCategoryRule } from "~/features/imports/category-rules";
 import {
+	confirmCategoryMovementType,
 	formatConfirmCategoryError,
 	type ImportConfirmCategory,
+	resolveCardImportConfirm,
 	resolveConfirmRowCategory,
 } from "~/features/imports/confirm-domain";
 import {
@@ -2990,18 +2992,23 @@ export async function confirmImportBatch(
 			| "expense"
 			| "transfer"
 			| "credit_card_payment";
+		const cardConfirm = resolveCardImportConfirm({ movementType, row });
+		const categoryMovementType = confirmCategoryMovementType(movementType, row);
 		const rowCategoryId = optionalIntField(
 			formData,
 			`row-${row.id}-categoryId`,
 		);
 		const resolved = resolveConfirmRowCategory({
-			movementType,
+			movementType: categoryMovementType,
 			rowCategoryId,
 			bulkCategoryId,
 			categoriesById: confirmCategoriesById,
 		});
 		if (resolved.kind !== "ok") {
-			rowErrors[row.id] = formatConfirmCategoryError(resolved, movementType);
+			rowErrors[row.id] = formatConfirmCategoryError(
+				resolved,
+				categoryMovementType,
+			);
 			continue;
 		}
 		if (movementType === "transfer" || movementType === "credit_card_payment") {
@@ -3038,6 +3045,16 @@ export async function confirmImportBatch(
 			}
 			if (sourceAccountId === destinationAccountId) {
 				rowErrors[row.id] = "Conta origem e destino devem ser diferentes.";
+			}
+			continue;
+		}
+		if (cardConfirm.kind !== "card_entry") {
+			const accountId = optionalIntField(
+				formData,
+				`row-${row.id}-accountId`,
+			);
+			if (!accountId && row.accountId === null) {
+				rowErrors[row.id] = "Conta obrigatória.";
 			}
 		}
 	}
@@ -3149,13 +3166,14 @@ export async function confirmImportBatch(
 				`row-${row.id}-movementType`,
 				importMovementTypes,
 			);
-			const isCardExpense =
-				movementType === "expense" &&
-				row.cardId !== null &&
-				row.cardInvoiceId !== null;
+			const cardConfirm = resolveCardImportConfirm({ movementType, row });
+			const isCardEntry = cardConfirm.kind === "card_entry";
+			const storedMovementType = isCardEntry
+				? cardConfirm.storedMovementType
+				: movementType;
 			const isTransferLike =
 				movementType === "transfer" || movementType === "credit_card_payment";
-			const accountId = isCardExpense
+			const accountId = isCardEntry
 				? null
 				: intField(
 						formData,
@@ -3248,7 +3266,7 @@ export async function confirmImportBatch(
 					countRuleSuggestion(row.suggestedRuleId, "overridden");
 				}
 			}
-			if (category && category.kind !== movementType) {
+			if (category && category.kind !== storedMovementType) {
 				throw new Error(`Categoria incompatível na linha ${row.rowNumber}`);
 			}
 			const description = maskSensitive(
@@ -3328,24 +3346,24 @@ export async function confirmImportBatch(
 				accountId,
 				destinationAccountId:
 					movementType === "transfer" ? destinationAccountId : null,
-				cardId: isCardExpense
+				cardId: isCardEntry
 					? row.cardId
 					: movementType === "credit_card_payment"
 						? (paymentInvoice?.cardId ?? null)
 						: null,
-				cardInvoiceId: isCardExpense
+				cardInvoiceId: isCardEntry
 					? row.cardInvoiceId
 					: movementType === "credit_card_payment"
 						? (paymentInvoice?.id ?? null)
 						: null,
-				cardEntryKind: isCardExpense ? "charge" : null,
+				cardEntryKind: isCardEntry ? cardConfirm.cardEntryKind : null,
 				categoryId,
 				categoryRuleId: acceptedRuleId,
 				importBatchId: batch.id,
 				importRowId: row.id,
 				recurrenceId: acceptedRecurrence?.recurrenceId ?? null,
 				recurrenceOccurrenceOn: acceptedRecurrence?.occurrenceOn ?? null,
-				movementType,
+				movementType: storedMovementType,
 				status: "confirmed",
 				amountCents,
 				occurredOn,

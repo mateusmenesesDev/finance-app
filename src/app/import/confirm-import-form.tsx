@@ -9,6 +9,7 @@ import {
 import { Money } from "~/components/money";
 import { SubmitButton } from "~/components/submit-button";
 import { formatMoneyInput } from "~/lib/formatters";
+import { confirmCategoryMovementType } from "~/features/imports/confirm-domain";
 
 type MovementType = "income" | "expense" | "transfer" | "credit_card_payment";
 
@@ -342,9 +343,10 @@ function RowBlock({
 	const movementType = state.movementType;
 	const isTransferLike = isTransferLikeMovement(movementType);
 	const isCardImport = row.cardId !== null && row.cardInvoiceId !== null;
+	const categoryMovementType = confirmCategoryMovementType(movementType, row);
 	const filteredCategories = isTransferLike
 		? []
-		: categories.filter((category) => category.kind === movementType);
+		: categories.filter((category) => category.kind === categoryMovementType);
 	const categoryErrorId = error ? `row-${row.id}-category-error` : undefined;
 	const isIgnoreSuggestion = row.suggestionSource === "rule_ignore";
 	const suggestionVisible =
@@ -374,9 +376,13 @@ function RowBlock({
 			invoice.monthKey === state.invoiceMonthKey,
 	);
 	const bulkWillApply =
-		bulkCategory && !state.categoryId && bulkCategory.kind === movementType;
+		bulkCategory &&
+		!state.categoryId &&
+		bulkCategory.kind === categoryMovementType;
 	const bulkWillSkip =
-		bulkCategory && !state.categoryId && bulkCategory.kind !== movementType;
+		bulkCategory &&
+		!state.categoryId &&
+		bulkCategory.kind !== categoryMovementType;
 
 	return (
 		<div className="grid gap-3 rounded-md border border p-4">
@@ -517,7 +523,9 @@ function RowBlock({
 						}
 						value={movementType}
 					>
-						<option value="income">Receita</option>
+						<option value="income">
+							{isCardImport ? "Estorno (crédito na fatura)" : "Receita"}
+						</option>
 						<option value="expense">Despesa</option>
 						<option value="transfer">Transferência</option>
 						<option value="credit_card_payment">Pagamento de fatura</option>
@@ -552,8 +560,10 @@ function RowBlock({
 							onChange={(event) =>
 								onChange({ sourceAccountId: event.target.value })
 							}
+							required
 							value={state.sourceAccountId}
 						>
+							<option value="">Selecione a conta</option>
 							{sourceOptions.map((account) => (
 								<option key={account.id} value={account.id}>
 									{account.name}
@@ -636,7 +646,7 @@ function RowBlock({
 							bulkWillApply
 								? `Em branco usa o lote: ${bulkCategory.name}.`
 								: bulkWillSkip
-									? `Lote (${bulkCategory.name}) não compatível; escolha uma categoria de ${movementTypeLabels[movementType]}.`
+									? `Lote (${bulkCategory.name}) não compatível; escolha uma categoria de ${movementTypeLabels[categoryMovementType]}.`
 									: "Obrigatória quando você importar a linha."
 						}
 						label="Categoria"
